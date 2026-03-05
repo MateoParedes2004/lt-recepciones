@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+@theme {
+  /* Integramos las fuentes en Tailwind para poder usar clases si queremos */
+  --font-sans: var(--font-lato), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-playfair), ui-serif, Georgia, serif;
+}
+
+/* Configuración del Scroll */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 100px;
+}
+
+/* 👇 FUERZA BRUTA: APLICAMOS LAS FUENTES DIRECTAMENTE A LAS ETIQUETAS */
+body {
+  background-color: #f8fafc;
+  color: #1e293b;
+  
+  /* ESTO OBLIGA A USAR LATO EN TODA LA PÁGINA */
+  font-family: var(--font-lato), sans-serif; 
+}
+
+/* 👇 OBLIGAMOS A TODOS LOS TÍTULOS A USAR PLAYFAIR DISPLAY */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-playfair), serif;
+  font-weight: 700; /* Un poco más grueso para que destaque */
+}

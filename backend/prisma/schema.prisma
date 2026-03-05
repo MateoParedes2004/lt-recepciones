@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  products Product[]
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?
+  imageUrl    String?
+  totalStock  Int      @default(0)
+  rentedCount Int      @default(0)
+  pricePerDay Decimal  @db.Decimal(10, 2)
+  categoryId  Int
+  category    Category @relation(fields: [categoryId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  rentalItems RentalItem[]
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String   // Aquí guardaremos la contraseña encriptada (nunca en texto plano)
+  role      String   @default("ADMIN") // Por ahora, el que se registre será Administrador
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// SISTEMA DE ALQUILERES
+// ==========================================
+
+model Rental {
+  id          Int      @id @default(autoincrement())
+  clientName  String   // Nombre del cliente
+  clientPhone String?  // Teléfono (Opcional)
+  eventDate   DateTime // Fecha en la que usa los productos
+  returnDate  DateTime // Fecha en la que debe devolverlos
+  status      String   @default("ACTIVO") // Puede ser "ACTIVO" o "DEVUELTO"
+  totalPrice  Float    @default(0) // El precio total en Guaraníes
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relación: Un alquiler tiene muchos productos adentro (ítems)
+  items       RentalItem[]
+}
+
+model RentalItem {
+  id        Int      @id @default(autoincrement())
+  quantity  Int      // Cuántas unidades de este producto se llevó
+
+  // Conexión con el Alquiler general
+  rentalId  Int
+  rental    Rental   @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+
+  // Conexión con el Producto exacto (Silla, Mesa, etc.)
+  productId Int
+  product   Product  @relation(fields: [productId], references: [id])
+}
+
+// ==========================================
+// MÓDULO DE ESTADÍSTICAS Y ANALÍTICAS
+// ==========================================
+
+model SiteVisit {
+  id        Int      @id @default(autoincrement())
+  date      DateTime @unique // Guardará el día exacto a la medianoche (Ej: 2026-02-16)
+  count     Int      @default(1) // Empezará en 1 y se irá sumando
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// SISTEMA DE GALERÍA DE EVENTOS
+// ==========================================
+
+model GalleryImage {
+  id          Int      @id @default(autoincrement())
+  imageUrl    String   // URL de la imagen en Cloudinary
+  title       String?  // Título o descripción corta (Ej: "Boda en Asunción")
+  isVisible   Boolean  @default(true) // Permite ocultar fotos sin borrarlas
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
