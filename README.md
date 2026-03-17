@@ -14,9 +14,9 @@ Este es un proyecto **Full Stack** desarrollado de forma independiente, abarcand
 
 ---
 
-## ✨ Funcionalidades Destacadas
+##  Funcionalidades Destacadas
 * **Gestión de Catálogo Inteligente:** Implementación de lógica de ordenamiento alfabético desde la base de datos para garantizar una navegación fluida.
-* **Experiencia de Usuario (UX) de Alto Nivel:** Desarrollo de selectores de cantidad dinámicos con validación de inventario en tiempo real y alertas visuales.
+* **Eficaz y sencilla Experiencia de Usuario (UX):** Desarrollo de selectores de cantidad dinámicos con validación de inventario en tiempo real y alertas visuales.
 * **Sistema de Recepción:** Formulario de registro automatizado con redirección inteligente a WhatsApp.
 * **Panel Administrativo Proporcional:** Dashboard para la visualización de registros y analíticas de visitas diarias.
 * **Arquitectura Responsive:** Interfaz adaptada minuciosamente para escritorio y dispositivos móviles, respetando la identidad visual corporativa.
@@ -64,7 +64,7 @@ lt-recepciones/
 <summary><strong> Ver más pantallas del flujo completo (Haz clic aquí)</strong></summary>
 <br>
 
-<img width="1902" height="870" alt="screen2" src="https://github.com/user-attachments/assets/95b345e2-3796-4a5f-b419-6e769015f9d7" />
+
 <img width="1902" height="870" alt="screen4" src="https://github.com/user-attachments/assets/6a738d21-a1dc-428a-bf6b-0b6bdc74f52a" />
 <img width="1903" height="877" alt="screen5" src="https://github.com/user-attachments/assets/1557ef3b-65f2-407b-90a4-16f392a045a5" />
 <img width="1902" height="872" alt="screen6" src="https://github.com/user-attachments/assets/b1c22fea-ab89-46a2-892b-b4942d1545fa" />
