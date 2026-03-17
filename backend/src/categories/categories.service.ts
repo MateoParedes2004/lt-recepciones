@@ -9,11 +9,18 @@ export class CategoriesService {
     return this.prisma.category.create({ data });
   }
 
-  // 🪄 AQUÍ ESTÁ LA MAGIA: Le decimos que al buscar categorías, traiga sus productos
+  // Categorías por ID (orden original), Productos de la A a la Z
   findAll() {
     return this.prisma.category.findMany({
+      orderBy: {
+        id: 'asc', // AQUÍ ESTÁ EL CAMBIO: Volvemos a ordenar por ID
+      },
       include: {
-        products: true, 
+        products: {
+          orderBy: {
+            name: 'asc', // Los platos y copas siguen ordenados alfabéticamente
+          },
+        },
       },
     });
   }
@@ -22,7 +29,11 @@ export class CategoriesService {
     return this.prisma.category.findUnique({ 
       where: { id },
       include: {
-        products: true,
+        products: {
+          orderBy: {
+            name: 'asc', // También ordenamos los productos al ver una sola categoría
+          },
+        },
       }
     });
   }

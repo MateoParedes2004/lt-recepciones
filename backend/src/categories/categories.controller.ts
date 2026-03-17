@@ -7,7 +7,7 @@ export class CategoriesController {
 
   @Post()
   create(@Body() body: any) {
-    // 🛡️ FILTRO DE SEGURIDAD: Solo pasamos el nombre a la base de datos.
+    // FILTRO DE SEGURIDAD: Solo pasamos el nombre a la base de datos.
     // Ignoramos la 'description' porque la tabla Category no la soporta actualmente.
     const safeData = {
       name: body.name
