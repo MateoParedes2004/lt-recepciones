@@ -26,3 +26,6 @@ yarn-error.log*
 # Sistema Operativo
 .DS_Store
 Thumbs.db
+
+# Archivos de entorno y secretos
+.env
