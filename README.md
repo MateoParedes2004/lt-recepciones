@@ -15,10 +15,10 @@ Este es un proyecto **Full Stack** desarrollado de forma independiente, abarcand
 ---
 
 ##  Funcionalidades Destacadas
-* **Gestión de Catálogo Inteligente:** Implementación de lógica de ordenamiento alfabético desde la base de datos para garantizar una navegación fluida.
+* **Gestión de Catálogo:** Implementación de lógica de ordenamiento alfabético desde la base de datos para garantizar una navegación fluida.
 * **Sencilla y eficaz Experiencia de Usuario (UX):** Desarrollo de selectores de cantidad dinámicos con validación de inventario en tiempo real y alertas visuales.
 * **Sistema de Recepción:** Formulario de registro automatizado con redirección inteligente a WhatsApp.
-* **Panel Administrativo Proporcional:** Dashboard para la visualización de registros y analíticas de visitas diarias.
+* **Panel Administrativo Proporcional:** Dashboard para la visualización de registros, ciudades habilitadas para entregas y analíticas de visitas diarias.
 * **Arquitectura Responsive:** Interfaz adaptada minuciosamente para escritorio y dispositivos móviles, respetando la identidad visual corporativa.
 
 ##  Stack Tecnológico
