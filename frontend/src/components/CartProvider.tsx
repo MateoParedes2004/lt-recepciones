@@ -3,8 +3,17 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { usePathname } from "next/navigation"; 
 import { ShoppingCart, X, Plus, Minus, Send, PackageOpen } from "lucide-react";
-// 👇 IMPORTAMOS FRAMER MOTION PARA ANIMAR EL CARRITO
 import { motion, AnimatePresence } from "framer-motion";
+import CitySelector from "./CitySelector";
+
+// 👇 Importamos la fuente corporativa
+import { Playfair_Display } from 'next/font/google';
+
+const playfair = Playfair_Display({ 
+    subsets: ['latin'],
+    weight: ['400', '500', '600', '700'],
+    display: 'swap',
+});
 
 const CartContext = createContext<any>(null);
 
@@ -14,6 +23,9 @@ export default function CartProvider({ children }: { children: React.ReactNode }
   const [cart, setCart] = useState<any[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  
+  const [selectedCityName, setSelectedCityName] = useState<string>("No seleccionada");
+  const [shippingCost, setShippingCost] = useState<number>(0);
   
   const pathname = usePathname() || "";
 
@@ -33,6 +45,17 @@ export default function CartProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     setIsOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
 
   const addToCart = (product: any, quantity: number = 1) => {
     setCart((prev) => {
@@ -55,10 +78,21 @@ export default function CartProvider({ children }: { children: React.ReactNode }
     setCart((prev) => prev.map((item) => (item.product.id === productId ? { ...item, quantity } : item)));
   };
 
-  const totalAmount = cart.reduce((acc, item) => acc + item.product.pricePerDay * item.quantity, 0);
+  const subTotalAmount = cart.reduce((acc, item) => acc + item.product.pricePerDay * item.quantity, 0);
+  const totalAmount = subTotalAmount + shippingCost; 
   const formatPYG = (amount: number) => `Gs. ${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 
+  const handleCitySelect = (cityId: number, cityName: string, cityPrice: number) => {
+    setSelectedCityName(cityName);
+    setShippingCost(cityPrice);
+  };
+
   const sendToWhatsApp = () => {
+    if (shippingCost === 0 && selectedCityName === "No seleccionada") {
+        alert("Por favor, selecciona una ciudad para la entrega antes de continuar.");
+        return;
+    }
+
     let message = `¡Hola *LT Recepciones*! ✨\nMe gustaría solicitar un presupuesto para el siguiente equipamiento:\n\n*🛒 DETALLE DEL PEDIDO:*\n┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n`;
     
     cart.forEach((item) => {
@@ -66,8 +100,12 @@ export default function CartProvider({ children }: { children: React.ReactNode }
       message += `▪ *${item.quantity}x ${item.product.name}*\n  ${formatPYG(item.product.pricePerDay)} c/u ➔ _Subtotal: ${formatPYG(subtotal)}_\n`;
     });
     
-    message += `┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n*💰 TOTAL ESTIMADO: ${formatPYG(totalAmount)}*\n\n`;
-    message += `📅 *Fecha del evento:* [ Indicar fecha ]\n📍 *Lugar/Zona:* [ Indicar zona ]\n\n¡Quedo a la espera de su respuesta para coordinar! 🥂`;
+    message += `┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n`;
+    message += `📦 *Subtotal:* ${formatPYG(subTotalAmount)}\n`;
+    message += `🚚 *Envío (${selectedCityName}):* ${shippingCost > 0 ? formatPYG(shippingCost) : 'A coordinar'}\n`;
+    message += `*💰 TOTAL ESTIMADO: ${formatPYG(totalAmount)}*\n\n`;
+    
+    message += `📅 *Fecha del evento:* [ Indicar fecha ]\n📍 *Lugar/Zona:* ${selectedCityName}\n\n¡Quedo a la espera de su respuesta para coordinar! 🥂`;
     
     const encodedMessage = encodeURIComponent(message);
     
@@ -84,7 +122,6 @@ export default function CartProvider({ children }: { children: React.ReactNode }
       {isMounted && (
         <>
           <div className="fixed bottom-6 right-6 flex flex-col gap-4 items-center z-40">
-            
             {showWhatsApp && (
               <a
                 href={`https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent("¡Hola LT Recepciones! ✨ Me gustaría hacerles una consulta sobre sus servicios.")}`}
@@ -107,14 +144,11 @@ export default function CartProvider({ children }: { children: React.ReactNode }
               >
                 <div className="relative">
                   <ShoppingCart className="w-6 h-6" />
-                  {/* 👇 ANIMACIÓN 1: El globito rojo aparece/desaparece con efecto de pop-up */}
                   <AnimatePresence>
                     {cart.length > 0 && (
                       <motion.span 
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        exit={{ scale: 0 }}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white"
+                        initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white font-sans text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white"
                       >
                         {cart.reduce((acc, item) => acc + item.quantity, 0)}
                       </motion.span>
@@ -126,9 +160,9 @@ export default function CartProvider({ children }: { children: React.ReactNode }
           </div>
 
           {showCartButton && (
-            <div className={`fixed inset-y-0 right-0 w-full md:w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? "translate-x-0" : "translate-x-full"}`}>
+            <div className={`fixed inset-y-0 right-0 w-full md:w-105 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? "translate-x-0" : "translate-x-full"}`}>
               <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                <h3 className="text-2xl font-serif font-bold tracking-wide text-slate-900 flex items-center">
+                <h3 className={`text-2xl font-bold tracking-wide text-slate-900 flex items-center ${playfair.className}`}>
                   <ShoppingCart className="w-6 h-6 mr-3 text-blue-900" /> Cotización
                 </h3>
                 <button onClick={() => setIsOpen(false)} className="p-2 text-slate-400 hover:text-slate-700 bg-white rounded-full shadow-sm cursor-pointer"><X className="w-5 h-5" /></button>
@@ -136,23 +170,16 @@ export default function CartProvider({ children }: { children: React.ReactNode }
 
               <div className="flex-1 overflow-y-auto p-6 bg-white">
                 {cart.length === 0 ? (
-                  <motion.div 
-                    initial={{ opacity: 0 }} 
-                    animate={{ opacity: 1 }} 
-                    className="h-full flex flex-col items-center justify-center text-slate-400 space-y-4"
-                  >
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full flex flex-col items-center justify-center text-slate-400 space-y-4">
                     <PackageOpen className="w-16 h-16 opacity-20" />
                     <p className="font-medium">Tu lista está vacía</p>
                   </motion.div>
                 ) : (
                   <div className="flex flex-col">
-                    {/* 👇 ANIMACIÓN 2: Los productos se deslizan suavemente al ser eliminados */}
                     <AnimatePresence initial={false}>
                       {cart.map((item) => (
                         <motion.div 
-                          key={item.product.id} 
-                          layout 
-                          initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                          key={item.product.id} layout initial={{ opacity: 0, height: 0, marginBottom: 0 }}
                           animate={{ opacity: 1, height: "auto", marginBottom: 24 }}
                           exit={{ opacity: 0, height: 0, marginBottom: 0, paddingBottom: 0, borderBottomWidth: 0, overflow: "hidden" }}
                           transition={{ duration: 0.3, ease: "easeInOut" }}
@@ -166,12 +193,14 @@ export default function CartProvider({ children }: { children: React.ReactNode }
                             )}
                           </div>
                           <div className="flex-1">
-                            <h4 className="font-bold text-slate-900 text-sm leading-tight mb-1">{item.product.name}</h4>
-                            <p className="text-blue-900 font-bold text-sm mb-2">{formatPYG(item.product.pricePerDay)}</p>
+                            <h4 className={`font-bold text-slate-900 text-sm leading-tight mb-1 ${playfair.className}`}>{item.product.name}</h4>
+                            {/* 👇 Asegurado font-sans para el precio del producto */}
+                            <p className="text-[#004080] font-sans font-bold text-sm mb-2">{formatPYG(item.product.pricePerDay)}</p>
                             <div className="flex items-center space-x-3">
                               <div className="flex items-center border border-slate-200 rounded-lg">
                                 <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)} className="px-2 py-1 text-slate-500 hover:bg-slate-50 cursor-pointer"><Minus className="w-3 h-3" /></button>
-                                <span className="px-2 text-sm font-bold text-slate-700 w-8 text-center">{item.quantity}</span>
+                                {/* 👇 Asegurado font-sans para la cantidad */}
+                                <span className="px-2 font-sans text-sm font-bold text-slate-700 w-8 text-center">{item.quantity}</span>
                                 <button onClick={() => updateQuantity(item.product.id, item.quantity + 1)} className="px-2 py-1 text-slate-500 hover:bg-slate-50 cursor-pointer"><Plus className="w-3 h-3" /></button>
                               </div>
                               <button onClick={() => removeFromCart(item.product.id)} className="text-xs text-red-500 hover:text-red-700 font-medium underline cursor-pointer">Quitar</button>
@@ -184,23 +213,55 @@ export default function CartProvider({ children }: { children: React.ReactNode }
                 )}
               </div>
 
-              <div className="border-t border-slate-100 p-6 bg-slate-50">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-slate-500 font-medium">Total Estimado</span>
-                  {/* 👇 ANIMACIÓN 3: El Total hace un "pop" al cambiar de valor */}
-                  <motion.span 
-                    key={totalAmount}
-                    initial={{ scale: 1.1, color: "#2563eb" }}
-                    animate={{ scale: 1, color: "#0f172a" }}
-                    className="text-2xl font-serif font-bold text-slate-900"
+              {cart.length > 0 && (
+                <div className="border-t border-slate-200 p-6 bg-slate-50 flex flex-col gap-4">
+                  
+                  <CitySelector onCitySelect={handleCitySelect} />
+
+                  <div className="flex flex-col gap-2 text-sm text-slate-600 mt-2 border-t border-slate-200 pt-4">
+                    <div className="flex justify-between items-center">
+                      <span className={`${playfair.className} font-medium`}>Subtotal</span>
+                      {/* 👇 Asegurado font-sans para los números */}
+                      <span className="font-sans font-bold text-slate-900">{formatPYG(subTotalAmount)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className={`${playfair.className} font-medium`}>Envío ({selectedCityName})</span>
+                      {/* 👇 Asegurado font-sans para los números */}
+                      <span className="font-sans font-bold text-slate-900">
+                        {shippingCost > 0 ? formatPYG(shippingCost) : (selectedCityName !== "No seleccionada" ? 'A coordinar' : '-')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center mb-2 mt-2">
+                    <span className={`text-slate-800 font-bold text-lg ${playfair.className}`}>Total Estimado</span>
+                    <motion.span 
+                      key={totalAmount}
+                      initial={{ scale: 1.1, color: "#004080" }}
+                      animate={{ scale: 1, color: "#0f172a" }}
+                      // 👇 Quitamos el playfair.className de aquí y aseguramos font-sans
+                      className="font-sans text-2xl font-bold text-slate-900"
+                    >
+                      {formatPYG(totalAmount)}
+                    </motion.span>
+                  </div>
+
+                  <button 
+                    onClick={sendToWhatsApp} 
+                    disabled={cart.length === 0} 
+                    className={`w-full py-3.5 text-white font-bold tracking-wide rounded-xl transition-colors flex items-center justify-center shadow-lg disabled:bg-slate-300 disabled:cursor-not-allowed cursor-pointer ${playfair.className}`}
+                    style={{ backgroundColor: cart.length === 0 ? undefined : '#004080' }}
+                    onMouseOver={(e) => {
+                      if (cart.length > 0) e.currentTarget.style.backgroundColor = '#002b5e'; 
+                    }}
+                    onMouseOut={(e) => {
+                      if (cart.length > 0) e.currentTarget.style.backgroundColor = '#004080';
+                    }}
                   >
-                    {formatPYG(totalAmount)}
-                  </motion.span>
+                    <Send className="w-5 h-5 mr-2" /> Enviar Pedido por WhatsApp
+                  </button>
                 </div>
-                <button onClick={sendToWhatsApp} disabled={cart.length === 0} className="w-full py-3.5 bg-emerald-500 text-white font-bold tracking-wide rounded-xl hover:bg-emerald-600 transition-colors flex items-center justify-center shadow-lg disabled:bg-slate-300 disabled:cursor-not-allowed cursor-pointer">
-                  <Send className="w-5 h-5 mr-2" /> Enviar Pedido por WhatsApp
-                </button>
-              </div>
+              )}
             </div>
           )}
 

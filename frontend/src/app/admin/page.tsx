@@ -2,14 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Package, CalendarDays, TrendingUp, LogOut, Layers, Tags, BarChart3, Camera } from "lucide-react";
-
-// Importamos tus limpias "Piezas de Lego"
+import { Package, CalendarDays, TrendingUp, LogOut, Layers, Tags, BarChart3, Camera, MapPin } from "lucide-react";
 import ProductsTab from "../../components/admin/ProductsTab";
 import CategoriesTab from "../../components/admin/CategoriesTab";
 import RentalsTab from "../../components/admin/RentalsTab";
 import StatisticsTab from "../../components/admin/StatisticsTab";
-import GalleryTab from "../../components/admin/GalleryTab"; // 👈 NUEVO
+import GalleryTab from "../../components/admin/GalleryTab";
+import CitiesTab from "../../components/admin/CitiesTab"; 
 
 const formatPYG = (amount: number) => `Gs. ${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 
@@ -23,7 +22,7 @@ export default function AdminDashboard() {
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [rentals, setRentals] = useState<any[]>([]); 
-  const [gallery, setGallery] = useState<any[]>([]); // 👈 ESTADO PARA LA GALERÍA
+  const [gallery, setGallery] = useState<any[]>([]); 
 
   useEffect(() => {
     const token = localStorage.getItem("admin_token");
@@ -38,7 +37,7 @@ export default function AdminDashboard() {
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/products`),
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/categories`),
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/rentals`),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/gallery?admin=true`) // 👈 CARGAMOS LA GALERÍA
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/gallery?admin=true`) 
       ]);
       if (prodRes.ok) setProducts(await prodRes.json());
       if (catRes.ok) setCategories(await catRes.json());
@@ -64,7 +63,7 @@ export default function AdminDashboard() {
       <header className="mb-8 flex flex-col md:flex-row md:justify-between md:items-center bg-white p-6 rounded-3xl border border-slate-100 shadow-sm gap-4">
         <div><h1 className="text-3xl font-bold text-slate-900">Panel de Control</h1><p className="text-slate-500 mt-1">Gestión de inventario de LT Recepciones</p></div>
         <div className="flex items-center space-x-6">
-          <div className="flex items-center space-x-3"><div className="w-10 h-10 bg-blue-900 rounded-full flex items-center justify-center font-bold text-white shadow-md">LT</div><span className="font-medium text-slate-700 hidden md:block">Administrador</span></div>
+          <div className="flex items-center space-x-3"><div className="w-10 h-10 bg-[#004080] rounded-full flex items-center justify-center font-bold text-white shadow-md">LT</div><span className="font-medium text-slate-700 hidden md:block">Administrador</span></div>
           <div className="h-8 w-px bg-slate-200"></div>
           <button onClick={handleLogout} className="flex items-center text-red-500 hover:text-red-700 font-medium transition-colors cursor-pointer"><LogOut className="w-5 h-5 mr-2" /> Salir</button>
         </div>
@@ -73,7 +72,7 @@ export default function AdminDashboard() {
       {/* 2. TARJETAS DE RESUMEN GLOBALES */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center space-x-4">
-          <div className="p-4 bg-blue-50 text-blue-900 rounded-2xl"><Package className="w-6 h-6" /></div>
+          <div className="p-4 bg-blue-50 text-[#004080] rounded-2xl"><Package className="w-6 h-6" /></div>
           <div><p className="text-sm font-medium text-slate-500">Tipos de Producto</p><h3 className="text-2xl font-bold text-slate-900">{products.length}</h3></div>
         </div>
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center space-x-4">
@@ -92,19 +91,23 @@ export default function AdminDashboard() {
 
       {/* 3. MENÚ DE PESTAÑAS */}
       <div className="inline-flex space-x-2 mb-6 bg-slate-200/50 p-1 rounded-2xl overflow-x-auto max-w-full">
-        <button onClick={() => setActiveTab("products")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "products" ? "bg-white text-blue-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Package className="w-4 h-4 mr-2" /> Productos</button>
-        <button onClick={() => setActiveTab("categories")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "categories" ? "bg-white text-blue-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Tags className="w-4 h-4 mr-2" /> Categorías</button>
-        <button onClick={() => setActiveTab("rentals")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "rentals" ? "bg-white text-blue-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><CalendarDays className="w-4 h-4 mr-2" /> Alquileres</button>
-        <button onClick={() => setActiveTab("gallery")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "gallery" ? "bg-white text-blue-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Camera className="w-4 h-4 mr-2" /> Galería</button>
-        <button onClick={() => setActiveTab("statistics")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "statistics" ? "bg-white text-blue-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><BarChart3 className="w-4 h-4 mr-2" /> Estadísticas</button>
+        <button onClick={() => setActiveTab("products")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "products" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Package className="w-4 h-4 mr-2" /> Productos</button>
+        <button onClick={() => setActiveTab("categories")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "categories" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Tags className="w-4 h-4 mr-2" /> Categorías</button>
+        <button onClick={() => setActiveTab("rentals")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "rentals" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><CalendarDays className="w-4 h-4 mr-2" /> Alquileres</button>
+        <button onClick={() => setActiveTab("gallery")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "gallery" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Camera className="w-4 h-4 mr-2" /> Galería</button>
+        <button onClick={() => setActiveTab("statistics")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "statistics" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><BarChart3 className="w-4 h-4 mr-2" /> Estadísticas</button>
+        {/*  NUEVO BOTÓN PARA CIUDADES */}
+        <button onClick={() => setActiveTab("cities")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "cities" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><MapPin className="w-4 h-4 mr-2" /> Zonas de Entrega</button>
       </div>
 
-      {/* 4. RENDERIZADO DINÁMICO DE PESTAÑAS (La magia de los componentes) */}
+      {/* 4. RENDERIZADO DINÁMICO DE PESTAÑAS */}
       {activeTab === "products" && <ProductsTab products={products} categories={categories} fetchData={fetchData} isLoadingData={isLoadingData} />}
       {activeTab === "categories" && <CategoriesTab categories={categories} fetchData={fetchData} />}
       {activeTab === "rentals" && <RentalsTab rentals={rentals} products={products} fetchData={fetchData} isLoadingData={isLoadingData} />}
       {activeTab === "gallery" && <GalleryTab gallery={gallery} fetchData={fetchData} isLoadingData={isLoadingData} />}
       {activeTab === "statistics" && <StatisticsTab />}
+      {/* RENDERIZAMOS LA PESTAÑA DE CIUDADES */}
+      {activeTab === "cities" && <CitiesTab />}
 
     </div>
   );

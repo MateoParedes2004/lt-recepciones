@@ -93,3 +93,12 @@ model GalleryImage {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+model City {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  price     Float    @default(0) // El costo de envío. 0 significa que se coordina por WhatsApp
+  isActive  Boolean  @default(true) // Te permitirá habilitar/deshabilitar ciudades
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
