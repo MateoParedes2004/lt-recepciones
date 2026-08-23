@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -23,7 +23,14 @@ export class ProductsService {
     });
   }
 
-  async getAllProducts() {
+  // page/limit son opcionales: sin ellos se devuelve el catálogo completo
+  // (lo necesitan el catálogo público y el selector de productos del admin).
+  // Con ellos, se pagina — útil si el listado admin crece mucho.
+  async getAllProducts(page?: number, limit?: number) {
+    const pagination: { skip?: number; take?: number } = limit
+      ? { skip: ((page ?? 1) - 1) * Math.min(limit, 100), take: Math.min(limit, 100) }
+      : {};
+
     return this.prisma.product.findMany({
       include: {
         category: true,
@@ -31,14 +38,17 @@ export class ProductsService {
       orderBy: {
         id: 'desc',
       },
+      ...pagination,
     });
   }
 
   async getProductById(id: number) {
-    return this.prisma.product.findUnique({
+    const product = await this.prisma.product.findUnique({
       where: { id },
       include: { category: true },
     });
+    if (!product) throw new NotFoundException(`El producto con ID ${id} no existe.`);
+    return product;
   }
 
   // 👇 TAMBIÉN BLINDAMOS LA ACTUALIZACIÓN

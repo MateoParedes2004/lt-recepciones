@@ -5,10 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MapPin, Phone, Clock, Instagram, Facebook, ArrowRight } from "lucide-react";
-// 👇 IMPORTAMOS LAS FUENTES OFICIALES
 import { Great_Vibes, Playfair_Display, Lato } from 'next/font/google';
 
-// Configuración de fuentes
 const cursiveFont = Great_Vibes({ subsets: ['latin'], weight: '400' });
 const serifFont = Playfair_Display({ subsets: ['latin'], weight: ['600', '700'] });
 const sansFont = Lato({ subsets: ['latin'], weight: ['300', '400', '700'] });

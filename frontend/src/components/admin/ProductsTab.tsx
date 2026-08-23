@@ -2,14 +2,9 @@
 
 import { useState } from "react";
 import { Plus, Edit, Trash2, Search, X, Image as ImageIcon, Filter, ChevronDown } from "lucide-react";
+import { apiFetch, getImageUrl } from "../../lib/api";
 
 const formatPYG = (amount: number) => `Gs. ${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
-
-const getImageUrl = (path: string) => { 
-  if (!path) return ""; 
-  if (path.startsWith("http")) return path; 
-  return `${(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, '')}${path}`; 
-};
 
 export default function ProductsTab({ products, categories, fetchData, isLoadingData }: { products: any[], categories: any[], fetchData: () => void, isLoadingData: boolean }) {
   const [searchProduct, setSearchProduct] = useState("");
@@ -44,7 +39,7 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
       if (imageFile) formDataToSend.append("image", imageFile);
 
       const method = editingId ? "PUT" : "POST"; const endpoint = editingId ? `/products/${editingId}` : "/products";
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, { method, body: formDataToSend });
+      const res = await apiFetch(endpoint, { method, body: formDataToSend });
       if (res.ok) { closeModal(); fetchData(); } else { const err = await res.json(); alert(`Error: ${err.message}`); }
     } catch (error) { alert("Error de conexión"); } finally { setIsSaving(false); }
   };
@@ -56,7 +51,7 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
 
   const handleDeleteClick = async (id: number) => {
     if (!window.confirm("¿Estás seguro de que deseas eliminar este producto?")) return;
-    try { const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/${id}`, { method: "DELETE" }); if (res.ok) fetchData(); else alert("Error al eliminar"); } catch (error) { console.error(error); }
+    try { const res = await apiFetch(`/products/${id}`, { method: "DELETE" }); if (res.ok) fetchData(); else alert("Error al eliminar"); } catch (error) { console.error(error); }
   };
 
   const closeModal = () => { setIsModalOpen(false); setEditingId(null); setImageFile(null); setImagePreview(""); setFormData({ name: "", description: "", price: "", categoryId: "", totalStock: "" }); };
@@ -113,7 +108,7 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
              filteredProducts.length === 0 ? <tr><td colSpan={5} className="text-center py-16 text-slate-400 flex flex-col items-center justify-center w-full"><Filter className="w-8 h-8 mb-2 opacity-50"/>No se encontraron productos con estos filtros.</td></tr> : 
              filteredProducts.map((p: any) => (
               <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                <td className="px-6 py-4"><div className="flex items-center space-x-3"><div className="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden shrink-0 border border-slate-200">{p.imageUrl ? <img src={getImageUrl(p.imageUrl)} className="w-full h-full object-contain mix-blend-multiply"/> : <ImageIcon className="w-5 h-5 m-auto text-slate-400 mt-2.5"/>}</div><p className="font-semibold text-slate-900">{p.name}</p></div></td>
+                <td className="px-6 py-4"><div className="flex items-center space-x-3"><div className="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden shrink-0 border border-slate-200">{p.imageUrl ? <img src={getImageUrl(p.imageUrl)} alt={p.name} className="w-full h-full object-contain mix-blend-multiply"/> : <ImageIcon className="w-5 h-5 m-auto text-slate-400 mt-2.5"/>}</div><p className="font-semibold text-slate-900">{p.name}</p></div></td>
                 <td className="px-6 py-4"><span className="px-2.5 py-0.5 rounded-full text-xs bg-blue-50 text-blue-900 border border-blue-100 font-medium">{p.category?.name || 'N/A'}</span></td>
                 <td className="px-6 py-4"><div className="flex flex-col"><span className="font-bold text-lg text-slate-900">{p.totalStock} <span className="text-xs font-normal text-slate-500">libres</span></span>{p.rentedCount > 0 && <span className="text-xs text-amber-600 font-medium">({p.rentedCount} en alquiler)</span>}</div></td>
                 <td className="px-6 py-4 font-medium">{formatPYG(p.pricePerDay)}</td>
@@ -145,7 +140,7 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
                 </div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Categoría</label><select required value={formData.categoryId} onChange={(e) => setFormData({...formData, categoryId: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-900 outline-none bg-white cursor-pointer"><option value="" disabled>Seleccionar...</option>{categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label><textarea required rows={2} value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl outline-none resize-none" /></div>
-                <div><label className="block text-sm font-medium text-slate-700 mb-1">Foto</label><input type="file" accept="image/*" onChange={handleImageChange} className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:bg-blue-50 file:text-blue-900 hover:file:bg-blue-100 cursor-pointer" />{imagePreview && <div className="mt-3 relative w-full h-32 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 flex justify-center items-center"><img src={imagePreview} className="max-h-full object-contain mix-blend-multiply" /></div>}</div>
+                <div><label className="block text-sm font-medium text-slate-700 mb-1">Foto</label><input type="file" accept="image/*" onChange={handleImageChange} className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:bg-blue-50 file:text-blue-900 hover:file:bg-blue-100 cursor-pointer" />{imagePreview && <div className="mt-3 relative w-full h-32 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 flex justify-center items-center"><img src={imagePreview} alt="Vista previa" className="max-h-full object-contain mix-blend-multiply" /></div>}</div>
               </form>
             </div>
             <div className="px-6 py-4 border-t border-slate-100 flex justify-end space-x-3 bg-slate-50/50"><button type="button" onClick={closeModal} className="px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-200 rounded-xl cursor-pointer">Cancelar</button><button type="submit" form="productForm" disabled={isSaving} className="px-5 py-2.5 bg-blue-900 text-white font-medium rounded-xl hover:bg-blue-800 shadow-md disabled:bg-blue-400 cursor-pointer">{isSaving ? "Guardando..." : "Guardar Producto"}</button></div>

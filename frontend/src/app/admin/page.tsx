@@ -2,13 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Package, CalendarDays, TrendingUp, LogOut, Layers, Tags, BarChart3, Camera, MapPin } from "lucide-react";
+import dynamic from "next/dynamic";
+import { Package, CalendarDays, TrendingUp, LogOut, Layers, Tags, BarChart3, Camera, MapPin, Loader2 } from "lucide-react";
 import ProductsTab from "../../components/admin/ProductsTab";
 import CategoriesTab from "../../components/admin/CategoriesTab";
 import RentalsTab from "../../components/admin/RentalsTab";
-import StatisticsTab from "../../components/admin/StatisticsTab";
 import GalleryTab from "../../components/admin/GalleryTab";
-import CitiesTab from "../../components/admin/CitiesTab"; 
+import CitiesTab from "../../components/admin/CitiesTab";
+import { apiFetch } from "../../lib/api";
+
+// StatisticsTab carga recharts (pesado): se difiere para que ese bundle solo
+// se descargue si el admin realmente abre la pestaña de Estadísticas.
+const StatisticsTab = dynamic(() => import("../../components/admin/StatisticsTab"), {
+  loading: () => (
+    <div className="flex justify-center items-center h-64">
+      <Loader2 className="w-8 h-8 animate-spin text-slate-300" />
+    </div>
+  ),
+});
 
 const formatPYG = (amount: number) => `Gs. ${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 
@@ -34,10 +45,10 @@ export default function AdminDashboard() {
     setIsLoadingData(true);
     try {
       const [prodRes, catRes, rentRes, galRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/products`),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/categories`),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/rentals`),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/gallery?admin=true`) 
+        apiFetch('/products'),
+        apiFetch('/categories'),
+        apiFetch('/rentals'),
+        apiFetch('/gallery?admin=true')
       ]);
       if (prodRes.ok) setProducts(await prodRes.json());
       if (catRes.ok) setCategories(await catRes.json());

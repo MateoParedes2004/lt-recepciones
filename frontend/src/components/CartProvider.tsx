@@ -5,22 +5,31 @@ import { usePathname } from "next/navigation";
 import { ShoppingCart, X, Plus, Minus, Send, PackageOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import CitySelector from "./CitySelector";
+import { getImageUrl } from "../lib/api";
+import type { CartItem, Product } from "../types";
 
 // 👇 Importamos la fuente corporativa
 import { Playfair_Display } from 'next/font/google';
 
-const playfair = Playfair_Display({ 
+const playfair = Playfair_Display({
     subsets: ['latin'],
     weight: ['400', '500', '600', '700'],
     display: 'swap',
 });
 
-const CartContext = createContext<any>(null);
+interface CartContextType {
+  cart: CartItem[];
+  addToCart: (product: Product, quantity?: number) => void;
+  removeFromCart: (productId: number) => void;
+  updateQuantity: (productId: number, quantity: number) => void;
+}
 
-export const useCart = () => useContext(CartContext);
+const CartContext = createContext<CartContextType | null>(null);
+
+export const useCart = () => useContext(CartContext) as CartContextType;
 
 export default function CartProvider({ children }: { children: React.ReactNode }) {
-  const [cart, setCart] = useState<any[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   
@@ -35,7 +44,16 @@ export default function CartProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     setIsMounted(true);
     const savedCart = localStorage.getItem("lt_cart");
-    if (savedCart) setCart(JSON.parse(savedCart));
+    if (savedCart) {
+      try {
+        const parsed = JSON.parse(savedCart);
+        if (Array.isArray(parsed)) setCart(parsed);
+      } catch {
+        // localStorage corrupto (edición manual, versión vieja incompatible, etc.):
+        // descartamos el carrito guardado en vez de romper toda la app.
+        localStorage.removeItem("lt_cart");
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -57,7 +75,7 @@ export default function CartProvider({ children }: { children: React.ReactNode }
     };
   }, [isOpen]);
 
-  const addToCart = (product: any, quantity: number = 1) => {
+  const addToCart = (product: Product, quantity: number = 1) => {
     setCart((prev) => {
       const exists = prev.find((item) => item.product.id === product.id);
       if (exists) {
@@ -187,7 +205,7 @@ export default function CartProvider({ children }: { children: React.ReactNode }
                         >
                           <div className="w-16 h-16 bg-slate-100 rounded-xl overflow-hidden shrink-0">
                             {item.product.imageUrl ? (
-                              <img src={item.product.imageUrl.startsWith("http") ? item.product.imageUrl : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"}${item.product.imageUrl}`} className="w-full h-full object-cover" />
+                              <img src={getImageUrl(item.product.imageUrl)} alt={item.product.name} className="w-full h-full object-cover" />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-slate-300"><ShoppingCart className="w-6 h-6"/></div>
                             )}
@@ -239,7 +257,6 @@ export default function CartProvider({ children }: { children: React.ReactNode }
                       key={totalAmount}
                       initial={{ scale: 1.1, color: "#004080" }}
                       animate={{ scale: 1, color: "#0f172a" }}
-                      // 👇 Quitamos el playfair.className de aquí y aseguramos font-sans
                       className="font-sans text-2xl font-bold text-slate-900"
                     >
                       {formatPYG(totalAmount)}

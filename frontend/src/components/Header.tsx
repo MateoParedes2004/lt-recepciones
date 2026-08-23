@@ -4,19 +4,17 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link'; 
 import Image from 'next/image'; 
 import { Menu, X, Instagram, Facebook, ChevronDown, Package, Home, Info, Phone, Camera } from 'lucide-react';
-// 👇 1. IMPORTAMOS LAS DOS FUENTES DIRECTAMENTE AQUÍ
 import { Great_Vibes, Playfair_Display } from 'next/font/google';
+import AnchorLink from './AnchorLink';
 
-// Configuración de Cursiva (Para el Logo)
 const cursiveFont = Great_Vibes({
   subsets: ['latin'],
-  weight: '400', 
+  weight: '400',
 });
 
-// 👇 2. CONFIGURACIÓN DE SERIF (Para el Menú elegante)
 const serifFont = Playfair_Display({
   subsets: ['latin'],
-  weight: ['400', '600', '700'], // Cargamos varios pesos para que se vea bien
+  weight: ['400', '600', '700'],
 });
 
 export default function Header() {
@@ -94,7 +92,6 @@ export default function Header() {
                 >
                   <button 
                     onClick={() => setIsCatalogOpen(!isCatalogOpen)}
-                    // 👇 APLICADO DIRECTAMENTE: serifFont.className
                     className={`flex items-center text-slate-900 hover:text-blue-700 font-medium tracking-wide transition-all duration-300 transform hover:scale-105 cursor-pointer py-2 ${serifFont.className}`}
                   >
                     Catálogos 
@@ -112,39 +109,37 @@ export default function Header() {
                     <Link 
                       href="/catalogos" 
                       onClick={() => setIsCatalogOpen(false)} 
-                      // 👇 APLICADO: serifFont.className
                       className={`px-5 py-3 text-base font-bold tracking-wide text-slate-900 hover:text-blue-700 hover:bg-slate-50 transition-colors duration-200 block border-b border-slate-50 ${serifFont.className}`}
                     >
                       Ver todo el catálogo
                     </Link>
                     <div className="max-h-64 overflow-y-auto">
                       {catalogos.map((cat) => (
-                        <Link 
-                          key={cat.id} 
-                          href={getCategoryLink(cat.name)} 
-                          onClick={() => setIsCatalogOpen(false)} 
-                          // 👇 APLICADO: serifFont.className
+                        <AnchorLink
+                          key={cat.id}
+                          href={getCategoryLink(cat.name)}
+                          onNavigate={() => setIsCatalogOpen(false)}
                           className={`block px-5 py-2.5 text-base tracking-wide text-slate-900 hover:text-blue-700 hover:bg-slate-50 transition-colors duration-200 ${serifFont.className}`}
                         >
                           {cat.name}
-                        </Link>
+                        </AnchorLink>
                       ))}
                     </div>
                   </div>
                 </div>
 
                 {/* Enlaces Principales (También les puse la fuente elegante) */}
-                <Link href="/#nuestro-trabajo" className={`text-slate-900 hover:text-blue-700 font-medium tracking-wide transition-all duration-300 transform hover:scale-105 ${serifFont.className}`}>
+                <AnchorLink href="/#nuestro-trabajo" className={`text-slate-900 hover:text-blue-700 font-medium tracking-wide transition-all duration-300 transform hover:scale-105 ${serifFont.className}`}>
                   Nosotros
-                </Link>
+                </AnchorLink>
 
-                <Link href="/#galeria" className={`text-slate-900 hover:text-blue-700 font-medium tracking-wide transition-all duration-300 transform hover:scale-105 ${serifFont.className}`}>
+                <AnchorLink href="/#galeria" className={`text-slate-900 hover:text-blue-700 font-medium tracking-wide transition-all duration-300 transform hover:scale-105 ${serifFont.className}`}>
                   Galería
-                </Link>
+                </AnchorLink>
 
-                <Link href="/#contacto" className={`text-slate-900 hover:text-blue-700 font-medium tracking-wide transition-all duration-300 transform hover:scale-105 ${serifFont.className}`}>
+                <AnchorLink href="/#contacto" className={`text-slate-900 hover:text-blue-700 font-medium tracking-wide transition-all duration-300 transform hover:scale-105 ${serifFont.className}`}>
                   Contáctenos
-                </Link>
+                </AnchorLink>
 
               </nav>
 
@@ -204,29 +199,25 @@ export default function Header() {
           {/* OPCIONES DEL MENÚ MÓVIL CON FUENTE DE LUJO */}
           <nav className="space-y-2">
             <Link href="/" onClick={() => setIsMenuOpen(false)} 
-              // 👇 APLICADO: serifFont.className
               className={`flex items-center px-4 py-3 text-lg tracking-wide font-medium text-slate-900 hover:text-blue-900 hover:bg-blue-50 rounded-xl transition-colors ${serifFont.className}`}
             >
               <Home className="w-5 h-5 mr-3 text-blue-500" /> Inicio
             </Link>
-            <Link href="/#nuestro-trabajo" onClick={() => setIsMenuOpen(false)} 
-              // 👇 APLICADO
+            <AnchorLink href="/#nuestro-trabajo" onNavigate={() => setIsMenuOpen(false)}
               className={`flex items-center px-4 py-3 text-lg tracking-wide font-medium text-slate-900 hover:text-blue-900 hover:bg-blue-50 rounded-xl transition-colors ${serifFont.className}`}
             >
               <Info className="w-5 h-5 mr-3 text-blue-500" /> Nosotros
-            </Link>
-            <Link href="/#galeria" onClick={() => setIsMenuOpen(false)} 
-              // 👇 APLICADO
+            </AnchorLink>
+            <AnchorLink href="/#galeria" onNavigate={() => setIsMenuOpen(false)}
               className={`flex items-center px-4 py-3 text-lg tracking-wide font-medium text-slate-900 hover:text-blue-900 hover:bg-blue-50 rounded-xl transition-colors ${serifFont.className}`}
             >
               <Camera className="w-5 h-5 mr-3 text-blue-500" /> Galería
-            </Link>
-            <Link href="/#contacto" onClick={() => setIsMenuOpen(false)} 
-              // 👇 APLICADO
+            </AnchorLink>
+            <AnchorLink href="/#contacto" onNavigate={() => setIsMenuOpen(false)}
               className={`flex items-center px-4 py-3 text-lg tracking-wide font-medium text-slate-900 hover:text-blue-900 hover:bg-blue-50 rounded-xl transition-colors ${serifFont.className}`}
             >
               <Phone className="w-5 h-5 mr-3 text-blue-500" /> Contacto
-            </Link>
+            </AnchorLink>
           </nav>
 
           <div className="w-full h-px bg-slate-100"></div>
@@ -234,22 +225,20 @@ export default function Header() {
           {/* OPCIONES DE CATÁLOGOS MÓVIL */}
           <div>
             <Link href="/catalogos" onClick={() => setIsMenuOpen(false)} 
-              // 👇 APLICADO
               className={`flex items-center px-4 py-2 text-lg font-bold tracking-wide text-slate-900 mb-2 hover:text-blue-700 transition-colors ${serifFont.className}`}
             >
               <Package className="w-5 h-5 mr-3" /> Catálogo Completo
             </Link>
             <div className="ml-9 pl-4 space-y-1 border-l-2 border-slate-100">
               {catalogos.map((cat) => (
-                <Link 
-                  key={cat.id} 
-                  href={getCategoryLink(cat.name)} 
-                  onClick={() => setIsMenuOpen(false)} 
-                  // 👇 APLICADO
+                <AnchorLink
+                  key={cat.id}
+                  href={getCategoryLink(cat.name)}
+                  onNavigate={() => setIsMenuOpen(false)}
                   className={`block py-2 text-base tracking-wide text-slate-700 hover:text-blue-700 transition-colors ${serifFont.className}`}
                 >
                   {cat.name}
-                </Link>
+                </AnchorLink>
               ))}
             </div>
           </div>

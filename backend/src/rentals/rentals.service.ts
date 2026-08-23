@@ -1,21 +1,26 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CreateRentalDto } from './dto/create-rental.dto';
 
 @Injectable()
 export class RentalsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(data: any) {
+  async create(data: CreateRentalDto) {
     let totalPrice = 0;
 
-    // 1. Verificamos que haya stock suficiente
+    // 1. Verificamos que haya stock suficiente (una sola consulta para todos los productos)
+    const productIds = data.items.map((item) => item.productId);
+    const products = await this.prisma.product.findMany({ where: { id: { in: productIds } } });
+    const productsById = new Map(products.map((p) => [p.id, p]));
+
     for (const item of data.items) {
-      const product = await this.prisma.product.findUnique({ where: { id: item.productId } });
+      const product = productsById.get(item.productId);
       if (!product) throw new BadRequestException(`Producto no encontrado`);
       if (product.totalStock < item.quantity) {
          throw new BadRequestException(`No hay suficiente stock para: ${product.name}. Solo quedan ${product.totalStock}`);
       }
-      
+
       // SOLUCIÓN AL ERROR 1: Convertimos el Decimal a Número estándar para poder multiplicar
       totalPrice += (Number(product.pricePerDay) * item.quantity);
     }
@@ -52,12 +57,20 @@ export class RentalsService {
     });
   }
 
-  findAll() {
+  // page/limit son opcionales: si no se pasan, se devuelve el historial completo
+  // (así lo consume hoy el dashboard admin para sus totales). Si se pasan, se
+  // pagina — para cuando el panel incorpore una vista paginada del historial.
+  findAll(page?: number, limit?: number) {
+    const pagination: { skip?: number; take?: number } = limit
+      ? { skip: ((page ?? 1) - 1) * Math.min(limit, 100), take: Math.min(limit, 100) }
+      : {};
+
     return this.prisma.rental.findMany({
       include: {
-        items: { include: { product: true } } 
+        items: { include: { product: true } }
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      ...pagination,
     });
   }
 

@@ -26,3 +26,10 @@ h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-playfair), serif;
   font-weight: 700; /* Un poco más grueso para que destaque */
 }
+
+/* Efecto shimmer usado en los skeletons de carga (ej. catalogos/loading.tsx) */
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}

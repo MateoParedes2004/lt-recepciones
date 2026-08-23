@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { Upload, Trash2, Eye, EyeOff, Loader2, Camera } from "lucide-react";
+import { apiFetch } from "../../lib/api";
 
 export default function GalleryTab({ gallery, fetchData, isLoadingData }: any) {
   const [isUploading, setIsUploading] = useState(false);
@@ -23,7 +24,7 @@ export default function GalleryTab({ gallery, fetchData, isLoadingData }: any) {
     if (uploadTitle) formData.append("title", uploadTitle);
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/gallery`, {
+      const res = await apiFetch('/gallery', {
         method: "POST",
         body: formData,
       });
@@ -45,7 +46,7 @@ export default function GalleryTab({ gallery, fetchData, isLoadingData }: any) {
 
   const handleToggleVisibility = async (id: number) => {
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/gallery/${id}/toggle`, {
+      const res = await apiFetch(`/gallery/${id}/toggle`, {
         method: "PATCH",
       });
       if (res.ok) fetchData();
@@ -57,7 +58,7 @@ export default function GalleryTab({ gallery, fetchData, isLoadingData }: any) {
   const handleDelete = async (id: number) => {
     if (!confirm("¿Estás seguro de que quieres borrar esta foto definitivamente?")) return;
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/gallery/${id}`, {
+      const res = await apiFetch(`/gallery/${id}`, {
         method: "DELETE",
       });
       if (res.ok) fetchData();

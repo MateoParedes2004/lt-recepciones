@@ -25,6 +25,8 @@ model Product {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   rentalItems RentalItem[]
+
+  @@index([categoryId])
 }
 
 model User {
@@ -54,6 +56,9 @@ model Rental {
 
   // Relación: Un alquiler tiene muchos productos adentro (ítems)
   items       RentalItem[]
+
+  @@index([eventDate])
+  @@index([status])
 }
 
 model RentalItem {
@@ -67,6 +72,9 @@ model RentalItem {
   // Conexión con el Producto exacto (Silla, Mesa, etc.)
   productId Int
   product   Product  @relation(fields: [productId], references: [id])
+
+  @@index([rentalId])
+  @@index([productId])
 }
 
 // ==========================================

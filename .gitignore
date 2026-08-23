@@ -29,3 +29,6 @@ Thumbs.db
 
 # Archivos de entorno y secretos
 .env
+
+# Build cache
+*.tsbuildinfo

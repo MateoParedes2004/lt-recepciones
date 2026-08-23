@@ -2,6 +2,8 @@ import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
+import { LoginDto } from './dto/login.dto';
+import { RegisterDto } from './dto/register.dto';
 
 @Injectable()
 export class AuthService {
@@ -10,7 +12,7 @@ export class AuthService {
     private jwtService: JwtService
     ) {}
 
-    async register(data: any) {
+    async register(data: RegisterDto) {
     // 1. Verificamos si el correo ya existe
     const existingUser = await this.prisma.user.findUnique({ where: { email: data.email } });
     if (existingUser) throw new BadRequestException('El correo ya está registrado');
@@ -30,7 +32,7 @@ export class AuthService {
     return { message: 'Administrador creado con éxito', userId: user.id };
     }
 
-    async login(data: any) {
+    async login(data: LoginDto) {
     // 1. Buscamos al usuario por su correo
     const user = await this.prisma.user.findUnique({ where: { email: data.email } });
     if (!user) throw new UnauthorizedException('Correo o contraseña incorrectos');

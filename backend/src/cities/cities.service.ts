@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service'; // Ajusta la ruta según tu estructura
+import { CreateCityDto } from './dto/create-city.dto';
+import { UpdateCityDto } from './dto/update-city.dto';
 
 @Injectable()
 export class CitiesService {
@@ -15,18 +17,18 @@ export class CitiesService {
     }
 
   // 2. CREAR UNA NUEVA CIUDAD
-    async createCity(data: { name: string; price: number }) {
+    async createCity(data: CreateCityDto) {
     return this.prisma.city.create({
         data: {
             name: data.name,
-            price: data.price,
+            price: data.price ?? 0,
             // isActive será true por defecto según tu esquema Prisma
             },
         });
     }
 
     // 3. ACTUALIZAR UNA CIUDAD (Precio, Nombre o Estado)
-    async updateCity(id: number, data: { name?: string; price?: number; isActive?: boolean }) {
+    async updateCity(id: number, data: UpdateCityDto) {
     // Primero verificamos si existe para evitar errores raros de Prisma
     const city = await this.prisma.city.findUnique({ where: { id } });
     

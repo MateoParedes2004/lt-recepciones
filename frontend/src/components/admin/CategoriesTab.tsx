@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Edit, Trash2, Search, X } from "lucide-react";
+import { apiFetch } from "../../lib/api";
 
 export default function CategoriesTab({ categories, fetchData }: { categories: any[], fetchData: () => void }) {
   const [searchCategory, setSearchCategory] = useState("");
@@ -17,7 +18,7 @@ export default function CategoriesTab({ categories, fetchData }: { categories: a
     try {
       const method = editingCatId ? "PUT" : "POST";
       const endpoint = editingCatId ? `/categories/${editingCatId}` : "/categories";
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
+      const res = await apiFetch(endpoint, {
         method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(catFormData)
       });
       if (res.ok) { closeCatModal(); fetchData(); } else { const err = await res.json(); alert(`Error: ${err.message}`); }
@@ -28,7 +29,7 @@ export default function CategoriesTab({ categories, fetchData }: { categories: a
   
   const handleDeleteCatClick = async (id: number) => {
     if (!window.confirm("¿Eliminar esta categoría? Asegúrate de que no tenga productos asignados.")) return;
-    try { const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/categories/${id}`, { method: "DELETE" }); if (res.ok) fetchData(); else alert("No se puede eliminar. Probablemente hay productos usando esta categoría."); } catch (error) { console.error(error); }
+    try { const res = await apiFetch(`/categories/${id}`, { method: "DELETE" }); if (res.ok) fetchData(); else alert("No se puede eliminar. Probablemente hay productos usando esta categoría."); } catch (error) { console.error(error); }
   };
 
   const closeCatModal = () => { setIsCatModalOpen(false); setEditingCatId(null); setCatFormData({ name: "", description: "" }); };

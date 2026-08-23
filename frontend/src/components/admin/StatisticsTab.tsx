@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { DollarSign, ShoppingBag, Users, Calendar, Filter, Loader2 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { apiFetch } from "../../lib/api";
 
 const formatPYG = (amount: number) => `Gs. ${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 
@@ -26,16 +27,16 @@ export default function StatisticsTab() {
     const fetchAnalytics = async () => {
       setIsLoading(true);
       try {
-        let url = `${process.env.NEXT_PUBLIC_API_URL}/analytics/dashboard`;
-        
+        let url = `/analytics/dashboard`;
+
         if (viewMode === "mensual") {
           const [y, m] = selectedMonth.split('-');
           url += `?year=${y}&month=${m}`;
         } else {
           url += `?year=${selectedYear}`;
         }
-        
-        const res = await fetch(url);
+
+        const res = await apiFetch(url);
         if (res.ok) {
           const data = await res.json();
           setChartData(data.chartData);

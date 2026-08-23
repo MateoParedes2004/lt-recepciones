@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { CheckCircle, AlertCircle, Package } from "lucide-react";
 import AddToCartButton from "../../../components/AddToCartButton";
@@ -6,12 +7,7 @@ import ProductActions from "../../../components/ProductActions";
 import BackButton from "../../../components/BackButton"; 
 // 👇 Importamos los nuevos animadores
 import { ProductImageAnimator, ProductInfoAnimator } from "../../../components/ProductDetailAnimator";
-
-const getImageUrl = (path: string) => {
-  if (!path) return "";
-  if (path.startsWith("http")) return path;
-  return `${(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, '')}${path}`;
-};
+import { getApiUrl, getImageUrl } from "../../../lib/api";
 
 const formatPYG = (amount: number) => `Gs. ${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 
@@ -20,7 +16,7 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
   const resolvedParams = await params;
   
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/${resolvedParams.id}`);
+    const res = await fetch(`${getApiUrl()}/products/${resolvedParams.id}`);
     if (!res.ok) throw new Error("Producto no encontrado");
     const product = await res.json();
 
@@ -44,7 +40,7 @@ export default async function ProductDetailsPage({ params }: { params: { id: str
   
   let product = null;
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/products/${resolvedParams.id}`, { cache: 'no-store' });
+    const res = await fetch(`${getApiUrl()}/products/${resolvedParams.id}`, { next: { revalidate: 60 } });
     if (res.ok) {
       product = await res.json();
     }
@@ -94,10 +90,13 @@ export default async function ProductDetailsPage({ params }: { params: { id: str
             <div className="w-full md:w-1/2 bg-slate-100 relative min-h-75 md:min-h-125 flex items-center justify-center p-8 overflow-hidden">
               <ProductImageAnimator>
                 {product.imageUrl ? (
-                  <img 
-                    src={getImageUrl(product.imageUrl)} 
-                    alt={`Fotografía de ${product.name}`} 
-                    className="max-w-full max-h-125 object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-500 mix-blend-multiply"
+                  <Image
+                    src={getImageUrl(product.imageUrl)}
+                    alt={`Fotografía de ${product.name}`}
+                    fill
+                    priority
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    className="object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-500 mix-blend-multiply"
                   />
                 ) : (
                   <Package className="w-32 h-32 text-slate-300" />

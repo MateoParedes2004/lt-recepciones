@@ -4,22 +4,19 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, Loader2, User } from "lucide-react";
+import { getApiUrl } from "../../lib/api";
 
 export default function Login() {
   const router = useRouter();
   
-  // TUS ESTADOS ORIGINALES
   const [isRegistering, setIsRegistering] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  
-  // ESTADO NUEVO PARA EL DISEÑO (Ver contraseña)
   const [showPassword, setShowPassword] = useState(false);
 
-  // TU LÓGICA DE CONEXIÓN EXACTA AL BACKEND
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -29,9 +26,17 @@ export default function Login() {
       const endpoint = isRegistering ? "/auth/register" : "/auth/login";
       const payload = isRegistering ? { name, email, password } : { email, password };
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}${endpoint}`, {
+      // Nota: /auth/register ahora requiere estar logueado como admin (evita
+      // que cualquiera se cree una cuenta admin). Si ya hay una sesión activa
+      // en este navegador, mandamos el token; si no, el backend responde 401
+      // y el usuario ve el mensaje de error de abajo, como cualquier otro caso.
+      const existingToken = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+      const res = await fetch(`${getApiUrl()}${endpoint}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(existingToken ? { Authorization: `Bearer ${existingToken}` } : {}),
+        },
         body: JSON.stringify(payload),
       });
 
@@ -43,12 +48,12 @@ export default function Login() {
 
       if (isRegistering) {
         setIsRegistering(false);
-        setError("¡Cuenta creada exitosamente! Ahora inicia sesión."); 
+        setError("¡Cuenta creada exitosamente! Ahora inicia sesión.");
         return;
       }
 
       if (data.token) {
-        localStorage.setItem("admin_token", data.token); // TU LLAVE REAL
+        localStorage.setItem("admin_token", data.token);
         router.push("/admin");
       }
 
@@ -60,52 +65,62 @@ export default function Login() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 flex flex-col justify-center relative overflow-hidden selection:bg-blue-200 py-12">
+    <main className="min-h-screen bg-white flex flex-col justify-center relative overflow-hidden selection:bg-blue-100 py-12">
       
-      {/* Decoración de fondo Premium */}
-      <div className="absolute top-0 left-0 w-full h-96 bg-blue-900 rounded-b-[4rem] md:rounded-b-[8rem] shadow-2xl z-0"></div>
-      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-600 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob z-0"></div>
-      <div className="absolute top-[-10%] right-[-10%] w-96 h-96 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000 z-0"></div>
+      {/* Detalles decorativos azules suaves */}
+      <div className="absolute top-[-15%] left-[-10%] w-125 h-125 bg-blue-400 rounded-full mix-blend-multiply filter blur-3xl opacity-10 z-0" />
+      <div className="absolute bottom-[-15%] right-[-10%] w-125 h-125 bg-blue-300 rounded-full mix-blend-multiply filter blur-3xl opacity-10 z-0" />
 
       <div className="relative z-10 sm:mx-auto sm:w-full sm:max-w-md px-4 sm:px-0">
         
         {/* Botón Volver */}
-        <Link href="/" className="inline-flex items-center text-blue-100 hover:text-white font-medium mb-8 transition-colors group cursor-pointer">
+        <Link href="/" className="inline-flex items-center text-blue-400 hover:text-blue-500 font-medium mb-8 transition-colors group cursor-pointer">
           <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
           Volver a la tienda
         </Link>
 
         {/* Tarjeta de Formulario */}
-        <div className="bg-white py-10 px-8 shadow-2xl rounded-3xl sm:px-12 border border-slate-100">
+        <div className="bg-white py-10 px-8 shadow-xl rounded-3xl sm:px-12 border border-blue-400/20">
           
           <div className="sm:mx-auto sm:w-full sm:max-w-md text-center mb-10">
-            <div className="w-16 h-16 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg transform rotate-3">
-              <span className="text-white font-bold text-3xl tracking-tighter">LT</span>
+            {/* Logo */}
+            <div className="relative w-20 h-20 mx-auto mb-5">
+              <div className="w-20 h-20 bg-linear-to-br from-blue-400 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-400/30 transform rotate-3">
+                <span className="text-white font-bold text-3xl tracking-tighter">LT</span>
+              </div>
+              <div className="absolute -inset-0.5 bg-linear-to-br from-blue-300 to-blue-500 rounded-2xl blur opacity-30 -z-10 rotate-3" />
             </div>
+
             <h2 className="text-3xl font-bold tracking-tight text-slate-900">
               {isRegistering ? "Crear Nueva Cuenta" : "Panel de Control"}
             </h2>
-            <p className="mt-2 text-sm text-slate-500">
+            <p className="mt-2 text-sm text-slate-400">
               {isRegistering ? "Registra tus credenciales de administrador" : "Ingresa para administrar tu negocio"}
             </p>
+            {/* Línea decorativa */}
+            <div className="mt-4 flex items-center justify-center gap-2">
+              <div className="h-px w-12 bg-linear-to-r from-transparent to-blue-400/60" />
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-400/80" />
+              <div className="h-px w-12 bg-linear-to-l from-transparent to-blue-400/60" />
+            </div>
           </div>
 
-          <form className="space-y-6" onSubmit={handleSubmit}>
+          <form className="space-y-5" onSubmit={handleSubmit}>
             
-            {/* Campo Nombre (Solo si está registrando) */}
+            {/* Campo Nombre */}
             {isRegistering && (
               <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                <label className="block text-sm font-semibold text-slate-700 mb-2">Nombre Completo</label>
+                <label className="block text-sm font-semibold text-slate-600 mb-2">Nombre Completo</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <User className="h-5 w-5 text-slate-400" />
+                    <User className="h-5 w-5 text-slate-300" />
                   </div>
                   <input
                     type="text"
                     required
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="block w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl text-slate-900 bg-slate-50 hover:bg-white focus:bg-white focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all outline-none"
+                    className="block w-full pl-11 pr-4 py-3 border border-blue-400/20 rounded-xl text-slate-800 bg-slate-50 hover:bg-white focus:bg-white focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400/40 placeholder:text-slate-300 transition-all outline-none"
                     placeholder="Ej. Mateo Paredes"
                   />
                 </div>
@@ -114,17 +129,17 @@ export default function Login() {
             
             {/* Campo Correo */}
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Correo Electrónico</label>
+              <label className="block text-sm font-semibold text-slate-600 mb-2">Correo Electrónico</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-slate-400" />
+                  <Mail className="h-5 w-5 text-slate-300" />
                 </div>
                 <input
                   type="email"
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl text-slate-900 bg-slate-50 hover:bg-white focus:bg-white focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all outline-none"
+                  className="block w-full pl-11 pr-4 py-3 border border-blue-400/20 rounded-xl text-slate-800 bg-slate-50 hover:bg-white focus:bg-white focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400/40 placeholder:text-slate-300 transition-all outline-none"
                   placeholder="admin@ltrecepciones.com"
                 />
               </div>
@@ -132,23 +147,23 @@ export default function Login() {
 
             {/* Campo Contraseña */}
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Contraseña</label>
+              <label className="block text-sm font-semibold text-slate-600 mb-2">Contraseña</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-slate-400" />
+                  <Lock className="h-5 w-5 text-slate-300" />
                 </div>
                 <input
                   type={showPassword ? "text" : "password"}
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pl-11 pr-12 py-3 border border-slate-200 rounded-xl text-slate-900 bg-slate-50 hover:bg-white focus:bg-white focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all outline-none"
+                  className="block w-full pl-11 pr-12 py-3 border border-blue-400/20 rounded-xl text-slate-800 bg-slate-50 hover:bg-white focus:bg-white focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400/40 placeholder:text-slate-300 transition-all outline-none"
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-blue-600 transition-colors cursor-pointer"
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-300 hover:text-blue-400 transition-colors cursor-pointer"
                 >
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
@@ -157,17 +172,17 @@ export default function Login() {
 
             {/* Mensaje de Error o Éxito */}
             {error && (
-              <div className={`p-3 rounded-lg text-sm text-center font-medium animate-in fade-in slide-in-from-top-2 ${error.includes('exitosa') ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>
+              <div className={`p-3 rounded-lg text-sm text-center font-medium animate-in fade-in slide-in-from-top-2 ${error.includes('exitosa') ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' : 'bg-red-50 text-red-500 border border-red-200'}`}>
                 {error}
               </div>
             )}
 
             {/* Botón de Envío */}
-            <div>
+            <div className="pt-1">
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-xl shadow-lg shadow-blue-900/20 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
+                className="w-full flex justify-center py-3.5 px-4 rounded-xl text-sm font-bold text-white bg-linear-to-r from-blue-400 to-blue-500 hover:from-blue-500 hover:to-blue-600 shadow-lg shadow-blue-400/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-400 transition-all disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
               >
                 {isLoading ? (
                   <>
@@ -186,7 +201,7 @@ export default function Login() {
             <button 
               type="button"
               onClick={() => { setIsRegistering(!isRegistering); setError(""); }}
-              className="text-sm text-slate-500 hover:text-blue-600 transition-colors font-medium cursor-pointer"
+              className="text-sm text-slate-400 hover:text-blue-400 transition-colors font-medium cursor-pointer"
             >
               {isRegistering ? "¿Ya tienes cuenta? Inicia sesión aquí" : "¿Necesitas acceso? Regístrate aquí"}
             </button>

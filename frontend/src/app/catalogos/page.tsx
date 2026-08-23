@@ -1,10 +1,12 @@
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+export const revalidate = 60;
 
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight, Sparkles, Armchair, PackageOpen } from "lucide-react";
 import AddToCartButton from "../../components/AddToCartButton";
+import ScrollToHash from "../../components/ScrollToHash";
 import { Metadata } from "next"; // 👇 IMPORTAMOS METADATA
+import { getApiUrl, getImageUrl } from "../../lib/api";
 
 // 👇 INYECTAMOS EL SEO ESPECÍFICO PARA EL CATÁLOGO
 export const metadata: Metadata = {
@@ -22,17 +24,9 @@ const formatPYG = (amount: number) => {
   return `Gs. ${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 };
 
-const getImageUrl = (path: string) => {
-  if (!path) return "";
-  if (path.startsWith("http")) return path; 
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
-  return `${baseUrl.replace(/\/$/, '')}${path}`; 
-};
-
 async function getCategories() {
   try {
-    const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, '');
-    const res = await fetch(`${baseUrl}/categories`, { cache: 'no-store' });
+    const res = await fetch(`${getApiUrl()}/categories`, { next: { revalidate: 60 } });
     if (!res.ok) {
       console.error(`El Backend rechazó la petición con código: ${res.status}`);
       throw new Error('Error al cargar categorías');
@@ -49,7 +43,8 @@ export default async function Catalogos() {
 
   return (
     <main className="min-h-screen bg-slate-50 pt-8 pb-24">
-      
+      <ScrollToHash />
+
       {/* CABECERA DEL CATÁLOGO */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-10 md:mb-14">
         <div className="bg-slate-900 rounded-3xl p-8 md:p-10 text-white shadow-xl relative overflow-hidden">
@@ -109,11 +104,12 @@ export default async function Catalogos() {
                         {/* Imagen */}
                         <div className="h-36 md:h-40 bg-slate-100 relative overflow-hidden flex items-center justify-center">
                           {product.imageUrl ? (
-                            <img 
-                              src={getImageUrl(product.imageUrl)} 
-                              alt={product.name} 
-                              loading="lazy" 
-                              className="object-contain p-3 w-full h-full group-hover:scale-105 transition-transform duration-700 drop-shadow-sm mix-blend-multiply" 
+                            <Image
+                              src={getImageUrl(product.imageUrl)}
+                              alt={product.name}
+                              fill
+                              sizes="(max-width: 768px) 60vw, (max-width: 1024px) 33vw, 20vw"
+                              className="object-contain p-3 group-hover:scale-105 transition-transform duration-700 drop-shadow-sm mix-blend-multiply"
                             />
                           ) : (
                             <div className="text-slate-400 font-medium flex flex-col items-center">

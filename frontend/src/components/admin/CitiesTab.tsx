@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Search, Edit2, Save, X, MapPin, CheckCircle2, XCircle, Trash2, Plus, ArrowRightLeft } from 'lucide-react';
+import { apiFetch } from '../../lib/api';
 
 interface City {
     id: number;
@@ -27,8 +28,7 @@ export default function CitiesTab() {
 
     const fetchCities = async () => {
         try {
-            const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, '');
-            const response = await fetch(`${baseUrl}/cities`, { cache: 'no-store' });
+            const response = await apiFetch('/cities', { cache: 'no-store' });
             const data = await response.json();
             setCities(data);
         } catch (error) {
@@ -54,8 +54,7 @@ export default function CitiesTab() {
     const handleAddCity = async () => {
         if (!newCityName.trim()) return alert("El nombre de la ciudad es obligatorio.");
         try {
-            const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, '');
-            const response = await fetch(`${baseUrl}/cities`, {
+            const response = await apiFetch('/cities', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name: newCityName, price: Number(newCityPrice) }),
@@ -70,8 +69,7 @@ export default function CitiesTab() {
 
     const handleSavePrice = async (id: number) => {
         try {
-            const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, '');
-            const response = await fetch(`${baseUrl}/cities/${id}`, {
+            const response = await apiFetch(`/cities/${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ price: Number(editPrice) }),
@@ -85,8 +83,7 @@ export default function CitiesTab() {
 
     const handleToggleActive = async (id: number, currentStatus: boolean) => {
         try {
-            const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, '');
-            const response = await fetch(`${baseUrl}/cities/${id}`, {
+            const response = await apiFetch(`/cities/${id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ isActive: !currentStatus }),
@@ -101,8 +98,7 @@ export default function CitiesTab() {
     const handleDelete = async (id: number, name: string) => {
         if (!window.confirm(`¿Estás seguro de que deseas eliminar permanentemente la ciudad "${name}"?`)) return;
         try {
-            const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, '');
-            const response = await fetch(`${baseUrl}/cities/${id}`, { method: 'DELETE' });
+            const response = await apiFetch(`/cities/${id}`, { method: 'DELETE' });
             if (response.ok) setCities(cities.filter(c => c.id !== id));
         } catch (error) { console.error("Error al eliminar ciudad:", error); }
     };

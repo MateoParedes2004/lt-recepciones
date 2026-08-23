@@ -3,8 +3,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { ChevronDown, MapPin, Search } from 'lucide-react';
 import { Playfair_Display } from 'next/font/google';
+import { getApiUrl } from '../lib/api';
 
-const playfair = Playfair_Display({ 
+const playfair = Playfair_Display({
     subsets: ['latin'],
     weight: ['400', '500', '600', '700'],
     display: 'swap',
@@ -35,9 +36,8 @@ export default function CitySelector({ onCitySelect }: CitySelectorProps) {
     useEffect(() => {
         const fetchCities = async () => {
             try {
-                const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000").replace(/\/$/, '');
                 // 👇 Añadimos cache: 'no-store' para tener siempre la lista actualizada
-                const response = await fetch(`${baseUrl}/cities`, { cache: 'no-store' }); 
+                const response = await fetch(`${getApiUrl()}/cities`, { cache: 'no-store' });
                 
                 if (!response.ok) {
                     throw new Error('Error al cargar las ciudades');
@@ -156,7 +156,7 @@ export default function CitySelector({ onCitySelect }: CitySelectorProps) {
                                         : selectedCity?.id === city.id 
                                             ? 'bg-blue-50 text-[#004080] font-bold' 
                                             : 'text-slate-700 hover:text-[#004080] hover:bg-slate-50 font-medium'
-                                    } ${playfair.className}`} 
+                                    } ${playfair.className}`}
                             >
                                 {/* 👇 Tachamos el texto si está inactiva */}
                                 <span className={!city.isActive ? 'line-through text-slate-400' : ''}>

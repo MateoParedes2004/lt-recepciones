@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Trash2, Search, X, CheckCircle, CalendarDays, PlusCircle } from "lucide-react";
+import { apiFetch } from "../../lib/api";
 
 const formatPYG = (amount: number) => `Gs. ${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 
@@ -25,7 +26,7 @@ export default function RentalsTab({ rentals, products, fetchData, isLoadingData
         eventDate: new Date(rentalForm.eventDate).toISOString(), returnDate: new Date(rentalForm.returnDate).toISOString(),
         items: rentalForm.items.map(item => ({ productId: parseInt(item.productId), quantity: parseInt(item.quantity.toString()) }))
       };
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/rentals`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      const res = await apiFetch('/rentals', { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (res.ok) { setIsRentalModalOpen(false); setRentalForm({ clientName: "", clientPhone: "", eventDate: "", returnDate: "", items: [{ productId: "", quantity: 1 }] }); fetchData(); } 
       else { const err = await res.json(); alert(`No se pudo crear: ${err.message}`); }
     } catch (error) { alert("Error de conexión"); } finally { setIsSavingRental(false); }
@@ -34,7 +35,7 @@ export default function RentalsTab({ rentals, products, fetchData, isLoadingData
   const handleMarkAsReturned = async (id: number) => {
     if (!window.confirm("¿Confirmas que el cliente devolvió todos los productos? Esto repondrá el stock físico.")) return;
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/rentals/${id}/return`, { method: "PUT" });
+      const res = await apiFetch(`/rentals/${id}/return`, { method: "PUT" });
       if (res.ok) fetchData(); else alert("Error al registrar devolución.");
     } catch (error) { console.error(error); }
   };

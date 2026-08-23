@@ -24,14 +24,14 @@ const playfair = Playfair_Display({
 
 const lato = Lato({
   subsets: ["latin"],
-  weight: ["300", "400", "700"], 
+  weight: ["300", "400", "700"],
   variable: "--font-lato",
   display: "swap",
 });
 
 // 🚀 METADATA GLOBAL ULTRA OPTIMIZADA
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.ltrecepciones.com'),
   title: {
     default: "LT Recepciones | Servicios de Alquileres para Eventos",
     template: "%s | LT Recepciones", // Magia pura: ahora las subpáginas dirán "Catálogo | LT Recepciones"
@@ -93,7 +93,7 @@ export default function RootLayout({
   // 🚀 MICRODATOS ENRIQUECIDOS PARA GOOGLE LOCAL
   const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "EventEquipmentRental",
+    "@type": "LocalBusiness",
     "name": "LT Recepciones",
     "image": "https://www.ltrecepciones.com/principal1.png",
     "description": "Especialistas en alquiler de equipamiento premium para eventos en Asunción.",
