@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { ShoppingCart, X, Plus, Minus, Send, PackageOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import CitySelector from "./CitySelector";
-import { getImageUrl } from "../lib/api";
+import { getApiUrl, getImageUrl } from "../lib/api";
 import type { CartItem, Product } from "../types";
 
 // 👇 Importamos la fuente corporativa
@@ -124,9 +124,24 @@ export default function CartProvider({ children }: { children: React.ReactNode }
     message += `*💰 TOTAL ESTIMADO: ${formatPYG(totalAmount)}*\n\n`;
     
     message += `📅 *Fecha del evento:* [ Indicar fecha ]\n📍 *Lugar/Zona:* ${selectedCityName}\n\n¡Quedo a la espera de su respuesta para coordinar! 🥂`;
-    
+
     const encodedMessage = encodeURIComponent(message);
-    
+
+    // Señal de intención de compra para las estadísticas del panel: el
+    // checkout público no crea un Rental (eso lo carga el admin a mano tras
+    // la conversación de WhatsApp), así que esto es lo único que conecta
+    // "visitó el sitio" con "llegó a intentar comprar". No debe demorar ni
+    // bloquear la apertura de WhatsApp: se dispara y se ignora.
+    fetch(`${getApiUrl()}/analytics/checkout-intent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        totalAmount: totalAmount,
+        itemCount: cart.reduce((acc, item) => acc + item.quantity, 0),
+        cityName: selectedCityName,
+      }),
+    }).catch(() => {});
+
     window.open(`https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodedMessage}`, "_blank");
   };
 

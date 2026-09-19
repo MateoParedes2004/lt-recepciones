@@ -1,16 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2, Search, X, CheckCircle, CalendarDays, PlusCircle } from "lucide-react";
+import { Plus, Trash2, Search, X, CheckCircle, CalendarDays, PlusCircle, MapPin } from "lucide-react";
 import { apiFetch } from "../../lib/api";
 
 const formatPYG = (amount: number) => `Gs. ${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 
-export default function RentalsTab({ rentals, products, fetchData, isLoadingData }: { rentals: any[], products: any[], fetchData: () => void, isLoadingData: boolean }) {
+// eventDate/returnDate son fechas de calendario puras (se eligen en un
+// <input type="date"> y se guardan como medianoche UTC por convención, sin
+// hora real asociada). Formatearlas con la hora local del navegador puede
+// correrlas un día para atrás; forzamos timeZone: "UTC" para leer siempre
+// la fecha tal cual se eligió.
+const formatFechaCalendario = (iso: string) => new Date(iso).toLocaleDateString('es-PY', { timeZone: 'UTC' });
+
+export default function RentalsTab({ rentals, products, cities, fetchData, isLoadingData }: { rentals: any[], products: any[], cities: any[], fetchData: () => void, isLoadingData: boolean }) {
   const [searchRental, setSearchRental] = useState("");
   const [isRentalModalOpen, setIsRentalModalOpen] = useState(false);
   const [isSavingRental, setIsSavingRental] = useState(false);
-  const [rentalForm, setRentalForm] = useState({ clientName: "", clientPhone: "", eventDate: "", returnDate: "", items: [{ productId: "", quantity: 1 }] });
+  const [rentalForm, setRentalForm] = useState({ clientName: "", clientPhone: "", cityId: "", eventDate: "", returnDate: "", items: [{ productId: "", quantity: 1 }] });
 
   const filteredRentals = rentals.filter(r => r.clientName.toLowerCase().includes(searchRental.toLowerCase()));
 
@@ -23,11 +30,12 @@ export default function RentalsTab({ rentals, products, fetchData, isLoadingData
     try {
       const payload = {
         clientName: rentalForm.clientName, clientPhone: rentalForm.clientPhone,
+        cityId: rentalForm.cityId ? parseInt(rentalForm.cityId) : undefined,
         eventDate: new Date(rentalForm.eventDate).toISOString(), returnDate: new Date(rentalForm.returnDate).toISOString(),
         items: rentalForm.items.map(item => ({ productId: parseInt(item.productId), quantity: parseInt(item.quantity.toString()) }))
       };
       const res = await apiFetch('/rentals', { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      if (res.ok) { setIsRentalModalOpen(false); setRentalForm({ clientName: "", clientPhone: "", eventDate: "", returnDate: "", items: [{ productId: "", quantity: 1 }] }); fetchData(); } 
+      if (res.ok) { setIsRentalModalOpen(false); setRentalForm({ clientName: "", clientPhone: "", cityId: "", eventDate: "", returnDate: "", items: [{ productId: "", quantity: 1 }] }); fetchData(); }
       else { const err = await res.json(); alert(`No se pudo crear: ${err.message}`); }
     } catch (error) { alert("Error de conexión"); } finally { setIsSavingRental(false); }
   };
@@ -71,9 +79,12 @@ export default function RentalsTab({ rentals, products, fetchData, isLoadingData
                   <td className="px-6 py-4">
                     <p className="font-bold text-slate-900 text-lg">{rental.clientName}</p>
                     <p className="text-sm text-slate-500 mb-1">{rental.clientPhone || 'Sin teléfono'}</p>
+                    {rental.city?.name && (
+                      <p className="text-xs text-blue-700 mb-1 flex items-center"><MapPin className="w-3 h-3 mr-1" />{rental.city.name}</p>
+                    )}
                     <div className="text-xs bg-slate-100 inline-block px-2 py-1 rounded text-slate-600">
-                      <strong>Uso:</strong> {new Date(rental.eventDate).toLocaleDateString()} <br/>
-                      <strong>Devolución:</strong> {new Date(rental.returnDate).toLocaleDateString()}
+                      <strong>Uso:</strong> {formatFechaCalendario(rental.eventDate)} <br/>
+                      <strong>Devolución:</strong> {formatFechaCalendario(rental.returnDate)}
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -122,6 +133,13 @@ export default function RentalsTab({ rentals, products, fetchData, isLoadingData
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div><label className="block text-sm font-medium text-slate-700 mb-1">Nombre Completo</label><input type="text" required value={rentalForm.clientName} onChange={(e) => setRentalForm({...rentalForm, clientName: e.target.value})} className="w-full px-4 py-2 border rounded-xl" placeholder="Ej. Juan Pérez" /></div>
                     <div><label className="block text-sm font-medium text-slate-700 mb-1">Teléfono</label><input type="text" value={rentalForm.clientPhone} onChange={(e) => setRentalForm({...rentalForm, clientPhone: e.target.value})} className="w-full px-4 py-2 border rounded-xl" placeholder="09XX XXX XXX" /></div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Ciudad de Entrega</label>
+                      <select value={rentalForm.cityId} onChange={(e) => setRentalForm({...rentalForm, cityId: e.target.value})} className="w-full px-4 py-2 border rounded-xl bg-white">
+                        <option value="">Sin especificar</option>
+                        {cities.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                      </select>
+                    </div>
                     <div><label className="block text-sm font-medium text-slate-700 mb-1">Fecha del Evento (Uso)</label><input type="date" required value={rentalForm.eventDate} onChange={(e) => setRentalForm({...rentalForm, eventDate: e.target.value})} className="w-full px-4 py-2 border rounded-xl" /></div>
                     <div><label className="block text-sm font-medium text-slate-700 mb-1">Fecha de Devolución</label><input type="date" required value={rentalForm.returnDate} onChange={(e) => setRentalForm({...rentalForm, returnDate: e.target.value})} className="w-full px-4 py-2 border rounded-xl" /></div>
                   </div>

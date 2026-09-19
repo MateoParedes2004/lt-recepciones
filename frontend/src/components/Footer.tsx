@@ -30,13 +30,13 @@ export default function Footer() {
             <Link href="/" className="flex items-center gap-3 group cursor-pointer">
               
               {!logoError ? (
-                <Image 
-                  src="/logo.png" 
-                  alt="LT Recepciones Logo" 
-                  width={60} 
-                  height={60} 
-                  className="w-12 h-12 object-contain bg-white rounded-xl p-1 shadow-md group-hover:scale-105 transition-transform duration-300"
-                  onError={() => setLogoError(true)} 
+                <Image
+                  src="/logo.png"
+                  alt="LT Recepciones Logo"
+                  width={60}
+                  height={60}
+                  className="w-12 h-12 object-contain group-hover:scale-105 transition-transform duration-300"
+                  onError={() => setLogoError(true)}
                 />
               ) : (
                 <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center transform group-hover:rotate-6 transition-transform shadow-md">

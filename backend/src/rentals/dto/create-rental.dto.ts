@@ -29,6 +29,10 @@ export class CreateRentalDto {
   @IsString()
   clientPhone?: string;
 
+  @IsOptional()
+  @IsInt()
+  cityId?: number;
+
   @IsDateString()
   eventDate: string;
 

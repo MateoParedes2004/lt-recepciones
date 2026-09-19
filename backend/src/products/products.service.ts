@@ -5,7 +5,6 @@ import { PrismaService } from '../prisma/prisma.service';
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
-  // 👇 AQUÍ ESTABA EL ERROR DE CREACIÓN
   async createProduct(data: any) {
     return this.prisma.product.create({
       data: {
@@ -13,12 +12,9 @@ export class ProductsService {
         description: data.description,
         imageUrl: data.imageUrl,
         // CONVERSIÓN FORZADA: Aseguramos que los textos se vuelvan números
-        pricePerDay: parseFloat(data.pricePerDay), 
+        pricePerDay: parseFloat(data.pricePerDay),
         categoryId: Number(data.categoryId),
         totalStock: Number(data.totalStock),
-        // Si tu base de datos tiene el campo isArchived, lo ponemos false
-        // Si NO lo tiene (porque no lo agregaste al final), borra esta línea:
-        // isArchived: false, 
       },
     });
   }
@@ -26,12 +22,14 @@ export class ProductsService {
   // page/limit son opcionales: sin ellos se devuelve el catálogo completo
   // (lo necesitan el catálogo público y el selector de productos del admin).
   // Con ellos, se pagina — útil si el listado admin crece mucho.
+  // Los productos archivados (ver deleteProduct) nunca aparecen acá.
   async getAllProducts(page?: number, limit?: number) {
     const pagination: { skip?: number; take?: number } = limit
       ? { skip: ((page ?? 1) - 1) * Math.min(limit, 100), take: Math.min(limit, 100) }
       : {};
 
     return this.prisma.product.findMany({
+      where: { isArchived: false },
       include: {
         category: true,
       },
@@ -47,7 +45,7 @@ export class ProductsService {
       where: { id },
       include: { category: true },
     });
-    if (!product) throw new NotFoundException(`El producto con ID ${id} no existe.`);
+    if (!product || product.isArchived) throw new NotFoundException(`El producto con ID ${id} no existe.`);
     return product;
   }
 
@@ -71,16 +69,20 @@ export class ProductsService {
     });
   }
 
-  // 👇 MANTENEMOS EL BORRADO DESTRUCTOR QUE YA FUNCIONA
   async deleteProduct(id: number) {
-    // 1. Borramos historial de alquileres
-    await this.prisma.rentalItem.deleteMany({
-      where: { productId: id },
-    });
+    const hasHistory = await this.prisma.rentalItem.findFirst({ where: { productId: id } });
 
-    // 2. Borramos el producto
-    return this.prisma.product.delete({
-      where: { id },
-    });
+    if (!hasHistory) {
+      // Nunca se alquiló: no hay nada que preservar, se borra de verdad.
+      return this.prisma.product.delete({ where: { id } });
+    }
+
+    // Tiene alquileres asociados: lo archivamos en vez de borrarlo. Un
+    // borrado real se llevaría por delante el detalle de esos alquileres
+    // (por la relación RentalItem → Product) y distorsionaría retroactivamente
+    // las estadísticas de ingresos de ese producto. Archivado, desaparece del
+    // catálogo público y del selector de "Nuevo Alquiler", pero el histórico
+    // financiero queda intacto.
+    return this.prisma.product.update({ where: { id }, data: { isArchived: true } });
   }
 }

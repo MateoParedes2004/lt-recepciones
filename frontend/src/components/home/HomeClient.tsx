@@ -256,66 +256,74 @@ export default function HomeClient({ categories, galeriaImages }: HomeClientProp
         </section>
       )}
 
-      {/* 3. ADELANTO DE CATEGORÍAS */}
-      <section className="py-16 md:py-24 bg-slate-50 overflow-hidden">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+      {/* 3. VIDRIERA DE CATEGORÍAS */}
+      {categories.length > 0 && (
+        <section className="py-16 md:py-24 bg-slate-50 overflow-hidden">
+          <div className="max-w-7xl mx-auto px-6 lg:px-8">
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true, margin: "-100px" }}
+              className="text-center max-w-2xl mx-auto mb-10 md:mb-16"
+            >
+              <div className="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 border border-blue-100 mb-4">
+                <Sparkles className="w-4 h-4 text-blue-600 mr-2" />
+                <span className="text-xs font-semibold tracking-wider text-blue-700 uppercase">Nuestro Catálogo</span>
+              </div>
+              <h2 className="text-3xl md:text-5xl font-serif font-bold text-slate-900 mb-4 tracking-tight">Categorías disponibles</h2>
+              <p className="text-slate-500 text-base sm:text-lg">Explora por rubro y encontrá exactamente lo que tu evento necesita.</p>
+            </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            viewport={{ once: true, margin: "-100px" }}
-            className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 md:mb-12 gap-4"
-          >
-            <div>
-              <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-900 mb-3 md:mb-4 tracking-tight">Todo para tu celebración</h2>
-              <p className="text-slate-500 text-base sm:text-lg max-w-2xl">Descubre un mundo de posibilidades para vestir tu evento con la mejor gala.</p>
+            <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-6 -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-3 lg:grid-cols-6 md:gap-6 md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              {categories.map((category: any, index: number) => {
+                const Icon = CATEGORIA_ICONOS[category.name] || PackageOpen;
+                const hasImage = !brokenImages.has(category.id);
+                return (
+                  <motion.div
+                    key={category.id}
+                    className="snap-center shrink-0 w-32 sm:w-36 md:w-auto"
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: index * 0.08 }}
+                    viewport={{ once: true, margin: "-50px" }}
+                  >
+                    <AnchorLink
+                      href={`/catalogos#categoria-${slugify(category.name)}`}
+                      className="group block"
+                    >
+                      <div className="relative aspect-square rounded-3xl bg-linear-to-br from-blue-800 to-blue-900 border border-blue-700/50 shadow-lg overflow-hidden group-hover:-translate-y-2 group-hover:shadow-2xl group-hover:shadow-blue-900/30 transition-all duration-300">
+                        <div className="absolute top-0 left-0 w-24 h-24 bg-blue-400/20 rounded-full blur-2xl -translate-x-1/3 -translate-y-1/3 pointer-events-none"></div>
+
+                        {hasImage ? (
+                          <img
+                            src={getCategoriaImagen(category.name)}
+                            alt={category.name}
+                            loading="lazy"
+                            onError={() => setBrokenImages((prev) => new Set(prev).add(category.id))}
+                            className="relative z-10 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                          />
+                        ) : (
+                          <div className="relative z-10 w-full h-full flex items-center justify-center">
+                            <Icon className="w-1/3 h-1/3 text-blue-300/70" strokeWidth={1.25} />
+                          </div>
+                        )}
+
+                        <div className="absolute inset-0 bg-linear-to-t from-blue-950/80 via-blue-950/0 to-transparent"></div>
+                      </div>
+
+                      <div className="mt-3 md:mt-4 flex items-center justify-between px-1 gap-2">
+                        <h3 className="font-serif font-bold text-slate-900 text-xs sm:text-sm md:text-base leading-tight">{category.name}</h3>
+                        <ArrowRight className="w-4 h-4 text-blue-600 shrink-0 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+                      </div>
+                    </AnchorLink>
+                  </motion.div>
+                );
+              })}
             </div>
-            <Link href="/catalogos" className="text-blue-900 font-bold hover:text-blue-700 flex items-center bg-blue-100/70 px-6 py-3 rounded-xl transition-colors shrink-0 text-sm md:text-base mt-2 md:mt-0 w-full md:w-auto justify-center">
-              Ir a la tienda <ArrowRight className="w-4 h-4 ml-2" />
-            </Link>
-          </motion.div>
-
-          <div className="flex overflow-x-auto snap-x snap-mandatory gap-6 pb-6 -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-2 md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-
-            <motion.div
-              className="snap-center shrink-0 w-[85%] md:w-auto"
-              initial={{ opacity: 0, x: -50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6 }}
-              viewport={{ once: true }}
-            >
-              <Link href="/catalogos" className="block h-full group relative bg-white rounded-4xl p-8 md:p-10 border border-slate-200 overflow-hidden hover:shadow-xl transition-all duration-300">
-                <div className="absolute top-0 right-0 w-48 h-48 md:w-64 md:h-64 bg-blue-50 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 group-hover:scale-110 transition-transform"></div>
-                <div className="relative z-10">
-                  <Armchair className="w-10 h-10 md:w-12 md:h-12 text-blue-900 mb-5 md:mb-6" />
-                  <h3 className="text-2xl md:text-3xl font-serif font-bold text-slate-900 mb-2">Mobiliario</h3>
-                  <p className="text-slate-500 text-sm md:text-base mb-6 max-w-sm">Sillas Tiffany, mesas imperiales, livings y todo el soporte estructural para acomodar a tus invitados con lujo.</p>
-                  <span className="text-sm font-bold text-blue-600 flex items-center">Explorar categoría <ArrowRight className="w-4 h-4 ml-1 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" /></span>
-                </div>
-              </Link>
-            </motion.div>
-
-            <motion.div
-              className="snap-center shrink-0 w-[85%] md:w-auto"
-              initial={{ opacity: 0, x: 50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6 }}
-              viewport={{ once: true }}
-            >
-              <Link href="/catalogos" className="block h-full group relative bg-white rounded-4xl p-8 md:p-10 border border-slate-200 overflow-hidden hover:shadow-xl transition-all duration-300">
-                <div className="absolute top-0 right-0 w-48 h-48 md:w-64 md:h-64 bg-slate-100 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 group-hover:scale-110 transition-transform"></div>
-                <div className="relative z-10">
-                  <GlassWater className="w-10 h-10 md:w-12 md:h-12 text-blue-900 mb-5 md:mb-6" />
-                  <h3 className="text-2xl md:text-3xl font-serif font-bold text-slate-900 mb-2">Vajilla y Cristalería</h3>
-                  <p className="text-slate-500 text-sm md:text-base mb-6 max-w-sm">Platos de sitio, copas de cristal, cubiertos finos y accesorios de barra para un servicio de catering impecable.</p>
-                  <span className="text-sm font-bold text-blue-600 flex items-center">Explorar categoría <ArrowRight className="w-4 h-4 ml-1 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" /></span>
-                </div>
-              </Link>
-            </motion.div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* 4. SECCIÓN DE CONTACTO Y MAPA */}
       <section className="py-16 md:py-24 bg-white" id="contacto">
@@ -397,75 +405,6 @@ export default function HomeClient({ categories, galeriaImages }: HomeClientProp
           </div>
         </div>
       </section>
-
-      {/* 5. VIDRIERA DE CATEGORÍAS */}
-      {categories.length > 0 && (
-        <section className="py-16 md:py-24 bg-white overflow-hidden">
-          <div className="max-w-7xl mx-auto px-6 lg:px-8">
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              viewport={{ once: true, margin: "-100px" }}
-              className="text-center max-w-2xl mx-auto mb-10 md:mb-16"
-            >
-              <div className="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 border border-blue-100 mb-4">
-                <Sparkles className="w-4 h-4 text-blue-600 mr-2" />
-                <span className="text-xs font-semibold tracking-wider text-blue-700 uppercase">Nuestro Catálogo</span>
-              </div>
-              <h2 className="text-3xl md:text-5xl font-serif font-bold text-slate-900 mb-4 tracking-tight">Categorías disponibles</h2>
-              <p className="text-slate-500 text-base sm:text-lg">Explora por rubro y encontrá exactamente lo que tu evento necesita.</p>
-            </motion.div>
-
-            <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-6 -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-3 lg:grid-cols-6 md:gap-6 md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-              {categories.map((category: any, index: number) => {
-                const Icon = CATEGORIA_ICONOS[category.name] || PackageOpen;
-                const hasImage = !brokenImages.has(category.id);
-                return (
-                  <motion.div
-                    key={category.id}
-                    className="snap-center shrink-0 w-32 sm:w-36 md:w-auto"
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: index * 0.08 }}
-                    viewport={{ once: true, margin: "-50px" }}
-                  >
-                    <AnchorLink
-                      href={`/catalogos#categoria-${slugify(category.name)}`}
-                      className="group block"
-                    >
-                      <div className="relative aspect-square rounded-3xl bg-linear-to-br from-blue-800 to-blue-900 border border-blue-700/50 shadow-lg overflow-hidden group-hover:-translate-y-2 group-hover:shadow-2xl group-hover:shadow-blue-900/30 transition-all duration-300">
-                        <div className="absolute top-0 left-0 w-24 h-24 bg-blue-400/20 rounded-full blur-2xl -translate-x-1/3 -translate-y-1/3 pointer-events-none"></div>
-
-                        {hasImage ? (
-                          <img
-                            src={getCategoriaImagen(category.name)}
-                            alt={category.name}
-                            loading="lazy"
-                            onError={() => setBrokenImages((prev) => new Set(prev).add(category.id))}
-                            className="relative z-10 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                          />
-                        ) : (
-                          <div className="relative z-10 w-full h-full flex items-center justify-center">
-                            <Icon className="w-1/3 h-1/3 text-blue-300/70" strokeWidth={1.25} />
-                          </div>
-                        )}
-
-                        <div className="absolute inset-0 bg-linear-to-t from-blue-950/80 via-blue-950/0 to-transparent"></div>
-                      </div>
-
-                      <div className="mt-3 md:mt-4 flex items-center justify-between px-1 gap-2">
-                        <h3 className="font-serif font-bold text-slate-900 text-xs sm:text-sm md:text-base leading-tight">{category.name}</h3>
-                        <ArrowRight className="w-4 h-4 text-blue-600 shrink-0 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
-                      </div>
-                    </AnchorLink>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-      )}
 
     </main>
   );

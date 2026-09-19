@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { Package, CalendarDays, TrendingUp, LogOut, Layers, Tags, BarChart3, Camera, MapPin, Loader2 } from "lucide-react";
 import ProductsTab from "../../components/admin/ProductsTab";
 import CategoriesTab from "../../components/admin/CategoriesTab";
@@ -32,8 +33,9 @@ export default function AdminDashboard() {
   // Base de Datos Global
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
-  const [rentals, setRentals] = useState<any[]>([]); 
-  const [gallery, setGallery] = useState<any[]>([]); 
+  const [rentals, setRentals] = useState<any[]>([]);
+  const [gallery, setGallery] = useState<any[]>([]);
+  const [cities, setCities] = useState<any[]>([]);
 
   useEffect(() => {
     const token = localStorage.getItem("admin_token");
@@ -44,16 +46,18 @@ export default function AdminDashboard() {
   const fetchData = async () => {
     setIsLoadingData(true);
     try {
-      const [prodRes, catRes, rentRes, galRes] = await Promise.all([
+      const [prodRes, catRes, rentRes, galRes, cityRes] = await Promise.all([
         apiFetch('/products'),
         apiFetch('/categories'),
         apiFetch('/rentals'),
-        apiFetch('/gallery?admin=true')
+        apiFetch('/gallery?admin=true'),
+        apiFetch('/cities')
       ]);
       if (prodRes.ok) setProducts(await prodRes.json());
       if (catRes.ok) setCategories(await catRes.json());
       if (rentRes.ok) setRentals(await rentRes.json());
       if (galRes.ok) setGallery(await galRes.json());
+      if (cityRes.ok) setCities(await cityRes.json());
     } catch (error) { console.error("Error cargando datos", error); } 
     finally { setIsLoadingData(false); }
   };
@@ -74,7 +78,7 @@ export default function AdminDashboard() {
       <header className="mb-8 flex flex-col md:flex-row md:justify-between md:items-center bg-white p-6 rounded-3xl border border-slate-100 shadow-sm gap-4">
         <div><h1 className="text-3xl font-bold text-slate-900">Panel de Control</h1><p className="text-slate-500 mt-1">Gestión de inventario de LT Recepciones</p></div>
         <div className="flex items-center space-x-6">
-          <div className="flex items-center space-x-3"><div className="w-10 h-10 bg-[#004080] rounded-full flex items-center justify-center font-bold text-white shadow-md">LT</div><span className="font-medium text-slate-700 hidden md:block">Administrador</span></div>
+          <div className="flex items-center space-x-3"><div className="relative w-10 h-10"><Image src="/logo.png" alt="LT Recepciones" fill sizes="40px" className="object-contain" /></div><span className="font-medium text-slate-700 hidden md:block">Administrador</span></div>
           <div className="h-8 w-px bg-slate-200"></div>
           <button onClick={handleLogout} className="flex items-center text-red-500 hover:text-red-700 font-medium transition-colors cursor-pointer"><LogOut className="w-5 h-5 mr-2" /> Salir</button>
         </div>
@@ -114,7 +118,7 @@ export default function AdminDashboard() {
       {/* 4. RENDERIZADO DINÁMICO DE PESTAÑAS */}
       {activeTab === "products" && <ProductsTab products={products} categories={categories} fetchData={fetchData} isLoadingData={isLoadingData} />}
       {activeTab === "categories" && <CategoriesTab categories={categories} fetchData={fetchData} />}
-      {activeTab === "rentals" && <RentalsTab rentals={rentals} products={products} fetchData={fetchData} isLoadingData={isLoadingData} />}
+      {activeTab === "rentals" && <RentalsTab rentals={rentals} products={products} cities={cities} fetchData={fetchData} isLoadingData={isLoadingData} />}
       {activeTab === "gallery" && <GalleryTab gallery={gallery} fetchData={fetchData} isLoadingData={isLoadingData} />}
       {activeTab === "statistics" && <StatisticsTab />}
       {/* RENDERIZAMOS LA PESTAÑA DE CIUDADES */}

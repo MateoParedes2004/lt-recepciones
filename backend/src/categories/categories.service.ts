@@ -9,7 +9,9 @@ export class CategoriesService {
     return this.prisma.category.create({ data });
   }
 
-  // Categorías por ID (orden original), Productos de la A a la Z
+  // Categorías por ID (orden original), Productos de la A a la Z.
+  // Los productos archivados (baja lógica, ver ProductsService.deleteProduct)
+  // nunca aparecen en el catálogo público.
   findAll() {
     return this.prisma.category.findMany({
       orderBy: {
@@ -17,6 +19,7 @@ export class CategoriesService {
       },
       include: {
         products: {
+          where: { isArchived: false },
           orderBy: {
             name: 'asc', // Los platos y copas siguen ordenados alfabéticamente
           },
@@ -30,6 +33,7 @@ export class CategoriesService {
       where: { id },
       include: {
         products: {
+          where: { isArchived: false },
           orderBy: {
             name: 'asc', // También ordenamos los productos al ver una sola categoría
           },

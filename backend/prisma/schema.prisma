@@ -26,7 +26,15 @@ model Product {
   updatedAt   DateTime @updatedAt
   rentalItems RentalItem[]
 
+  // Baja lógica: se usa en vez de borrar de verdad cuando el producto ya
+  // tiene alquileres asociados, para no perder el detalle histórico ni
+  // distorsionar retroactivamente las estadísticas de ingresos. Desaparece
+  // del catálogo público y del selector de alquileres, pero el producto
+  // sigue existiendo para que el histórico se mantenga intacto.
+  isArchived  Boolean  @default(false)
+
   @@index([categoryId])
+  @@index([isArchived])
 }
 
 model User {
@@ -54,16 +62,26 @@ model Rental {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Ciudad de entrega (opcional: alquileres viejos o retiro en local no la tienen)
+  cityId      Int?
+  city        City?    @relation(fields: [cityId], references: [id], onDelete: SetNull)
+
   // Relación: Un alquiler tiene muchos productos adentro (ítems)
   items       RentalItem[]
 
   @@index([eventDate])
   @@index([status])
+  @@index([cityId])
 }
 
 model RentalItem {
   id        Int      @id @default(autoincrement())
   quantity  Int      // Cuántas unidades de este producto se llevó
+
+  // Precio unitario vigente al momento del alquiler (histórico). Nullable:
+  // los ítems creados antes de este campo no lo tienen, y las estadísticas
+  // caen de vuelta al precio actual del producto para esos casos.
+  unitPrice Decimal? @db.Decimal(10, 2)
 
   // Conexión con el Alquiler general
   rentalId  Int
@@ -109,4 +127,20 @@ model City {
   isActive  Boolean  @default(true) // Te permitirá habilitar/deshabilitar ciudades
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  rentals   Rental[]
+}
+
+// Señal de intención de compra: se registra cuando un cliente aprieta
+// "Enviar pedido por WhatsApp" en el carrito. El checkout público no pasa
+// por el backend (abre WhatsApp directo), así que esto es lo único que
+// conecta "visitó el sitio" con "llegó a intentar comprar" — el cierre real
+// (Rental) lo carga el admin a mano después de la conversación por WhatsApp.
+model CheckoutIntent {
+  id          Int      @id @default(autoincrement())
+  totalAmount Float
+  itemCount   Int
+  cityName    String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
 }

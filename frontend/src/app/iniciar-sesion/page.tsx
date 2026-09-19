@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Mail, Lock, Eye, EyeOff, ArrowLeft, Loader2, User } from "lucide-react";
 import { getApiUrl } from "../../lib/api";
 
@@ -85,10 +86,13 @@ export default function Login() {
           <div className="sm:mx-auto sm:w-full sm:max-w-md text-center mb-10">
             {/* Logo */}
             <div className="relative w-20 h-20 mx-auto mb-5">
-              <div className="w-20 h-20 bg-linear-to-br from-blue-400 to-blue-500 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-400/30 transform rotate-3">
-                <span className="text-white font-bold text-3xl tracking-tighter">LT</span>
-              </div>
-              <div className="absolute -inset-0.5 bg-linear-to-br from-blue-300 to-blue-500 rounded-2xl blur opacity-30 -z-10 rotate-3" />
+              <Image
+                src="/logo.png"
+                alt="LT Recepciones"
+                fill
+                sizes="80px"
+                className="object-contain"
+              />
             </div>
 
             <h2 className="text-3xl font-bold tracking-tight text-slate-900">

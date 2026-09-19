@@ -16,6 +16,7 @@ export interface Product {
   pricePerDay: number;
   categoryId: number;
   category?: Category;
+  isArchived?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -30,6 +31,7 @@ export interface City {
 export interface RentalItem {
   id: number;
   quantity: number;
+  unitPrice?: number | null;
   rentalId: number;
   productId: number;
   product?: Product;
@@ -45,6 +47,8 @@ export interface Rental {
   totalPrice: number;
   createdAt: string;
   updatedAt: string;
+  cityId?: number | null;
+  city?: City | null;
   items: RentalItem[];
 }
 
