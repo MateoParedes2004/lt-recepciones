@@ -122,7 +122,7 @@ export default function AdminDashboard() {
       {activeTab === "gallery" && <GalleryTab gallery={gallery} fetchData={fetchData} isLoadingData={isLoadingData} />}
       {activeTab === "statistics" && <StatisticsTab />}
       {/* RENDERIZAMOS LA PESTAÑA DE CIUDADES */}
-      {activeTab === "cities" && <CitiesTab />}
+      {activeTab === "cities" && <CitiesTab cities={cities} fetchData={fetchData} isLoadingData={isLoadingData} />}
 
     </div>
   );

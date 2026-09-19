@@ -78,12 +78,17 @@ export default function CartProvider({ children }: { children: React.ReactNode }
   const addToCart = (product: Product, quantity: number = 1) => {
     setCart((prev) => {
       const exists = prev.find((item) => item.product.id === product.id);
+      // El techo siempre es el stock disponible, restando lo que ya haya en
+      // el carrito — si no, agregar el mismo producto en dos tandas (o desde
+      // dos pestañas) podía superar el stock real aunque cada tanda por sí
+      // sola pareciera válida.
+      const maxQty = product.totalStock ?? Infinity;
       if (exists) {
         return prev.map((item) =>
-          item.product.id === product.id ? { ...item, quantity: item.quantity + quantity } : item
+          item.product.id === product.id ? { ...item, quantity: Math.min(item.quantity + quantity, maxQty) } : item
         );
       }
-      return [...prev, { product, quantity: quantity }];
+      return [...prev, { product, quantity: Math.min(quantity, maxQty) }];
     });
   };
 
@@ -93,7 +98,11 @@ export default function CartProvider({ children }: { children: React.ReactNode }
 
   const updateQuantity = (productId: number, quantity: number) => {
     if (quantity < 1) return;
-    setCart((prev) => prev.map((item) => (item.product.id === productId ? { ...item, quantity } : item)));
+    setCart((prev) => prev.map((item) => {
+      if (item.product.id !== productId) return item;
+      const maxQty = item.product.totalStock ?? Infinity;
+      return { ...item, quantity: Math.min(quantity, maxQty) };
+    }));
   };
 
   const subTotalAmount = cart.reduce((acc, item) => acc + item.product.pricePerDay * item.quantity, 0);
@@ -234,7 +243,7 @@ export default function CartProvider({ children }: { children: React.ReactNode }
                                 <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)} className="px-2 py-1 text-slate-500 hover:bg-slate-50 cursor-pointer"><Minus className="w-3 h-3" /></button>
                                 {/* 👇 Asegurado font-sans para la cantidad */}
                                 <span className="px-2 font-sans text-sm font-bold text-slate-700 w-8 text-center">{item.quantity}</span>
-                                <button onClick={() => updateQuantity(item.product.id, item.quantity + 1)} className="px-2 py-1 text-slate-500 hover:bg-slate-50 cursor-pointer"><Plus className="w-3 h-3" /></button>
+                                <button onClick={() => updateQuantity(item.product.id, item.quantity + 1)} disabled={item.quantity >= (item.product.totalStock ?? Infinity)} className="px-2 py-1 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"><Plus className="w-3 h-3" /></button>
                               </div>
                               <button onClick={() => removeFromCart(item.product.id)} className="text-xs text-red-500 hover:text-red-700 font-medium underline cursor-pointer">Quitar</button>
                             </div>

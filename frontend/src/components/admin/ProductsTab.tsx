@@ -45,7 +45,11 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
   };
 
   const handleEditClick = (product: any) => {
-    setEditingId(product.id); setFormData({ name: product.name, description: product.description, price: product.pricePerDay.toString(), categoryId: product.categoryId.toString(), totalStock: product.totalStock?.toString() || "0" });
+    // El campo edita el inventario FÍSICO total (disponible + alquilado),
+    // no solo lo disponible — ver ProductsService.updateProduct.
+    const physicalTotal = (product.totalStock || 0) + (product.rentedCount || 0);
+    setEditingId(product.id);
+    setFormData({ name: product.name, description: product.description ?? "", price: product.pricePerDay.toString(), categoryId: product.categoryId.toString(), totalStock: physicalTotal.toString() });
     setImagePreview(product.imageUrl ? getImageUrl(product.imageUrl) : ""); setImageFile(null); setIsModalOpen(true);
   };
 
@@ -136,7 +140,16 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label><input type="text" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-900 outline-none" /></div>
                 <div className="grid grid-cols-2 gap-4">
                   <div><label className="block text-sm font-medium text-slate-700 mb-1">Precio</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">Gs.</span><input type="number" required value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-900 outline-none" /></div></div>
-                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Stock Total</label><input type="number" required value={formData.totalStock} onChange={(e) => setFormData({...formData, totalStock: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl font-bold text-blue-900 outline-none" /></div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Stock Total (inventario físico)</label>
+                    <input type="number" required min={0} value={formData.totalStock} onChange={(e) => setFormData({...formData, totalStock: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl font-bold text-blue-900 outline-none" />
+                    {editingId && (() => {
+                      const editingProduct = products.find((p: any) => p.id === editingId);
+                      return editingProduct?.rentedCount > 0 ? (
+                        <p className="text-xs text-amber-600 mt-1">{editingProduct.rentedCount} unidades están alquiladas ahora mismo — el total no puede bajar de esa cantidad.</p>
+                      ) : null;
+                    })()}
+                  </div>
                 </div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Categoría</label><select required value={formData.categoryId} onChange={(e) => setFormData({...formData, categoryId: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-900 outline-none bg-white cursor-pointer"><option value="" disabled>Seleccionar...</option>{categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label><textarea required rows={2} value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl outline-none resize-none" /></div>

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -61,7 +61,25 @@ export class ProductsService {
     // Solo convertimos si el dato existe (para no romper si editas solo el nombre)
     if (data.pricePerDay) dataToUpdate.pricePerDay = parseFloat(data.pricePerDay);
     if (data.categoryId) dataToUpdate.categoryId = Number(data.categoryId);
-    if (data.totalStock) dataToUpdate.totalStock = Number(data.totalStock);
+
+    if (data.totalStock !== undefined && data.totalStock !== null && data.totalStock !== '') {
+      // El "Stock Total" que edita el admin representa el inventario FÍSICO
+      // completo (disponible + alquilado ahora mismo), no solo lo disponible.
+      // Si escribiéramos ese número directo en totalStock (disponible),
+      // cada edición mientras hay alquileres activos desincronizaría
+      // rentedCount y podía inflar el disponible por encima de la flota real.
+      const current = await this.prisma.product.findUnique({ where: { id }, select: { rentedCount: true } });
+      if (!current) throw new NotFoundException(`El producto con ID ${id} no existe.`);
+
+      const physicalTotal = Number(data.totalStock);
+      const newAvailable = physicalTotal - current.rentedCount;
+      if (newAvailable < 0) {
+        throw new BadRequestException(
+          `El stock total no puede ser menor a lo que ya está alquilado (${current.rentedCount} unidades afuera ahora mismo).`,
+        );
+      }
+      dataToUpdate.totalStock = newAvailable;
+    }
 
     return this.prisma.product.update({
       where: { id },

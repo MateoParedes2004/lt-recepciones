@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Search, Edit2, Save, X, MapPin, CheckCircle2, XCircle, Trash2, Plus, ArrowRightLeft } from 'lucide-react';
 import { apiFetch } from '../../lib/api';
 
@@ -11,36 +11,20 @@ interface City {
     isActive: boolean;
 }
 
-export default function CitiesTab() {
-    const [cities, setCities] = useState<City[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    
+// Recibe cities/fetchData del padre (admin/page.tsx) en vez de manejar su
+// propio fetch: así una ciudad nueva o desactivada acá se refleja al toque
+// en el selector de "Nuevo Alquiler" de RentalsTab, que usa ese mismo estado.
+export default function CitiesTab({ cities, fetchData, isLoadingData }: { cities: City[], fetchData: () => void, isLoadingData: boolean }) {
     // 👇 AHORA TENEMOS DOS BUSCADORES INDEPENDIENTES
     const [activeSearch, setActiveSearch] = useState('');
     const [inactiveSearch, setInactiveSearch] = useState('');
-    
+
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editPrice, setEditPrice] = useState<number>(0);
 
     const [isAdding, setIsAdding] = useState(false);
     const [newCityName, setNewCityName] = useState('');
     const [newCityPrice, setNewCityPrice] = useState<number>(0);
-
-    const fetchCities = async () => {
-        try {
-            const response = await apiFetch('/cities', { cache: 'no-store' });
-            const data = await response.json();
-            setCities(data);
-        } catch (error) {
-            console.error("Error al cargar ciudades:", error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchCities();
-    }, []);
 
     // 👇 FILTRAMOS Y SEPARAMOS EN TIEMPO REAL CON SU RESPECTIVO BUSCADOR
     const activeCities = cities
@@ -60,11 +44,13 @@ export default function CitiesTab() {
                 body: JSON.stringify({ name: newCityName, price: Number(newCityPrice) }),
             });
             if (response.ok) {
-                const addedCity = await response.json();
-                setCities([...cities, addedCity].sort((a, b) => a.name.localeCompare(b.name)));
+                fetchData();
                 setIsAdding(false); setNewCityName(''); setNewCityPrice(0);
+            } else {
+                const err = await response.json();
+                alert(`No se pudo crear la ciudad: ${err.message}`);
             }
-        } catch (error) { console.error("Error al crear ciudad:", error); }
+        } catch { alert("Error de conexión"); }
     };
 
     const handleSavePrice = async (id: number) => {
@@ -74,11 +60,9 @@ export default function CitiesTab() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ price: Number(editPrice) }),
             });
-            if (response.ok) {
-                setCities(cities.map(c => c.id === id ? { ...c, price: Number(editPrice) } : c));
-                setEditingId(null);
-            }
-        } catch (error) { console.error("Error al actualizar precio:", error); }
+            if (response.ok) { fetchData(); setEditingId(null); }
+            else { const err = await response.json(); alert(`No se pudo guardar el precio: ${err.message}`); }
+        } catch { alert("Error de conexión"); }
     };
 
     const handleToggleActive = async (id: number, currentStatus: boolean) => {
@@ -88,22 +72,21 @@ export default function CitiesTab() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ isActive: !currentStatus }),
             });
-            if (response.ok) {
-                // Al actualizar el estado, React automáticamente moverá la ciudad a la otra tabla
-                setCities(cities.map(c => c.id === id ? { ...c, isActive: !currentStatus } : c));
-            }
-        } catch (error) { console.error("Error al cambiar estado:", error); }
+            if (response.ok) fetchData();
+            else { const err = await response.json(); alert(`No se pudo actualizar: ${err.message}`); }
+        } catch { alert("Error de conexión"); }
     };
 
     const handleDelete = async (id: number, name: string) => {
         if (!window.confirm(`¿Estás seguro de que deseas eliminar permanentemente la ciudad "${name}"?`)) return;
         try {
             const response = await apiFetch(`/cities/${id}`, { method: 'DELETE' });
-            if (response.ok) setCities(cities.filter(c => c.id !== id));
-        } catch (error) { console.error("Error al eliminar ciudad:", error); }
+            if (response.ok) fetchData();
+            else { const err = await response.json(); alert(`No se pudo eliminar: ${err.message}`); }
+        } catch { alert("Error de conexión"); }
     };
 
-    if (isLoading) return <div className="p-8 text-center text-slate-500 animate-pulse">Cargando zonas de entrega...</div>;
+    if (isLoadingData) return <div className="p-8 text-center text-slate-500 animate-pulse">Cargando zonas de entrega...</div>;
 
     const totalActive = cities.filter(c => c.isActive).length;
     const totalInactive = cities.filter(c => !c.isActive).length;

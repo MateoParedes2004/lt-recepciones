@@ -26,7 +26,32 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
   const updateRentalItem = (index: number, field: string, value: string | number) => { const newItems: any = [...rentalForm.items]; newItems[index][field] = value; setRentalForm({ ...rentalForm, items: newItems }); };
 
   const handleSaveRental = async (e: React.FormEvent) => {
-    e.preventDefault(); setIsSavingRental(true);
+    e.preventDefault();
+
+    if (new Date(rentalForm.returnDate) < new Date(rentalForm.eventDate)) {
+      alert("La fecha de devolución no puede ser anterior a la fecha del evento.");
+      return;
+    }
+
+    // Mismo criterio que valida el backend: sumamos cantidades por producto
+    // (por si el mismo producto quedó en dos filas) para avisar ANTES de
+    // mandar el pedido, en vez de que el admin se entere recién con el
+    // rebote del servidor.
+    const quantityByProduct = new Map<number, number>();
+    for (const item of rentalForm.items) {
+      if (!item.productId) continue;
+      const id = parseInt(item.productId);
+      quantityByProduct.set(id, (quantityByProduct.get(id) ?? 0) + Number(item.quantity));
+    }
+    for (const [productId, quantity] of quantityByProduct) {
+      const product = products.find((p) => p.id === productId);
+      if (product && quantity > product.totalStock) {
+        alert(`No hay suficiente stock de "${product.name}": pediste ${quantity} y solo hay ${product.totalStock} disponibles.`);
+        return;
+      }
+    }
+
+    setIsSavingRental(true);
     try {
       const payload = {
         clientName: rentalForm.clientName, clientPhone: rentalForm.clientPhone,
