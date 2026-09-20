@@ -56,3 +56,6 @@ pids
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 /generated/prisma
+
+# Carpeta de subidas de una implementación anterior (hoy todo va a Cloudinary)
+/uploads

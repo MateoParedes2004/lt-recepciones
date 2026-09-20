@@ -1,8 +1,7 @@
 import { Metadata } from "next";
+import { notFound } from "next/navigation";
 import Image from "next/image";
-import Link from "next/link";
 import { CheckCircle, AlertCircle, Package } from "lucide-react";
-import AddToCartButton from "../../../components/AddToCartButton";
 import ProductActions from "../../../components/ProductActions";
 import BackButton from "../../../components/BackButton"; 
 // 👇 Importamos los nuevos animadores
@@ -20,16 +19,20 @@ export async function generateMetadata({ params }: { params: { id: string } }): 
     if (!res.ok) throw new Error("Producto no encontrado");
     const product = await res.json();
 
+    // description es opcional en el modelo: con null, el .substring() de antes
+    // tiraba error y el catch de abajo devolvía metadata genérica (SEO perdido).
+    const description: string = product.description || `Alquiler de ${product.name} para eventos en LT Recepciones.`;
+
     return {
       title: `${product.name} | Alquiler en LT Recepciones`,
-      description: product.description.substring(0, 160),
+      description: description.substring(0, 160),
       openGraph: {
         title: product.name,
-        description: product.description,
-        images: [{ url: getImageUrl(product.imageUrl) }],
+        description,
+        ...(product.imageUrl ? { images: [{ url: getImageUrl(product.imageUrl) }] } : {}),
       },
     };
-  } catch (error) {
+  } catch {
     return { title: "Producto | LT Recepciones" };
   }
 }
@@ -39,19 +42,29 @@ export default async function ProductDetailsPage({ params }: { params: { id: str
   const resolvedParams = await params;
   
   let product = null;
+  let productDoesNotExist = false;
   try {
     const res = await fetch(`${getApiUrl()}/products/${resolvedParams.id}`, { next: { revalidate: 60 } });
     if (res.ok) {
       product = await res.json();
+    } else if (res.status === 404) {
+      productDoesNotExist = true;
     }
   } catch (error) {
     console.error("Error al cargar producto:", error);
   }
 
+  // Un producto que de verdad no existe (o fue dado de baja) responde 404 real:
+  // antes devolvía 200 con un cartel, y los buscadores lo trataban como página válida.
+  if (productDoesNotExist) notFound();
+
+  // Si el servidor falló por otro motivo (caído, lento) no es un 404: el producto
+  // puede existir, así que mostramos un aviso de "no se pudo cargar" y no una página inexistente.
   if (!product) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-        <h1 className="text-2xl font-serif font-bold text-slate-900 mb-4">Producto no encontrado</h1>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 px-6 text-center">
+        <h1 className="text-2xl font-serif font-bold text-slate-900 mb-2">No pudimos cargar este producto</h1>
+        <p className="text-slate-500 mb-6">Puede ser un problema momentáneo de conexión. Intentá de nuevo en unos segundos.</p>
         <BackButton />
       </div>
     );

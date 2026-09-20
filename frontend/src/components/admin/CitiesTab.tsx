@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { Search, Edit2, Save, X, MapPin, CheckCircle2, XCircle, Trash2, Plus, ArrowRightLeft } from 'lucide-react';
-import { apiFetch } from '../../lib/api';
+import { apiFetch, readApiError } from '../../lib/api';
+import { useToast } from './ToastProvider';
 
 interface City {
     id: number;
@@ -15,6 +16,8 @@ interface City {
 // propio fetch: así una ciudad nueva o desactivada acá se refleja al toque
 // en el selector de "Nuevo Alquiler" de RentalsTab, que usa ese mismo estado.
 export default function CitiesTab({ cities, fetchData, isLoadingData }: { cities: City[], fetchData: () => void, isLoadingData: boolean }) {
+    const toast = useToast();
+
     // 👇 AHORA TENEMOS DOS BUSCADORES INDEPENDIENTES
     const [activeSearch, setActiveSearch] = useState('');
     const [inactiveSearch, setInactiveSearch] = useState('');
@@ -36,7 +39,7 @@ export default function CitiesTab({ cities, fetchData, isLoadingData }: { cities
         .filter(c => c.name.toLowerCase().includes(inactiveSearch.toLowerCase()));
 
     const handleAddCity = async () => {
-        if (!newCityName.trim()) return alert("El nombre de la ciudad es obligatorio.");
+        if (!newCityName.trim()) return toast.error("El nombre de la ciudad es obligatorio.");
         try {
             const response = await apiFetch('/cities', {
                 method: 'POST',
@@ -46,11 +49,11 @@ export default function CitiesTab({ cities, fetchData, isLoadingData }: { cities
             if (response.ok) {
                 fetchData();
                 setIsAdding(false); setNewCityName(''); setNewCityPrice(0);
+                toast.success(`Ciudad "${newCityName.trim()}" agregada.`);
             } else {
-                const err = await response.json();
-                alert(`No se pudo crear la ciudad: ${err.message}`);
+                toast.error(`No se pudo crear la ciudad: ${await readApiError(response)}`);
             }
-        } catch { alert("Error de conexión"); }
+        } catch { toast.error("Error de conexión. Revisá tu internet e intentá de nuevo."); }
     };
 
     const handleSavePrice = async (id: number) => {
@@ -60,9 +63,9 @@ export default function CitiesTab({ cities, fetchData, isLoadingData }: { cities
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ price: Number(editPrice) }),
             });
-            if (response.ok) { fetchData(); setEditingId(null); }
-            else { const err = await response.json(); alert(`No se pudo guardar el precio: ${err.message}`); }
-        } catch { alert("Error de conexión"); }
+            if (response.ok) { fetchData(); setEditingId(null); toast.success("Precio actualizado."); }
+            else toast.error(`No se pudo guardar el precio: ${await readApiError(response)}`);
+        } catch { toast.error("Error de conexión. Revisá tu internet e intentá de nuevo."); }
     };
 
     const handleToggleActive = async (id: number, currentStatus: boolean) => {
@@ -73,17 +76,17 @@ export default function CitiesTab({ cities, fetchData, isLoadingData }: { cities
                 body: JSON.stringify({ isActive: !currentStatus }),
             });
             if (response.ok) fetchData();
-            else { const err = await response.json(); alert(`No se pudo actualizar: ${err.message}`); }
-        } catch { alert("Error de conexión"); }
+            else toast.error(`No se pudo actualizar: ${await readApiError(response)}`);
+        } catch { toast.error("Error de conexión. Revisá tu internet e intentá de nuevo."); }
     };
 
     const handleDelete = async (id: number, name: string) => {
         if (!window.confirm(`¿Estás seguro de que deseas eliminar permanentemente la ciudad "${name}"?`)) return;
         try {
             const response = await apiFetch(`/cities/${id}`, { method: 'DELETE' });
-            if (response.ok) fetchData();
-            else { const err = await response.json(); alert(`No se pudo eliminar: ${err.message}`); }
-        } catch { alert("Error de conexión"); }
+            if (response.ok) { fetchData(); toast.success(`Ciudad "${name}" eliminada.`); }
+            else toast.error(`No se pudo eliminar: ${await readApiError(response)}`);
+        } catch { toast.error("Error de conexión. Revisá tu internet e intentá de nuevo."); }
     };
 
     if (isLoadingData) return <div className="p-8 text-center text-slate-500 animate-pulse">Cargando zonas de entrega...</div>;
@@ -179,12 +182,12 @@ export default function CitiesTab({ cities, fetchData, isLoadingData }: { cities
                                             <td className="px-4 py-3 text-right">
                                                 {editingId === city.id ? (
                                                     <div className="flex justify-end gap-1">
-                                                        <button onClick={() => handleSavePrice(city.id)} className="p-1.5 bg-[#004080] text-white rounded hover:bg-[#002b5e]"><Save className="w-3.5 h-3.5" /></button>
-                                                        <button onClick={() => setEditingId(null)} className="p-1.5 bg-slate-200 text-slate-600 rounded hover:bg-slate-300"><X className="w-3.5 h-3.5" /></button>
+                                                        <button onClick={() => handleSavePrice(city.id)} aria-label="Guardar precio" title="Guardar precio" className="p-1.5 bg-[#004080] text-white rounded hover:bg-[#002b5e]"><Save className="w-3.5 h-3.5" /></button>
+                                                        <button onClick={() => setEditingId(null)} aria-label="Cancelar edición" title="Cancelar edición" className="p-1.5 bg-slate-200 text-slate-600 rounded hover:bg-slate-300"><X className="w-3.5 h-3.5" /></button>
                                                     </div>
                                                 ) : (
                                                     <div className="flex justify-end items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button onClick={() => { setEditingId(city.id); setEditPrice(city.price); }} className="p-1.5 text-slate-400 hover:text-[#004080] bg-slate-100 hover:bg-blue-50 rounded" title="Editar precio"><Edit2 className="w-3.5 h-3.5" /></button>
+                                                        <button onClick={() => { setEditingId(city.id); setEditPrice(city.price); }} className="p-1.5 text-slate-400 hover:text-[#004080] bg-slate-100 hover:bg-blue-50 rounded" title="Editar precio" aria-label="Editar precio"><Edit2 className="w-3.5 h-3.5" /></button>
                                                         <button onClick={() => handleToggleActive(city.id, city.isActive)} className="p-1.5 text-emerald-600 hover:text-white bg-emerald-50 hover:bg-emerald-500 rounded flex items-center gap-1 ml-2" title="Desactivar ciudad">
                                                             <ArrowRightLeft className="w-3.5 h-3.5" /> <span className="text-xs font-bold">Desactivar</span>
                                                         </button>
@@ -237,7 +240,7 @@ export default function CitiesTab({ cities, fetchData, isLoadingData }: { cities
                                             </td>
                                             <td className="px-4 py-3 text-right">
                                                 <div className="flex justify-end items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <button onClick={() => handleDelete(city.id, city.name)} className="p-1.5 text-red-400 hover:text-white bg-red-50 hover:bg-red-500 rounded" title="Eliminar permanentemente"><Trash2 className="w-3.5 h-3.5" /></button>
+                                                    <button onClick={() => handleDelete(city.id, city.name)} className="p-1.5 text-red-400 hover:text-white bg-red-50 hover:bg-red-500 rounded" title="Eliminar permanentemente" aria-label="Eliminar permanentemente"><Trash2 className="w-3.5 h-3.5" /></button>
                                                     {/* Botón Activar (Rojo) */}
                                                     <button onClick={() => handleToggleActive(city.id, city.isActive)} className="p-1.5 text-red-600 hover:text-white bg-red-50 hover:bg-red-600 rounded flex items-center gap-1 ml-2" title="Reactivar ciudad">
                                                         <ArrowRightLeft className="w-3.5 h-3.5" /> <span className="text-xs font-bold">Activar</span>

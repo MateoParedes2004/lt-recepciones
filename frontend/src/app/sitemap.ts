@@ -6,7 +6,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const routes: MetadataRoute.Sitemap = [
     '',
     '/catalogos',
-    '/iniciar-sesion',
   ].map((route) => ({
     url: `${baseUrl}${route}`,
     lastModified: new Date(),
@@ -30,7 +29,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const products = await res.json()
 
     const productRoutes = Array.isArray(products)
-      ? products.map((product: any) => ({
+      ? products.map((product: { id: number; updatedAt?: string }) => ({
           url: `${baseUrl}/catalogos/${product.id}`,
           lastModified: new Date(product.updatedAt || new Date()),
           changeFrequency: 'daily' as const,

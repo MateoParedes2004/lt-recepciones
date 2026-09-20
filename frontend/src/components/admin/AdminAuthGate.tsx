@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import ToastProvider from "./ToastProvider";
 
 export default function AdminAuthGate({ children }: { children: React.ReactNode }) {
     const router = useRouter();
@@ -17,7 +18,9 @@ export default function AdminAuthGate({ children }: { children: React.ReactNode 
       // Si no hay llave, patada de vuelta al login
         router.push("/iniciar-sesion");
     } else {
-        // Si hay llave, lo dejamos pasar y renderizamos la página
+        // Si hay llave, lo dejamos pasar y renderizamos la página.
+        // localStorage solo existe en el navegador, por eso se lee acá (tras montar).
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setIsAuthorized(true);
         }
     }, [router, pathname]);
@@ -32,6 +35,7 @@ export default function AdminAuthGate({ children }: { children: React.ReactNode 
         );
     }
 
-    // Si todo está bien, mostramos el Panel de Administrador tal cual lo tienes
-    return <>{children}</>;
+    // Si todo está bien, mostramos el Panel de Administrador (con las
+    // notificaciones del panel disponibles para todas sus pestañas)
+    return <ToastProvider>{children}</ToastProvider>;
 }

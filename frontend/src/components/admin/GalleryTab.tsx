@@ -2,9 +2,12 @@
 
 import { useState, useRef } from "react";
 import { Upload, Trash2, Eye, EyeOff, Loader2, Camera } from "lucide-react";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, readApiError } from "../../lib/api";
+import { useToast } from "./ToastProvider";
+import type { GalleryImage } from "../../types";
 
-export default function GalleryTab({ gallery, fetchData, isLoadingData }: any) {
+export default function GalleryTab({ gallery, fetchData, isLoadingData }: { gallery: GalleryImage[], fetchData: () => void, isLoadingData: boolean }) {
+  const toast = useToast();
   const [isUploading, setIsUploading] = useState(false);
   const [uploadTitle, setUploadTitle] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -33,12 +36,13 @@ export default function GalleryTab({ gallery, fetchData, isLoadingData }: any) {
         setUploadTitle("");
         if (fileInputRef.current) fileInputRef.current.value = "";
         fetchData(); // Recarga las fotos
-        alert(`¡${files.length} imagen(es) subida(s) con éxito!`);
+        toast.success(files.length === 1 ? "Imagen subida con éxito." : `${files.length} imágenes subidas con éxito.`);
       } else {
-        alert("Error al subir las imágenes");
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        toast.error(`No se pudieron subir las imágenes: ${await readApiError(res)}`);
       }
-    } catch (error) {
-      alert("Error de conexión al subir las imágenes");
+    } catch {
+      toast.error("Error de conexión al subir las imágenes. Revisá tu internet e intentá de nuevo.");
     } finally {
       setIsUploading(false);
     }
@@ -50,8 +54,9 @@ export default function GalleryTab({ gallery, fetchData, isLoadingData }: any) {
         method: "PATCH",
       });
       if (res.ok) fetchData();
-    } catch (error) {
-      console.error("Error al cambiar visibilidad", error);
+      else toast.error(`No se pudo cambiar la visibilidad: ${await readApiError(res)}`);
+    } catch {
+      toast.error("Error de conexión. Revisá tu internet e intentá de nuevo.");
     }
   };
 
@@ -61,9 +66,10 @@ export default function GalleryTab({ gallery, fetchData, isLoadingData }: any) {
       const res = await apiFetch(`/gallery/${id}`, {
         method: "DELETE",
       });
-      if (res.ok) fetchData();
-    } catch (error) {
-      console.error("Error al borrar foto", error);
+      if (res.ok) { fetchData(); toast.success("Foto eliminada."); }
+      else toast.error(`No se pudo borrar la foto: ${await readApiError(res)}`);
+    } catch {
+      toast.error("Error de conexión. Revisá tu internet e intentá de nuevo.");
     }
   };
 
@@ -82,13 +88,14 @@ export default function GalleryTab({ gallery, fetchData, isLoadingData }: any) {
           <input 
             type="text" 
             placeholder="Título (Ej: Boda María)" 
+            aria-label="Título de las fotos" 
             className="px-4 py-2 rounded-xl border-none bg-white shadow-sm text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full md:w-48"
             value={uploadTitle}
             onChange={(e) => setUploadTitle(e.target.value)}
           />
           <input 
             type="file" 
-            accept="image/*" 
+            accept="image/jpeg,image/png,image/webp" 
             multiple // 👈 MAGIA: Permite seleccionar múltiples archivos
             className="hidden" 
             ref={fileInputRef}
@@ -111,11 +118,11 @@ export default function GalleryTab({ gallery, fetchData, isLoadingData }: any) {
         <div className="text-center py-16 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
           <Camera className="w-12 h-12 mx-auto text-slate-300 mb-4" />
           <h3 className="text-lg font-bold text-slate-900">Tu galería está vacía</h3>
-          <p className="text-slate-500">Haz clic en "Subir Fotos" y selecciona varias imágenes.</p>
+          <p className="text-slate-500">Haz clic en &quot;Subir Fotos&quot; y selecciona varias imágenes.</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {gallery.map((img: any) => (
+          {gallery.map((img) => (
             <div key={img.id} className={`group relative rounded-2xl overflow-hidden border ${img.isVisible ? 'border-slate-200 shadow-sm' : 'border-slate-300 opacity-60 grayscale-50'} h-48 bg-slate-100`}>
               <img src={img.imageUrl} alt={img.title || "Evento"} className="w-full h-full object-cover" />
               <div className="absolute inset-0 bg-slate-900/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-between p-3">
@@ -123,7 +130,7 @@ export default function GalleryTab({ gallery, fetchData, isLoadingData }: any) {
                   <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${img.isVisible ? 'bg-emerald-500 text-white' : 'bg-slate-500 text-white'}`}>
                     {img.isVisible ? 'VISIBLE' : 'OCULTO'}
                   </span>
-                  <button onClick={() => handleDelete(img.id)} className="p-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 cursor-pointer" title="Borrar definitivamente">
+                  <button onClick={() => handleDelete(img.id)} className="p-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 cursor-pointer" title="Borrar definitivamente" aria-label={`Borrar definitivamente ${img.title || "esta foto"}`}>
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>

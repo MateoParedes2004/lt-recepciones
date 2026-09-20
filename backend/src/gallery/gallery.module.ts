@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common';
 import { GalleryService } from './gallery.service';
 import { GalleryController } from './gallery.controller';
 import { PrismaModule } from '../prisma/prisma.module'; // Ajusta la ruta si tu PrismaModule está en otro lado
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, CloudinaryModule],
   controllers: [GalleryController],
   providers: [GalleryService],
 })

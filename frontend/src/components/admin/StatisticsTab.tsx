@@ -10,7 +10,9 @@ import { apiFetch } from "../../lib/api";
 
 const formatPYG = (amount: number) => `Gs. ${Math.round(amount).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 const formatPct = (n: number) => `${n.toFixed(1)}%`;
-const formatDias = (n: number) => `${n.toFixed(1)} días`;
+// Nunca mostramos días negativos: un alquiler cargado después de la fecha del
+// evento (carga retroactiva) daría una anticipación negativa sin sentido.
+const formatDias = (n: number) => `${Math.max(0, n).toFixed(1)} días`;
 
 // Colores fijos por serie/entidad — se reutilizan igual en el gráfico de
 // actividad, el embudo y cualquier otro lugar que hable de la misma métrica,
@@ -58,13 +60,13 @@ function StatTile({ icon, label, value, accent }: { icon: React.ReactNode; label
   );
 }
 
-function RankedTable({ icon, title, subtitle, rows, emptyLabel, unitLabel }: {
-  icon: React.ReactNode; title: string; subtitle?: string;
+function RankedTable({ icon, title, subtitle, rows, emptyLabel, unitLabel, isLoading }: {
+  icon: React.ReactNode; title: string; subtitle?: string; isLoading: boolean;
   rows: { key: string; nombre: string; alquileres: number; ingresos: number }[];
   emptyLabel: string; unitLabel: string;
 }) {
   return (
-    <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+    <div aria-busy={isLoading} className={`bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden transition-opacity duration-200 ${isLoading ? "opacity-50" : ""}`}>
       <div className="p-6 border-b border-slate-100">
         <h3 className="text-lg font-bold text-slate-900 flex items-center">
           {icon} {title}
@@ -123,6 +125,8 @@ export default function StatisticsTab() {
   const [ingresosPorCategoria, setIngresosPorCategoria] = useState<CategoriaStat[]>([]);
   const [demandaPorCiudad, setDemandaPorCiudad] = useState<CiudadStat[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     apiFetch('/analytics/years').then(async (res) => {
@@ -134,8 +138,14 @@ export default function StatisticsTab() {
   }, []);
 
   useEffect(() => {
+    // Si el usuario cambia de filtro rápido, las respuestas pueden llegar en
+    // otro orden del que se pidieron. Cancelamos la petición anterior (y
+    // ignoramos su resultado) para que solo se muestre lo del filtro actual.
+    const controller = new AbortController();
+
     const fetchAnalytics = async () => {
       setIsLoading(true);
+      setLoadError(false);
       try {
         let url = `/analytics/dashboard`;
         if (viewMode === "diario") {
@@ -148,24 +158,29 @@ export default function StatisticsTab() {
           url += `?year=${selectedYear}`;
         }
 
-        const res = await apiFetch(url);
+        const res = await apiFetch(url, { signal: controller.signal });
+        if (controller.signal.aborted) return;
         if (res.ok) {
           const data = await res.json();
+          if (controller.signal.aborted) return;
           setKpis(data.kpis);
           setChartData(data.chartData);
           setTopProductos(data.topProductos);
           setIngresosPorCategoria(data.ingresosPorCategoria);
           setDemandaPorCiudad(data.demandaPorCiudad);
+        } else {
+          setLoadError(true);
         }
-      } catch (error) {
-        console.error("Error al cargar analíticas", error);
+      } catch {
+        if (!controller.signal.aborted) setLoadError(true);
       } finally {
-        setIsLoading(false);
+        if (!controller.signal.aborted) setIsLoading(false);
       }
     };
 
     fetchAnalytics();
-  }, [viewMode, selectedDay, selectedMonth, selectedYear]);
+    return () => controller.abort();
+  }, [viewMode, selectedDay, selectedMonth, selectedYear, reloadKey]);
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
@@ -184,19 +199,19 @@ export default function StatisticsTab() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-slate-50 p-2.5 rounded-2xl border border-slate-100 w-full lg:w-auto">
           <div className="flex items-center text-slate-500 font-medium text-sm px-2"><Filter className="w-4 h-4 mr-2" /> Filtrar por:</div>
           <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200 w-full sm:w-auto">
-            <button onClick={() => setViewMode("diario")} className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-sm font-bold transition-all cursor-pointer ${viewMode === "diario" ? "bg-blue-50 text-blue-700" : "text-slate-500 hover:text-slate-700"}`}>Día</button>
-            <button onClick={() => setViewMode("mensual")} className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-sm font-bold transition-all cursor-pointer ${viewMode === "mensual" ? "bg-blue-50 text-blue-700" : "text-slate-500 hover:text-slate-700"}`}>Mes</button>
-            <button onClick={() => setViewMode("anual")} className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-sm font-bold transition-all cursor-pointer ${viewMode === "anual" ? "bg-blue-50 text-blue-700" : "text-slate-500 hover:text-slate-700"}`}>Año</button>
+            <button onClick={() => setViewMode("diario")} aria-pressed={viewMode === "diario"} className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-sm font-bold transition-all cursor-pointer ${viewMode === "diario" ? "bg-blue-50 text-blue-700" : "text-slate-500 hover:text-slate-700"}`}>Día</button>
+            <button onClick={() => setViewMode("mensual")} aria-pressed={viewMode === "mensual"} className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-sm font-bold transition-all cursor-pointer ${viewMode === "mensual" ? "bg-blue-50 text-blue-700" : "text-slate-500 hover:text-slate-700"}`}>Mes</button>
+            <button onClick={() => setViewMode("anual")} aria-pressed={viewMode === "anual"} className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-sm font-bold transition-all cursor-pointer ${viewMode === "anual" ? "bg-blue-50 text-blue-700" : "text-slate-500 hover:text-slate-700"}`}>Año</button>
           </div>
           <div className="w-px h-6 bg-slate-200 hidden sm:block"></div>
           <div className="relative w-full sm:w-auto">
             <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-600 pointer-events-none" />
             {viewMode === "diario" ? (
-              <input type="date" value={selectedDay} onChange={(e) => setSelectedDay(e.target.value)} className="pl-9 pr-4 py-1.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-600 focus:outline-none cursor-pointer w-full sm:w-auto shadow-sm" />
+              <input type="date" aria-label="Día a consultar" value={selectedDay} onChange={(e) => { if (e.target.value) setSelectedDay(e.target.value); }} className="pl-9 pr-4 py-1.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-600 focus:outline-none cursor-pointer w-full sm:w-auto shadow-sm" />
             ) : viewMode === "mensual" ? (
-              <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="pl-9 pr-4 py-1.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-600 focus:outline-none cursor-pointer w-full sm:w-auto shadow-sm" />
+              <input type="month" aria-label="Mes a consultar" value={selectedMonth} onChange={(e) => { if (e.target.value) setSelectedMonth(e.target.value); }} className="pl-9 pr-4 py-1.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-600 focus:outline-none cursor-pointer w-full sm:w-auto shadow-sm" />
             ) : (
-              <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="pl-9 pr-8 py-1.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-600 focus:outline-none cursor-pointer w-full sm:w-auto appearance-none shadow-sm">
+              <select aria-label="Año a consultar" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="pl-9 pr-8 py-1.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-600 focus:outline-none cursor-pointer w-full sm:w-auto appearance-none shadow-sm">
                 {availableYears.map((y) => (<option key={y} value={y}>Año {y}</option>))}
               </select>
             )}
@@ -204,8 +219,15 @@ export default function StatisticsTab() {
         </div>
       </div>
 
+      {loadError && !isLoading && (
+        <div role="alert" className="flex flex-col sm:flex-row sm:items-center gap-3 bg-red-50 border border-red-200 text-red-800 px-5 py-4 rounded-2xl">
+          <p className="flex-1 text-sm font-medium">No se pudieron cargar las estadísticas de este período. Lo que ves abajo puede ser del período anterior.</p>
+          <button onClick={() => setReloadKey((k) => k + 1)} className="bg-red-600 text-white text-sm font-bold px-4 py-2 rounded-xl hover:bg-red-700 cursor-pointer">Reintentar</button>
+        </div>
+      )}
+
       {/* FILA DE KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div aria-busy={isLoading} className={`grid grid-cols-2 lg:grid-cols-4 gap-4 transition-opacity duration-200 ${isLoading ? "opacity-50" : ""}`}>
         <StatTile icon={<Wallet className="w-5 h-5" />} label="Ingresos totales" value={formatPYG(kpis?.totalIngresos ?? 0)} accent="#059669" />
         <StatTile icon={<ShoppingBag className="w-5 h-5" />} label="Alquileres confirmados" value={String(kpis?.totalAlquileres ?? 0)} accent={COLOR_ALQUILERES} />
         <StatTile icon={<TrendingUp className="w-5 h-5" />} label="Ticket promedio" value={formatPYG(kpis?.ticketPromedio ?? 0)} accent="#2563eb" />
@@ -217,7 +239,7 @@ export default function StatisticsTab() {
       </div>
 
       {/* EMBUDO DE CONVERSIÓN */}
-      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+      <div aria-busy={isLoading} className={`bg-white p-6 rounded-3xl border border-slate-100 shadow-sm transition-opacity duration-200 ${isLoading ? "opacity-50" : ""}`}>
         <h3 className="text-lg font-bold text-slate-900 mb-1">Embudo: de visitante a cliente</h3>
         <p className="text-slate-500 text-xs mb-6">
           El último tramo depende de que cada venta cerrada por WhatsApp se cargue como alquiler en este panel — es una tasa aproximada, no una atribución exacta.
@@ -306,6 +328,7 @@ export default function StatisticsTab() {
         rows={topProductos.map((p) => ({ key: String(p.id), nombre: p.nombre, alquileres: p.alquileres, ingresos: p.ingresos }))}
         emptyLabel="No hay datos de alquileres para este periodo."
         unitLabel="Unidades alquiladas"
+        isLoading={isLoading}
       />
 
       {/* NUEVAS SECCIONES: CATEGORÍA Y CIUDAD */}
@@ -316,6 +339,7 @@ export default function StatisticsTab() {
           rows={ingresosPorCategoria.map((c) => ({ key: c.categoria, nombre: c.categoria, alquileres: c.alquileres, ingresos: c.ingresos }))}
           emptyLabel="No hay datos para este periodo."
           unitLabel="Unidades alquiladas"
+          isLoading={isLoading}
         />
         <RankedTable
           icon={<MapPin className="w-5 h-5 mr-2 text-rose-500" />}
@@ -323,6 +347,7 @@ export default function StatisticsTab() {
           rows={demandaPorCiudad.map((c) => ({ key: c.ciudad, nombre: c.ciudad, alquileres: c.alquileres, ingresos: c.ingresos }))}
           emptyLabel="No hay datos para este periodo."
           unitLabel="Alquileres"
+          isLoading={isLoading}
         />
       </div>
     </div>

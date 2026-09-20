@@ -2,11 +2,12 @@ export const revalidate = 60;
 
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Sparkles, Armchair, PackageOpen } from "lucide-react";
+import { Sparkles, Armchair } from "lucide-react";
 import AddToCartButton from "../../components/AddToCartButton";
 import ScrollToHash from "../../components/ScrollToHash";
 import { Metadata } from "next"; // 👇 IMPORTAMOS METADATA
 import { getApiUrl, getImageUrl } from "../../lib/api";
+import type { Category, Product } from "../../types";
 
 // 👇 INYECTAMOS EL SEO ESPECÍFICO PARA EL CATÁLOGO
 export const metadata: Metadata = {
@@ -79,7 +80,7 @@ export default async function Catalogos() {
             <p className="text-slate-500 mt-2 text-sm">Pronto subiremos nuestros mejores productos aquí.</p>
           </div>
         ) : (
-          categories.map((category: any) => (
+          categories.map((category: Category) => (
             <section key={category.id} className="mb-12 md:mb-16 scroll-mt-28" id={`categoria-${category.name.toLowerCase().replace(/ /g, '-')}`}>
               
               <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-5 md:mb-6 pb-3 border-b border-slate-200 gap-2">
@@ -95,7 +96,7 @@ export default async function Catalogos() {
               <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-6 -mx-4 px-4 md:mx-0 md:px-0 md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 
                 {category.products && category.products.length > 0 ? (
-                  category.products.map((product: any) => (
+                  category.products.map((product: Product) => (
                     
                     // TARJETA DE PRODUCTO 
                     <div key={product.id} className="snap-center shrink-0 w-[60vw] sm:w-55 md:w-auto bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col group relative">

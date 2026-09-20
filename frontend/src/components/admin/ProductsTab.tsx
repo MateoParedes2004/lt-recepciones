@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Edit, Trash2, Search, X, Image as ImageIcon, Filter, ChevronDown } from "lucide-react";
-import { apiFetch, getImageUrl } from "../../lib/api";
+import { Plus, Edit, Trash2, Search, X, Image as ImageIcon, Filter, ChevronDown, Archive, RotateCcw } from "lucide-react";
+import { apiFetch, getImageUrl, readApiError } from "../../lib/api";
+import { useToast } from "./ToastProvider";
+import type { Product, Category } from "../../types";
 
 const formatPYG = (amount: number) => `Gs. ${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 
-export default function ProductsTab({ products, categories, fetchData, isLoadingData }: { products: any[], categories: any[], fetchData: () => void, isLoadingData: boolean }) {
+export default function ProductsTab({ products, categories, fetchData, isLoadingData }: { products: Product[], categories: Category[], fetchData: () => void, isLoadingData: boolean }) {
+  const toast = useToast();
   const [searchProduct, setSearchProduct] = useState("");
   const [filterCategory, setFilterCategory] = useState(""); // 👈 NUEVO ESTADO PARA EL FILTRO
   
@@ -16,6 +19,34 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const [formData, setFormData] = useState({ name: "", description: "", price: "", categoryId: "", totalStock: "" });
+
+  // Productos dados de baja (archivados): se cargan solo cuando se abre esa vista.
+  const [showArchived, setShowArchived] = useState(false);
+  const [archived, setArchived] = useState<Product[]>([]);
+  const [isLoadingArchived, setIsLoadingArchived] = useState(false);
+  const [archivedError, setArchivedError] = useState(false);
+
+  const loadArchived = async () => {
+    setIsLoadingArchived(true); setArchivedError(false);
+    try {
+      const res = await apiFetch("/products/archived");
+      if (res.ok) setArchived(await res.json()); else setArchivedError(true);
+    } catch { setArchivedError(true); } finally { setIsLoadingArchived(false); }
+  };
+
+  const toggleArchived = () => {
+    const next = !showArchived;
+    setShowArchived(next);
+    if (next) loadArchived();
+  };
+
+  const handleRestore = async (p: Product) => {
+    try {
+      const res = await apiFetch(`/products/${p.id}/restore`, { method: "PATCH" });
+      if (res.ok) { toast.success(`"${p.name}" volvió al catálogo.`); fetchData(); loadArchived(); }
+      else toast.error(`No se pudo restaurar el producto: ${await readApiError(res)}`);
+    } catch { toast.error("Error de conexión. Revisá tu internet e intentá de nuevo."); }
+  };
 
   // 👇 LÓGICA DE FILTRADO DOBLE (Texto + Categoría)
   const filteredProducts = products.filter(p => {
@@ -40,11 +71,12 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
 
       const method = editingId ? "PUT" : "POST"; const endpoint = editingId ? `/products/${editingId}` : "/products";
       const res = await apiFetch(endpoint, { method, body: formDataToSend });
-      if (res.ok) { closeModal(); fetchData(); } else { const err = await res.json(); alert(`Error: ${err.message}`); }
-    } catch (error) { alert("Error de conexión"); } finally { setIsSaving(false); }
+      if (res.ok) { closeModal(); fetchData(); toast.success(editingId ? "Producto actualizado." : "Producto creado."); }
+      else toast.error(`No se pudo guardar el producto: ${await readApiError(res)}`);
+    } catch { toast.error("Error de conexión. Revisá tu internet e intentá de nuevo."); } finally { setIsSaving(false); }
   };
 
-  const handleEditClick = (product: any) => {
+  const handleEditClick = (product: Product) => {
     // El campo edita el inventario FÍSICO total (disponible + alquilado),
     // no solo lo disponible — ver ProductsService.updateProduct.
     const physicalTotal = (product.totalStock || 0) + (product.rentedCount || 0);
@@ -54,8 +86,20 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
   };
 
   const handleDeleteClick = async (id: number) => {
-    if (!window.confirm("¿Estás seguro de que deseas eliminar este producto?")) return;
-    try { const res = await apiFetch(`/products/${id}`, { method: "DELETE" }); if (res.ok) fetchData(); else alert("Error al eliminar"); } catch (error) { console.error(error); }
+    const aviso = "¿Estás seguro de que deseas eliminar este producto?\n\nSi ya fue alquilado alguna vez, se dará de baja (deja de verse en el catálogo) pero conservará su historial, y podrás restaurarlo desde \"Dados de baja\".";
+    if (!window.confirm(aviso)) return;
+    try {
+      const res = await apiFetch(`/products/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        const result = await res.json().catch(() => null);
+        fetchData();
+        if (showArchived) loadArchived();
+        toast.success(result?.isArchived
+          ? "Producto dado de baja: conserva su historial y podés restaurarlo desde \"Dados de baja\"."
+          : "Producto eliminado.");
+      }
+      else toast.error(`No se pudo eliminar el producto: ${await readApiError(res)}`);
+    } catch { toast.error("Error de conexión. Revisá tu internet e intentá de nuevo."); }
   };
 
   const closeModal = () => { setIsModalOpen(false); setEditingId(null); setImageFile(null); setImagePreview(""); setFormData({ name: "", description: "", price: "", categoryId: "", totalStock: "" }); };
@@ -73,6 +117,7 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
             <input 
               type="text" 
               placeholder="Buscar producto..." 
+              aria-label="Buscar producto" 
               value={searchProduct} 
               onChange={(e) => setSearchProduct(e.target.value)} 
               className="pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-900 focus:outline-none w-full shadow-sm" 
@@ -83,6 +128,7 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
           <div className="relative w-full sm:w-56">
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <select
+              aria-label="Filtrar por categoría"
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
               className="pl-10 pr-8 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-900 focus:outline-none w-full appearance-none bg-white text-slate-600 shadow-sm cursor-pointer"
@@ -96,12 +142,48 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
           </div>
         </div>
 
-        {/* 3. Botón Nuevo */}
+        {/* 3. Botones: dados de baja + nuevo */}
+        <div className="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+        <button onClick={toggleArchived} aria-pressed={showArchived} className={`flex items-center px-5 py-2.5 rounded-xl font-medium cursor-pointer border justify-center transition-colors ${showArchived ? "bg-amber-50 text-amber-800 border-amber-200" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}>
+          <Archive className="w-5 h-5 mr-2" /> {showArchived ? "Volver a productos" : "Dados de baja"}
+        </button>
         <button onClick={() => setIsModalOpen(true)} className="flex items-center bg-blue-900 text-white px-5 py-2.5 rounded-xl hover:bg-blue-800 font-medium cursor-pointer shadow-md w-full lg:w-auto justify-center">
           <Plus className="w-5 h-5 mr-2" /> Nuevo Producto
         </button>
+        </div>
       </div>
 
+      {showArchived ? (
+        <div className="p-6">
+          <p className="text-sm text-slate-500 mb-4">
+            Estos productos ya se alquilaron alguna vez y se dieron de baja para no perder su historial. No aparecen en el catálogo ni al cargar un alquiler. Restauralos para volver a usarlos.
+          </p>
+          {isLoadingArchived ? (
+            <p className="text-center py-8 text-slate-500">Cargando...</p>
+          ) : archivedError ? (
+            <div role="alert" className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-xl text-sm font-medium">
+              <span className="flex-1">No se pudieron cargar los productos dados de baja.</span>
+              <button onClick={loadArchived} className="bg-red-600 text-white font-bold px-3 py-1.5 rounded-lg hover:bg-red-700 cursor-pointer">Reintentar</button>
+            </div>
+          ) : archived.length === 0 ? (
+            <p className="text-center py-10 text-slate-400">No hay productos dados de baja.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100 border border-slate-100 rounded-2xl overflow-hidden">
+              {archived.map((p) => (
+                <li key={p.id} className="flex items-center justify-between gap-4 px-5 py-4 bg-white hover:bg-slate-50">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-900 truncate">{p.name}</p>
+                    <p className="text-xs text-slate-500">{p.category?.name || "Sin categoría"} · {formatPYG(p.pricePerDay)} por día</p>
+                  </div>
+                  <button onClick={() => handleRestore(p)} aria-label={`Restaurar ${p.name}`} className="inline-flex items-center gap-2 shrink-0 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-sm px-4 py-2 rounded-xl hover:bg-emerald-100 cursor-pointer">
+                    <RotateCcw className="w-4 h-4" /> Restaurar
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : (
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
@@ -110,7 +192,7 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
           <tbody className="divide-y divide-slate-100">
             {isLoadingData ? <tr><td colSpan={5} className="text-center py-8 text-slate-500">Cargando...</td></tr> : 
              filteredProducts.length === 0 ? <tr><td colSpan={5} className="text-center py-16 text-slate-400 flex flex-col items-center justify-center w-full"><Filter className="w-8 h-8 mb-2 opacity-50"/>No se encontraron productos con estos filtros.</td></tr> : 
-             filteredProducts.map((p: any) => (
+             filteredProducts.map((p) => (
               <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-4"><div className="flex items-center space-x-3"><div className="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden shrink-0 border border-slate-200">{p.imageUrl ? <img src={getImageUrl(p.imageUrl)} alt={p.name} className="w-full h-full object-contain mix-blend-multiply"/> : <ImageIcon className="w-5 h-5 m-auto text-slate-400 mt-2.5"/>}</div><p className="font-semibold text-slate-900">{p.name}</p></div></td>
                 <td className="px-6 py-4"><span className="px-2.5 py-0.5 rounded-full text-xs bg-blue-50 text-blue-900 border border-blue-100 font-medium">{p.category?.name || 'N/A'}</span></td>
@@ -118,8 +200,8 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
                 <td className="px-6 py-4 font-medium">{formatPYG(p.pricePerDay)}</td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end space-x-2">
-                    <button onClick={() => handleEditClick(p)} className="p-2 text-slate-400 hover:text-blue-900 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors" title="Editar"><Edit className="w-4 h-4" /></button>
-                    <button onClick={() => handleDeleteClick(p.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer transition-colors" title="Eliminar"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={() => handleEditClick(p)} className="p-2 text-slate-400 hover:text-blue-900 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors" title="Editar" aria-label={`Editar ${p.name}`}><Edit className="w-4 h-4" /></button>
+                    <button onClick={() => handleDeleteClick(p.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer transition-colors" title="Eliminar" aria-label={`Eliminar ${p.name}`}><Trash2 className="w-4 h-4" /></button>
                   </div>
                 </td>
               </tr>
@@ -128,12 +210,14 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
         </table>
       </div>
 
+      )}
+
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <h3 className="text-xl font-bold text-slate-900">{editingId ? "Editar Producto" : "Agregar Producto"}</h3>
-              <button onClick={closeModal} className="text-slate-400 hover:text-slate-700 p-1 rounded-full hover:bg-slate-200 cursor-pointer"><X className="w-6 h-6" /></button>
+              <button onClick={closeModal} aria-label="Cerrar" className="text-slate-400 hover:text-slate-700 p-1 rounded-full hover:bg-slate-200 cursor-pointer"><X className="w-6 h-6" /></button>
             </div>
             <div className="p-6 overflow-y-auto custom-scrollbar">
               <form id="productForm" onSubmit={handleSaveProduct} className="space-y-4">
@@ -144,16 +228,16 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
                     <label className="block text-sm font-medium text-slate-700 mb-1">Stock Total (inventario físico)</label>
                     <input type="number" required min={0} value={formData.totalStock} onChange={(e) => setFormData({...formData, totalStock: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl font-bold text-blue-900 outline-none" />
                     {editingId && (() => {
-                      const editingProduct = products.find((p: any) => p.id === editingId);
-                      return editingProduct?.rentedCount > 0 ? (
+                      const editingProduct = products.find((p) => p.id === editingId);
+                      return editingProduct && editingProduct.rentedCount > 0 ? (
                         <p className="text-xs text-amber-600 mt-1">{editingProduct.rentedCount} unidades están alquiladas ahora mismo — el total no puede bajar de esa cantidad.</p>
                       ) : null;
                     })()}
                   </div>
                 </div>
-                <div><label className="block text-sm font-medium text-slate-700 mb-1">Categoría</label><select required value={formData.categoryId} onChange={(e) => setFormData({...formData, categoryId: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-900 outline-none bg-white cursor-pointer"><option value="" disabled>Seleccionar...</option>{categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+                <div><label className="block text-sm font-medium text-slate-700 mb-1">Categoría</label><select required value={formData.categoryId} onChange={(e) => setFormData({...formData, categoryId: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-900 outline-none bg-white cursor-pointer"><option value="" disabled>Seleccionar...</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label><textarea required rows={2} value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl outline-none resize-none" /></div>
-                <div><label className="block text-sm font-medium text-slate-700 mb-1">Foto</label><input type="file" accept="image/*" onChange={handleImageChange} className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:bg-blue-50 file:text-blue-900 hover:file:bg-blue-100 cursor-pointer" />{imagePreview && <div className="mt-3 relative w-full h-32 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 flex justify-center items-center"><img src={imagePreview} alt="Vista previa" className="max-h-full object-contain mix-blend-multiply" /></div>}</div>
+                <div><label className="block text-sm font-medium text-slate-700 mb-1">Foto</label><input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageChange} className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:bg-blue-50 file:text-blue-900 hover:file:bg-blue-100 cursor-pointer" />{imagePreview && <div className="mt-3 relative w-full h-32 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 flex justify-center items-center"><img src={imagePreview} alt="Vista previa" className="max-h-full object-contain mix-blend-multiply" /></div>}</div>
               </form>
             </div>
             <div className="px-6 py-4 border-t border-slate-100 flex justify-end space-x-3 bg-slate-50/50"><button type="button" onClick={closeModal} className="px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-200 rounded-xl cursor-pointer">Cancelar</button><button type="submit" form="productForm" disabled={isSaving} className="px-5 py-2.5 bg-blue-900 text-white font-medium rounded-xl hover:bg-blue-800 shadow-md disabled:bg-blue-400 cursor-pointer">{isSaving ? "Guardando..." : "Guardar Producto"}</button></div>

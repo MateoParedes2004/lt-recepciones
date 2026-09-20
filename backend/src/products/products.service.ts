@@ -1,9 +1,13 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Injectable()
 export class ProductsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cloudinaryService: CloudinaryService,
+  ) {}
 
   async createProduct(data: any) {
     return this.prisma.product.create({
@@ -40,6 +44,23 @@ export class ProductsService {
     });
   }
 
+  // Solo para el panel admin: los productos dados de baja, para poder verlos y restaurarlos.
+  async getArchivedProducts() {
+    return this.prisma.product.findMany({
+      where: { isArchived: true },
+      include: { category: true },
+      orderBy: { name: 'asc' },
+    });
+  }
+
+  async restoreProduct(id: number) {
+    const product = await this.prisma.product.findUnique({ where: { id } });
+    if (!product || !product.isArchived) {
+      throw new NotFoundException(`No hay ningún producto dado de baja con ID ${id}.`);
+    }
+    return this.prisma.product.update({ where: { id }, data: { isArchived: false }, include: { category: true } });
+  }
+
   async getProductById(id: number) {
     const product = await this.prisma.product.findUnique({
       where: { id },
@@ -62,6 +83,12 @@ export class ProductsService {
     if (data.pricePerDay) dataToUpdate.pricePerDay = parseFloat(data.pricePerDay);
     if (data.categoryId) dataToUpdate.categoryId = Number(data.categoryId);
 
+    // Si se edita el stock, la escritura queda condicionada a que rentedCount
+    // siga siendo el que leímos (ver más abajo): sin eso, un alquiler o una
+    // devolución que entre justo en el medio dejaría el disponible calculado
+    // sobre un dato viejo y el inventario desincronizado en silencio.
+    let expectedRentedCount: number | undefined;
+
     if (data.totalStock !== undefined && data.totalStock !== null && data.totalStock !== '') {
       // El "Stock Total" que edita el admin representa el inventario FÍSICO
       // completo (disponible + alquilado ahora mismo), no solo lo disponible.
@@ -79,20 +106,45 @@ export class ProductsService {
         );
       }
       dataToUpdate.totalStock = newAvailable;
+      expectedRentedCount = current.rentedCount;
     }
 
-    return this.prisma.product.update({
-      where: { id },
+    // Si se sube una foto nueva, guardamos la URL de la anterior para
+    // liberarla en Cloudinary una vez que el reemplazo quedó guardado.
+    const previous = data.imageUrl
+      ? await this.prisma.product.findUnique({ where: { id }, select: { imageUrl: true } })
+      : null;
+
+    const result = await this.prisma.product.updateMany({
+      where: expectedRentedCount === undefined ? { id } : { id, rentedCount: expectedRentedCount },
       data: dataToUpdate,
     });
+
+    if (result.count === 0) {
+      const exists = await this.prisma.product.findUnique({ where: { id }, select: { id: true } });
+      if (!exists) throw new NotFoundException(`El producto con ID ${id} no existe.`);
+      throw new ConflictException(
+        'El stock de este producto cambió mientras lo editabas (se registró un alquiler o una devolución). Recargá el panel y volvé a intentar.',
+      );
+    }
+
+    const updated = await this.prisma.product.findUniqueOrThrow({ where: { id } });
+
+    if (previous?.imageUrl && previous.imageUrl !== updated.imageUrl) {
+      await this.cloudinaryService.deleteByUrl(previous.imageUrl);
+    }
+    return updated;
   }
 
   async deleteProduct(id: number) {
     const hasHistory = await this.prisma.rentalItem.findFirst({ where: { productId: id } });
 
     if (!hasHistory) {
-      // Nunca se alquiló: no hay nada que preservar, se borra de verdad.
-      return this.prisma.product.delete({ where: { id } });
+      // Nunca se alquiló: no hay nada que preservar, se borra de verdad
+      // (y su foto también, para no dejarla huérfana en Cloudinary).
+      const deleted = await this.prisma.product.delete({ where: { id } });
+      await this.cloudinaryService.deleteByUrl(deleted.imageUrl);
+      return deleted;
     }
 
     // Tiene alquileres asociados: lo archivamos en vez de borrarlo. Un

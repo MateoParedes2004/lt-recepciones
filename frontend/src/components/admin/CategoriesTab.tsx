@@ -2,9 +2,12 @@
 
 import { useState } from "react";
 import { Plus, Edit, Trash2, Search, X } from "lucide-react";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, readApiError } from "../../lib/api";
+import { useToast } from "./ToastProvider";
+import type { Category } from "../../types";
 
-export default function CategoriesTab({ categories, fetchData }: { categories: any[], fetchData: () => void }) {
+export default function CategoriesTab({ categories, fetchData }: { categories: Category[], fetchData: () => void }) {
+  const toast = useToast();
   const [searchCategory, setSearchCategory] = useState("");
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
   const [isSavingCat, setIsSavingCat] = useState(false);
@@ -21,15 +24,20 @@ export default function CategoriesTab({ categories, fetchData }: { categories: a
       const res = await apiFetch(endpoint, {
         method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(catFormData)
       });
-      if (res.ok) { closeCatModal(); fetchData(); } else { const err = await res.json(); alert(`Error: ${err.message}`); }
-    } catch (error) { alert("Error de conexión"); } finally { setIsSavingCat(false); }
+      if (res.ok) { closeCatModal(); fetchData(); toast.success(editingCatId ? "Categoría actualizada." : "Categoría creada."); }
+      else toast.error(`No se pudo guardar la categoría: ${await readApiError(res)}`);
+    } catch { toast.error("Error de conexión. Revisá tu internet e intentá de nuevo."); } finally { setIsSavingCat(false); }
   };
 
-  const handleEditCatClick = (category: any) => { setEditingCatId(category.id); setCatFormData({ name: category.name, description: category.description || "" }); setIsCatModalOpen(true); };
+  const handleEditCatClick = (category: Category) => { setEditingCatId(category.id); setCatFormData({ name: category.name, description: category.description || "" }); setIsCatModalOpen(true); };
   
   const handleDeleteCatClick = async (id: number) => {
     if (!window.confirm("¿Eliminar esta categoría? Asegúrate de que no tenga productos asignados.")) return;
-    try { const res = await apiFetch(`/categories/${id}`, { method: "DELETE" }); if (res.ok) fetchData(); else alert("No se puede eliminar. Probablemente hay productos usando esta categoría."); } catch (error) { console.error(error); }
+    try {
+      const res = await apiFetch(`/categories/${id}`, { method: "DELETE" });
+      if (res.ok) { fetchData(); toast.success("Categoría eliminada."); }
+      else toast.error(await readApiError(res, "No se pudo eliminar la categoría."));
+    } catch { toast.error("Error de conexión. Revisá tu internet e intentá de nuevo."); }
   };
 
   const closeCatModal = () => { setIsCatModalOpen(false); setEditingCatId(null); setCatFormData({ name: "", description: "" }); };
@@ -47,13 +55,13 @@ export default function CategoriesTab({ categories, fetchData }: { categories: a
         <thead className="bg-slate-50 text-slate-500 text-sm uppercase"><tr><th className="px-6 py-4">Nombre</th><th className="px-6 py-4 text-right">Acciones</th></tr></thead>
         <tbody>
           {filteredCategories.length === 0 ? <tr><td colSpan={2} className="text-center py-8 text-slate-500">No se encontraron categorías.</td></tr> :
-            filteredCategories.map((c:any)=>(
+            filteredCategories.map((c)=>(
             <tr key={c.id} className="border-t border-slate-100 hover:bg-slate-50">
               <td className="px-6 py-4 font-semibold text-slate-900">{c.name}</td>
               <td className="px-6 py-4 text-right">
                 <div className="flex items-center justify-end space-x-2">
-                  <button onClick={() => handleEditCatClick(c)} className="p-2 text-slate-400 hover:text-blue-900 hover:bg-blue-50 rounded-lg cursor-pointer"><Edit className="w-4 h-4" /></button>
-                  <button onClick={() => handleDeleteCatClick(c.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={() => handleEditCatClick(c)} title="Editar" aria-label={`Editar categoría ${c.name}`} className="p-2 text-slate-400 hover:text-blue-900 hover:bg-blue-50 rounded-lg cursor-pointer"><Edit className="w-4 h-4" /></button>
+                  <button onClick={() => handleDeleteCatClick(c.id)} title="Eliminar" aria-label={`Eliminar categoría ${c.name}`} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </td>
             </tr>
@@ -64,7 +72,7 @@ export default function CategoriesTab({ categories, fetchData }: { categories: a
       {isCatModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
-            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50"><h3 className="text-xl font-bold text-slate-900">{editingCatId ? "Editar Categoría" : "Nueva Categoría"}</h3><button onClick={closeCatModal} className="text-slate-400 hover:text-slate-700 p-1 rounded-full hover:bg-slate-200 cursor-pointer"><X className="w-6 h-6" /></button></div>
+            <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50"><h3 className="text-xl font-bold text-slate-900">{editingCatId ? "Editar Categoría" : "Nueva Categoría"}</h3><button onClick={closeCatModal} aria-label="Cerrar" className="text-slate-400 hover:text-slate-700 p-1 rounded-full hover:bg-slate-200 cursor-pointer"><X className="w-6 h-6" /></button></div>
             <div className="p-6">
               <form id="catForm" onSubmit={handleSaveCategory} className="space-y-4">
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label><input type="text" required value={catFormData.name} onChange={(e) => setCatFormData({...catFormData, name: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-900 outline-none" /></div>

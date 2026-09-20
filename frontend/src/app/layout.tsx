@@ -109,7 +109,7 @@ export default function RootLayout({
   };
 
   return (
-    <html lang="es" className="scroll-smooth" {...{ "data-scroll-behavior": "smooth" } as any}>
+    <html lang="es" className="scroll-smooth" {...({ "data-scroll-behavior": "smooth" } as Record<string, string>)}>
       <body 
         id="inicio"
         className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} ${lato.variable} antialiased flex flex-col min-h-screen scroll-pt-28`}

@@ -1,5 +1,3 @@
-import { Armchair, Sparkles } from "lucide-react";
-
 export default function LoadingCatalogos() {
   return (
     <main className="min-h-screen bg-slate-50 pt-8 pb-24">

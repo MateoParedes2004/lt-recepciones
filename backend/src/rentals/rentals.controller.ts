@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Put, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Query, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { RentalsService } from './rentals.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateRentalDto } from './dto/create-rental.dto';
@@ -16,12 +16,15 @@ export class RentalsController {
   }
 
   @Get()
-  findAll(@Query('page') page?: string, @Query('limit') limit?: string) {
-    return this.rentalsService.findAll(page ? Number(page) : undefined, limit ? Number(limit) : undefined);
+  findAll(
+    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+  ) {
+    return this.rentalsService.findAll(page, limit);
   }
 
   @Put(':id/return')
-  markAsReturned(@Param('id') id: string) {
-    return this.rentalsService.markAsReturned(Number(id));
+  markAsReturned(@Param('id', ParseIntPipe) id: number) {
+    return this.rentalsService.markAsReturned(id);
   }
 }

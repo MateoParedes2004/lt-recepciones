@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCheckoutIntentDto } from './dto/create-checkout-intent.dto';
 import { paraguayToUtc, paraguayTodayUtc, utcToParaguayDate } from '../common/timezone';
@@ -59,6 +59,22 @@ export class AnalyticsService {
 
   // 4. EL MOTOR DE ESTADÍSTICAS
   async getDashboardData(year: number, month?: number, day?: number) {
+    // Un período inválido (mes 13, 31 de abril, año 0...) no debe convertirse
+    // en fechas "desbordadas" que devuelvan datos de otro período sin avisar.
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+      throw new BadRequestException('Año inválido.');
+    }
+    if (month !== undefined && (!Number.isInteger(month) || month < 1 || month > 12)) {
+      throw new BadRequestException('Mes inválido: tiene que estar entre 1 y 12.');
+    }
+    if (day !== undefined) {
+      if (month === undefined) throw new BadRequestException('Para consultar un día hay que indicar también el mes.');
+      const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+      if (!Number.isInteger(day) || day < 1 || day > daysInMonth) {
+        throw new BadRequestException(`Día inválido: ese mes tiene ${daysInMonth} días.`);
+      }
+    }
+
     // Dos rangos distintos para el mismo período, porque hay dos tipos de
     // fecha en el sistema:
     //

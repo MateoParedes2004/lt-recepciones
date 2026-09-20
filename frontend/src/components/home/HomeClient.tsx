@@ -8,12 +8,14 @@ import AnchorLink from "../AnchorLink";
 import ScrollToHash from "../ScrollToHash";
 import { motion } from "framer-motion";
 import { ArrowRight, Star, Truck, ShieldCheck, Armchair, GlassWater, Sparkles, MapPin, Phone, Clock, Camera, Table2, Utensils, Wine, Flame, PackageOpen } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import type { Category, GalleryImage } from "../../types";
 // 👇 VISOR DE IMÁGENES: se difiere porque solo hace falta si el usuario abre una foto
 import "yet-another-react-lightbox/styles.css";
 const Lightbox = dynamic(() => import("yet-another-react-lightbox"), { ssr: false });
 
 // Ícono de respaldo por categoría, se usa si aún no se subió una foto
-const CATEGORIA_ICONOS: Record<string, any> = {
+const CATEGORIA_ICONOS: Record<string, LucideIcon> = {
   "Vajilla y Cristalería": GlassWater,
   "Mesas y Mantelería": Table2,
   "Cubiertos y complementos": Utensils,
@@ -29,8 +31,8 @@ const slugify = (name: string) => name.toLowerCase().replace(/ /g, "-");
 const getCategoriaImagen = (name: string) => `/categorias/${slugify(name)}.jpg`;
 
 interface HomeClientProps {
-  categories: any[];
-  galeriaImages: any[];
+  categories: Category[];
+  galeriaImages: GalleryImage[];
 }
 
 export default function HomeClient({ categories, galeriaImages }: HomeClientProps) {
@@ -209,7 +211,7 @@ export default function HomeClient({ categories, galeriaImages }: HomeClientProp
             </motion.div>
 
             <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-6 -mx-6 px-6 md:mx-0 md:px-0 md:pb-0 md:grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-              {galeriaImages.map((img: any, index: number) => (
+              {galeriaImages.map((img, index) => (
                 <motion.div
                   key={img.id}
                   initial={{ opacity: 0, scale: 0.9 }}
@@ -248,7 +250,7 @@ export default function HomeClient({ categories, galeriaImages }: HomeClientProp
               index={lightboxIndex}
               // 🔥 ESTA ES LA LÍNEA QUE ARREGLA EL PROBLEMA:
               on={{ view: ({ index: currentIndex }) => setLightboxIndex(currentIndex) }}
-              slides={galeriaImages.map(img => ({ src: img.imageUrl, alt: img.title }))}
+              slides={galeriaImages.map(img => ({ src: img.imageUrl, alt: img.title ?? undefined }))}
               styles={{ container: { backgroundColor: "rgba(0, 0, 0, 0.9)" } }}
             />
 
@@ -276,7 +278,7 @@ export default function HomeClient({ categories, galeriaImages }: HomeClientProp
             </motion.div>
 
             <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-6 -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-3 lg:grid-cols-6 md:gap-6 md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-              {categories.map((category: any, index: number) => {
+              {categories.map((category, index) => {
                 const Icon = CATEGORIA_ICONOS[category.name] || PackageOpen;
                 const hasImage = !brokenImages.has(category.id);
                 return (

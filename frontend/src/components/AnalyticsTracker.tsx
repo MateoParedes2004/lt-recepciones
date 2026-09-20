@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { getApiUrl } from "../lib/api";
 
 export default function AnalyticsTracker() {
   useEffect(() => {
@@ -16,7 +17,7 @@ export default function AnalyticsTracker() {
         if (ultimaVisita !== hoy) {
           
           // Enviamos la alerta silenciosa a tu Base de Datos
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/analytics/visita`, {
+          const res = await fetch(`${getApiUrl()}/analytics/visita`, {
             method: "POST",
             headers: { "Content-Type": "application/json" }
           });
@@ -24,7 +25,6 @@ export default function AnalyticsTracker() {
           // Si el servidor guardó la visita con éxito, le ponemos la "marca" al visitante
           if (res.ok) {
             localStorage.setItem("lt_ultima_visita", hoy);
-            console.log("Nueva visita única registrada."); // Puedes borrar esto luego
           }
         }
       } catch (error) {

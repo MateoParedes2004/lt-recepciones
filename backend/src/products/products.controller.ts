@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Put, Delete, Query, UseInterceptors, UploadedFile, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Patch, Delete, Query, ParseIntPipe, UseInterceptors, UploadedFile, UseGuards } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 // 👇 1. Importamos el nuevo servicio de Cloudinary
@@ -38,23 +38,41 @@ export class ProductsController {
       imageUrl: imageUrl, // Guardamos el link de internet en la Base de Datos
     };
 
-    return this.productsService.createProduct(productData);
+    try {
+      return await this.productsService.createProduct(productData);
+    } catch (error) {
+      // La foto ya se subió: si el guardado falla (ej. categoría inexistente)
+      // la liberamos, para no dejar archivos huérfanos en Cloudinary.
+      await this.cloudinaryService.deleteByUrl(imageUrl);
+      throw error;
+    }
   }
 
   @Get()
-  getAllProducts(@Query('page') page?: string, @Query('limit') limit?: string) {
-    return this.productsService.getAllProducts(page ? Number(page) : undefined, limit ? Number(limit) : undefined);
+  getAllProducts(
+    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+  ) {
+    return this.productsService.getAllProducts(page, limit);
+  }
+
+  // Productos dados de baja (archivados). Va ANTES de ':id': si no, Express
+  // interpretaría "archived" como un id.
+  @UseGuards(JwtAuthGuard)
+  @Get('archived')
+  getArchivedProducts() {
+    return this.productsService.getArchivedProducts();
   }
 
   @Get(':id')
-  getProductById(@Param('id') id: string) {
-    return this.productsService.getProductById(Number(id));
+  getProductById(@Param('id', ParseIntPipe) id: number) {
+    return this.productsService.getProductById(id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Put(':id')
   @UseInterceptors(FileInterceptor('image', multerImageOptions))
-  async updateProduct(@Param('id') id: string, @Body() body: UpdateProductDto, @UploadedFile() file: Express.Multer.File) {
+  async updateProduct(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateProductDto, @UploadedFile() file: Express.Multer.File) {
     const productData: UpdateProductDto & { imageUrl?: string } = {
       name: body.name,
       description: body.description,
@@ -69,12 +87,26 @@ export class ProductsController {
       productData.imageUrl = cloudRes.secure_url;
     }
 
-    return this.productsService.updateProduct(Number(id), productData);
+    try {
+      return await this.productsService.updateProduct(id, productData);
+    } catch (error) {
+      // Igual que al crear: si la edición falla, la foto nueva no queda huérfana.
+      await this.cloudinaryService.deleteByUrl(productData.imageUrl);
+      throw error;
+    }
+  }
+
+  // Vuelve a dar de alta un producto archivado: reaparece en el catálogo y en
+  // el selector de "Nuevo Alquiler" con su historial intacto.
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id/restore')
+  restoreProduct(@Param('id', ParseIntPipe) id: number) {
+    return this.productsService.restoreProduct(id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  deleteProduct(@Param('id') id: string) {
-    return this.productsService.deleteProduct(Number(id));
+  deleteProduct(@Param('id', ParseIntPipe) id: number) {
+    return this.productsService.deleteProduct(id);
   }
 }

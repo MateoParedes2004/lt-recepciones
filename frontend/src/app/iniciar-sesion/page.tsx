@@ -58,8 +58,8 @@ export default function Login() {
         router.push("/admin");
       }
 
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ocurrió un error");
     } finally {
       setIsLoading(false);
     }

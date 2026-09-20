@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { ShoppingCart, Check, X, Minus, Plus } from "lucide-react";
 import { useCart } from "./CartProvider";
+import type { Product } from "../types";
 
-export default function AddToCartButton({ product }: { product: any }) {
+export default function AddToCartButton({ product }: { product: Product }) {
   const { addToCart } = useCart();
   
   const [showSelector, setShowSelector] = useState(false);
@@ -80,6 +81,7 @@ export default function AddToCartButton({ product }: { product: any }) {
                 setShowSelector(false);
                 setQuantity(1);
               }} 
+              aria-label="Cerrar selector de cantidad"
               className="text-slate-400 hover:text-red-500 bg-slate-50 hover:bg-red-50 rounded-full p-1 transition-colors cursor-pointer shrink-0"
             >
               <X className="w-3.5 h-3.5" />
@@ -91,6 +93,7 @@ export default function AddToCartButton({ product }: { product: any }) {
             <button 
               onClick={handleDecrease} 
               disabled={(Number(quantity) || 1) <= 1}
+              aria-label="Una unidad menos"
               className="p-1 text-slate-500 hover:text-blue-900 hover:bg-blue-50 rounded-md disabled:opacity-30 transition-colors cursor-pointer shrink-0"
             >
               <Minus className="w-4 h-4" />
@@ -98,6 +101,7 @@ export default function AddToCartButton({ product }: { product: any }) {
             
             <input 
               type="number" 
+              aria-label="Cantidad"
               min="1"
               max={product.totalStock}
               value={quantity}
@@ -110,6 +114,7 @@ export default function AddToCartButton({ product }: { product: any }) {
             <button 
               onClick={handleIncrease} 
               disabled={(Number(quantity) || 1) >= product.totalStock}
+              aria-label="Una unidad más"
               className="p-1 text-slate-500 hover:text-blue-900 hover:bg-blue-50 rounded-md disabled:opacity-30 transition-colors cursor-pointer shrink-0"
             >
               <Plus className="w-4 h-4" />

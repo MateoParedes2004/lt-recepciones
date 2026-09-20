@@ -1,5 +1,6 @@
 import HomeClient from "../components/home/HomeClient";
 import { getApiUrl } from "../lib/api";
+import type { Category } from "../types";
 
 // Categorías que no queremos mostrar en la vidriera del Home
 const CATEGORIAS_OCULTAS = ["Climatización"];
@@ -9,7 +10,7 @@ async function getCategories() {
     const res = await fetch(`${getApiUrl()}/categories`, { next: { revalidate: 60 } });
     if (!res.ok) return [];
     const data = await res.json();
-    return data.filter((cat: any) => !CATEGORIAS_OCULTAS.includes(cat.name));
+    return data.filter((cat: Category) => !CATEGORIAS_OCULTAS.includes(cat.name));
   } catch (error) {
     console.error("Error cargando categorías:", error);
     return [];

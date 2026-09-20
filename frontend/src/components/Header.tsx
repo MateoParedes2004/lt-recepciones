@@ -6,6 +6,8 @@ import Image from 'next/image';
 import { Menu, X, Instagram, Facebook, ChevronDown, Package, Home, Info, Phone, Camera } from 'lucide-react';
 import { Great_Vibes, Playfair_Display } from 'next/font/google';
 import AnchorLink from './AnchorLink';
+import { getApiUrl } from '../lib/api';
+import type { Category } from '../types';
 
 const cursiveFont = Great_Vibes({
   subsets: ['latin'],
@@ -20,21 +22,24 @@ const serifFont = Playfair_Display({
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
-  const [catalogos, setCatalogos] = useState<any[]>([]);
+  const [catalogos, setCatalogos] = useState<Category[]>([]);
+  const [catStatus, setCatStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [logoError, setLogoError] = useState(false);
 
+  const fetchCategories = async () => {
+    setCatStatus('loading');
+    try {
+      const res = await fetch(`${getApiUrl()}/categories`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setCatalogos(await res.json());
+      setCatStatus('ready');
+    } catch (error) {
+      console.error("Error al cargar categorías en el menú:", error);
+      setCatStatus('error');
+    }
+  };
+
   useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/categories`);
-        if (res.ok) {
-          const data = await res.json();
-          setCatalogos(data);
-        }
-      } catch (error) {
-        console.error("Error al cargar categorías en el menú:", error);
-      }
-    };
     fetchCategories();
   }, []);
 
@@ -92,6 +97,8 @@ export default function Header() {
                 >
                   <button 
                     onClick={() => setIsCatalogOpen(!isCatalogOpen)}
+                    aria-expanded={isCatalogOpen}
+                    aria-haspopup="true"
                     className={`flex items-center text-slate-900 hover:text-blue-700 font-medium tracking-wide transition-all duration-300 transform hover:scale-105 cursor-pointer py-2 ${serifFont.className}`}
                   >
                     Catálogos 
@@ -114,6 +121,14 @@ export default function Header() {
                       Ver todo el catálogo
                     </Link>
                     <div className="max-h-64 overflow-y-auto">
+                      {catStatus === 'loading' && (
+                        <p className={`px-5 py-3 text-sm text-slate-500 ${serifFont.className}`}>Cargando categorías…</p>
+                      )}
+                      {catStatus === 'error' && (
+                        <button onClick={fetchCategories} className={`block w-full text-left px-5 py-3 text-sm text-red-600 hover:bg-slate-50 cursor-pointer ${serifFont.className}`}>
+                          No se pudieron cargar las categorías. Tocá para reintentar.
+                        </button>
+                      )}
                       {catalogos.map((cat) => (
                         <AnchorLink
                           key={cat.id}
@@ -149,12 +164,12 @@ export default function Header() {
               <div className="flex items-center space-x-4">
                 <a href="https://www.instagram.com/ltrecepciones?igsh=Z2xoNWVrOXQ0amg2" target="_blank" rel="noopener noreferrer" 
                    className="text-black hover:text-blue-700 transition-all duration-300 transform hover:scale-110" 
-                   title="Síguenos en Instagram">
+                   title="Síguenos en Instagram" aria-label="Instagram de LT Recepciones">
                   <Instagram className="w-5 h-5" />
                 </a>
                 <a href="https://www.facebook.com/share/14VSpY6d3hm/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" 
                    className="text-black hover:text-blue-700 transition-all duration-300 transform hover:scale-110" 
-                   title="Síguenos en Facebook">
+                   title="Síguenos en Facebook" aria-label="Facebook de LT Recepciones">
                   <Facebook className="w-5 h-5" />
                 </a>
               </div>
@@ -164,6 +179,8 @@ export default function Header() {
             <div className="md:hidden flex items-center">
               <button 
                 onClick={() => setIsMenuOpen(true)} 
+                aria-label="Abrir menú"
+                aria-expanded={isMenuOpen}
                 className="p-2.5 text-slate-900 hover:text-blue-900 hover:bg-blue-50 bg-slate-50 border border-slate-200 rounded-xl transition-colors cursor-pointer"
               >
                 <Menu className="w-6 h-6" />
@@ -188,6 +205,7 @@ export default function Header() {
           </span>
           <button 
             onClick={() => setIsMenuOpen(false)} 
+            aria-label="Cerrar menú"
             className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors cursor-pointer"
           >
             <X className="w-6 h-6" />
@@ -230,6 +248,14 @@ export default function Header() {
               <Package className="w-5 h-5 mr-3" /> Catálogo Completo
             </Link>
             <div className="ml-9 pl-4 space-y-1 border-l-2 border-slate-100">
+              {catStatus === 'loading' && (
+                <p className={`py-2 text-sm text-slate-500 ${serifFont.className}`}>Cargando categorías…</p>
+              )}
+              {catStatus === 'error' && (
+                <button onClick={fetchCategories} className={`py-2 text-left text-sm text-red-600 cursor-pointer ${serifFont.className}`}>
+                  No se pudieron cargar las categorías. Tocá para reintentar.
+                </button>
+              )}
               {catalogos.map((cat) => (
                 <AnchorLink
                   key={cat.id}
@@ -245,10 +271,10 @@ export default function Header() {
         </div>
 
         <div className="p-5 border-t border-slate-100 bg-slate-50 flex items-center justify-center space-x-6">
-          <a href="https://www.instagram.com/ltrecepciones?igsh=Z2xoNWVrOXQ0amg2" target="_blank" rel="noopener noreferrer" className="w-10 h-10 bg-white shadow-sm border border-slate-200 rounded-full flex items-center justify-center text-slate-500 hover:text-white hover:bg-blue-600 transition-all cursor-pointer">
+          <a href="https://www.instagram.com/ltrecepciones?igsh=Z2xoNWVrOXQ0amg2" target="_blank" rel="noopener noreferrer" aria-label="Instagram de LT Recepciones" className="w-10 h-10 bg-white shadow-sm border border-slate-200 rounded-full flex items-center justify-center text-slate-500 hover:text-white hover:bg-blue-600 transition-all cursor-pointer">
             <Instagram className="w-5 h-5" />
           </a>
-          <a href="https://www.facebook.com/share/14VSpY6d3hm/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" className="w-10 h-10 bg-white shadow-sm border border-slate-200 rounded-full flex items-center justify-center text-slate-500 hover:text-white hover:bg-blue-600 transition-all cursor-pointer">
+          <a href="https://www.facebook.com/share/14VSpY6d3hm/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" aria-label="Facebook de LT Recepciones" className="w-10 h-10 bg-white shadow-sm border border-slate-200 rounded-full flex items-center justify-center text-slate-500 hover:text-white hover:bg-blue-600 transition-all cursor-pointer">
             <Facebook className="w-5 h-5" />
           </a>
         </div>

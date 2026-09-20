@@ -181,7 +181,7 @@ export default function CitySelector({ onCitySelect }: CitySelectorProps) {
                         ))
                     ) : (
                         <div className="p-4 text-center text-sm text-slate-500 font-medium">
-                            No encontramos "{searchTerm}"
+                            No encontramos &quot;{searchTerm}&quot;
                         </div>
                     )}
                 </div>

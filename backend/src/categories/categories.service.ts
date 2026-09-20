@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -48,7 +48,25 @@ export class CategoriesService {
     return this.prisma.category.update({ where: { id }, data });
   }
 
-  remove(id: number) {
+  async remove(id: number) {
+    // Postgres no deja borrar una categoría que todavía tiene productos, pero
+    // el error llegaba como un 500 genérico. Lo revisamos antes para explicar
+    // qué pasa. Los productos archivados (dados de baja) también cuentan: no
+    // se ven en el panel pero siguen apuntando a la categoría.
+    const [activos, archivados] = await Promise.all([
+      this.prisma.product.count({ where: { categoryId: id, isArchived: false } }),
+      this.prisma.product.count({ where: { categoryId: id, isArchived: true } }),
+    ]);
+
+    if (activos > 0 || archivados > 0) {
+      const partes: string[] = [];
+      if (activos > 0) partes.push(`${activos} producto(s) activo(s) (movelos a otra categoría primero)`);
+      if (archivados > 0) {
+        partes.push(`${archivados} producto(s) dado(s) de baja que conservan su historial de alquileres (restauralos desde Productos → Dados de baja y movelos de categoría)`);
+      }
+      throw new ConflictException(`No se puede eliminar la categoría: todavía tiene ${partes.join(' y ')}.`);
+    }
+
     return this.prisma.category.delete({ where: { id } });
   }
 }

@@ -57,10 +57,12 @@ export default function Footer() {
             
             <div className="flex items-center space-x-4 pt-2">
               <a href="https://www.instagram.com/ltrecepciones?igsh=Z2xoNWVrOXQ0amg2" target="_blank" rel="noopener noreferrer" 
+                aria-label="Instagram de LT Recepciones" title="Instagram"
                 className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center text-slate-400 hover:bg-blue-600 hover:text-white transition-all duration-300 transform hover:scale-110 cursor-pointer shadow-sm">
                 <Instagram className="w-5 h-5" />
               </a>
               <a href="https://www.facebook.com/share/14VSpY6d3hm/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" 
+                aria-label="Facebook de LT Recepciones" title="Facebook"
                 className="w-10 h-10 bg-slate-800 rounded-full flex items-center justify-center text-slate-400 hover:bg-blue-600 hover:text-white transition-all duration-300 transform hover:scale-110 cursor-pointer shadow-sm">
                 <Facebook className="w-5 h-5" />
               </a>

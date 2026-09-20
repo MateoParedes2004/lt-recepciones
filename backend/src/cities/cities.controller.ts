@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { CitiesService } from './cities.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateCityDto } from './dto/create-city.dto';
@@ -25,16 +25,16 @@ export class CitiesController {
     @UseGuards(JwtAuthGuard)
     @Patch(':id')
     async update(
-        @Param('id') id: string,
+        @Param('id', ParseIntPipe) id: number,
         @Body() updateCityDto: UpdateCityDto
     ) {
-        return this.citiesService.updateCity(Number(id), updateCityDto);
+        return this.citiesService.updateCity(id, updateCityDto);
     }
 
     // 4. ELIMINAR CIUDAD (DELETE /cities/:id)
     @UseGuards(JwtAuthGuard)
     @Delete(':id')
-    async remove(@Param('id') id: string) {
-        return this.citiesService.deleteCity(Number(id));
+    async remove(@Param('id', ParseIntPipe) id: number) {
+        return this.citiesService.deleteCity(id);
     }
 }

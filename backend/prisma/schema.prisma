@@ -7,9 +7,11 @@ datasource db {
 }
 
 model Category {
-  id       Int       @id @default(autoincrement())
-  name     String    @unique
-  products Product[]
+  id          Int       @id @default(autoincrement())
+  name        String    @unique
+  // Texto corto que se muestra bajo el título de la categoría en el catálogo.
+  description String?
+  products    Product[]
 }
 
 model Product {
@@ -72,6 +74,8 @@ model Rental {
   @@index([eventDate])
   @@index([status])
   @@index([cityId])
+  // El panel lista los alquileres del más nuevo al más viejo (orderBy createdAt desc).
+  @@index([createdAt])
 }
 
 model RentalItem {

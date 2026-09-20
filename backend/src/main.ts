@@ -24,14 +24,25 @@ async function bootstrap() {
   app.use(helmet());
   app.use(compression());
 
+  // FRONTEND_URL admite varios orígenes separados por coma (ej. en desarrollo
+  // "http://localhost:3001,http://127.0.0.1:3001"). Con un solo valor, como
+  // en producción, se comporta igual que siempre: una única URL permitida.
+  const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:3001')
+    .split(',')
+    .map((origin) => origin.trim().replace(/\/$/, ''))
+    .filter(Boolean);
+
   app.enableCors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+    origin: allowedOrigins.length === 1 ? allowedOrigins[0] : allowedOrigins,
     credentials: true,
   });
 
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
+      // Un campo que el DTO no declara ahora se rechaza con 400 en vez de
+      // descartarse en silencio: así un error de formulario se nota al instante.
+      forbidNonWhitelisted: true,
       transform: true,
     }),
   );

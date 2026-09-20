@@ -8,11 +8,31 @@ import {
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 
+// Errores conocidos de Prisma que son situaciones normales de uso (no fallas
+// del servidor) y por eso se traducen a un status y mensaje claros en vez de
+// un 500 genérico. Se reconocen por su `code` (P2xxx), sin importar la clase.
+function mapPrismaError(exception: unknown): { status: number; message: string } | null {
+  const code = (exception as { code?: unknown } | null)?.code;
+  if (typeof code !== 'string') return null;
+
+  switch (code) {
+    case 'P2002': // violación de unicidad (ej. dos categorías con el mismo nombre)
+      return { status: HttpStatus.CONFLICT, message: 'Ya existe un registro con ese valor (por ejemplo, el mismo nombre o correo).' };
+    case 'P2025': // el registro que se quería modificar/borrar no existe
+      return { status: HttpStatus.NOT_FOUND, message: 'El registro solicitado no existe (puede que ya lo hayan eliminado).' };
+    case 'P2003': // clave foránea: referencia algo que no existe, o está en uso
+      return { status: HttpStatus.CONFLICT, message: 'No se pudo completar la operación: el registro apunta a algo que no existe o todavía está en uso por otros datos.' };
+    default:
+      return null;
+  }
+}
+
 // Normaliza todas las respuestas de error: las excepciones conocidas de Nest
 // (BadRequestException, NotFoundException, errores del ValidationPipe, etc.)
-// mantienen su status y mensaje tal cual. Cualquier error no controlado
-// (ej. una excepción cruda de Prisma) se convierte en un 500 genérico y
-// el detalle real solo se loguea en el servidor, nunca se expone al cliente.
+// mantienen su status y mensaje tal cual. Los errores conocidos de Prisma se
+// traducen con mapPrismaError. Cualquier otro error no controlado se convierte
+// en un 500 genérico y el detalle real solo se loguea en el servidor, nunca
+// se expone al cliente.
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
   private readonly logger = new Logger('ExceptionsFilter');
@@ -23,15 +43,17 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
 
     const isHttpException = exception instanceof HttpException;
+    const prismaError = isHttpException ? null : mapPrismaError(exception);
+
     const status = isHttpException
       ? exception.getStatus()
-      : HttpStatus.INTERNAL_SERVER_ERROR;
+      : prismaError?.status ?? HttpStatus.INTERNAL_SERVER_ERROR;
 
     const message = isHttpException
       ? exception.getResponse()
-      : 'Ocurrió un error inesperado. Intentá de nuevo más tarde.';
+      : prismaError?.message ?? 'Ocurrió un error inesperado. Intentá de nuevo más tarde.';
 
-    if (!isHttpException) {
+    if (!isHttpException && !prismaError) {
       this.logger.error(
         `${request.method} ${request.url} -> error no controlado`,
         exception instanceof Error ? exception.stack : String(exception),

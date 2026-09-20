@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRentalDto } from './dto/create-rental.dto';
 
@@ -7,6 +7,19 @@ export class RentalsService {
   constructor(private prisma: PrismaService) {}
 
   async create(data: CreateRentalDto) {
+    // Mismas reglas que valida el formulario del panel, pero acá también: la
+    // API no puede depender de que el cliente que la llama haya validado.
+    const eventDate = new Date(data.eventDate);
+    const returnDate = new Date(data.returnDate);
+    if (returnDate < eventDate) {
+      throw new BadRequestException('La fecha de devolución no puede ser anterior a la fecha del evento.');
+    }
+
+    if (data.cityId != null) {
+      const city = await this.prisma.city.findUnique({ where: { id: data.cityId }, select: { id: true } });
+      if (!city) throw new BadRequestException('La ciudad de entrega seleccionada no existe.');
+    }
+
     // Agregamos cantidades por producto ANTES de validar: si el mismo
     // producto aparece en más de una línea del formulario (dos filas
     // apuntando al mismo artículo), se valida y se descuenta UNA sola vez
@@ -26,7 +39,9 @@ export class RentalsService {
     let totalPrice = 0;
     for (const [productId, quantity] of quantityByProduct) {
       const product = productsById.get(productId);
-      if (!product) throw new BadRequestException(`Producto no encontrado`);
+      // Un producto dado de baja ya no se ofrece ni en el catálogo ni en el
+      // selector del panel: tampoco debe poder alquilarse llamando a la API.
+      if (!product || product.isArchived) throw new BadRequestException(`Producto no encontrado o dado de baja (ID ${productId}).`);
       if (product.totalStock < quantity) {
         throw new BadRequestException(`No hay suficiente stock para: ${product.name}. Solo quedan ${product.totalStock}`);
       }
@@ -40,8 +55,8 @@ export class RentalsService {
         data: {
           clientName: data.clientName,
           clientPhone: data.clientPhone || '',
-          eventDate: new Date(data.eventDate),
-          returnDate: new Date(data.returnDate),
+          eventDate,
+          returnDate,
           totalPrice: totalPrice,
           cityId: data.cityId ?? null,
           items: {
@@ -109,12 +124,14 @@ export class RentalsService {
       });
 
       if (updateResult.count === 0) {
-        // Ya estaba devuelto (o no existe) — no hay stock que tocar de nuevo.
-        return prisma.rental.findUnique({ where: { id } });
+        // O no existe, o ya estaba devuelto — en ningún caso hay stock que tocar.
+        const existing = await prisma.rental.findUnique({ where: { id } });
+        if (!existing) throw new NotFoundException(`El alquiler con ID ${id} no existe.`);
+        return existing;
       }
 
       const rental = await prisma.rental.findUnique({ where: { id }, include: { items: true } });
-      if (!rental) return null;
+      if (!rental) throw new NotFoundException(`El alquiler con ID ${id} no existe.`);
 
       // Devolvemos las unidades al depósito físico
       for (const item of rental.items) {

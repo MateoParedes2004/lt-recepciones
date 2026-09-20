@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation"; 
 import { ShoppingCart, X, Plus, Minus, Send, PackageOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -30,18 +30,26 @@ export const useCart = () => useContext(CartContext) as CartContextType;
 
 export default function CartProvider({ children }: { children: React.ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [isOpen, setIsOpen] = useState(false);
+  // El carrito guarda la página en la que se abrió: si cambia la ruta deja de
+  // coincidir y se cierra solo (antes esto era un efecto que llamaba a setState).
+  const [openedAt, setOpenedAt] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   
   const [selectedCityName, setSelectedCityName] = useState<string>("No seleccionada");
   const [shippingCost, setShippingCost] = useState<number>(0);
+  const [cityError, setCityError] = useState(false);
   
   const pathname = usePathname() || "";
+  const isOpen = openedAt === pathname;
+  const setIsOpen = (open: boolean) => setOpenedAt(open ? pathname : null);
 
   // 📞 TU NÚMERO DE WHATSAPP
   const WHATSAPP_NUMBER = "595985867749";
 
   useEffect(() => {
+    // localStorage solo existe en el navegador: el carrito guardado se lee
+    // recién después de montar (leerlo antes desincroniza el HTML del servidor).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMounted(true);
     const savedCart = localStorage.getItem("lt_cart");
     if (savedCart) {
@@ -60,9 +68,39 @@ export default function CartProvider({ children }: { children: React.ReactNode }
     if (isMounted) localStorage.setItem("lt_cart", JSON.stringify(cart));
   }, [cart, isMounted]);
 
+  // El carrito guardado en el navegador conserva una "foto" de cada producto
+  // (precio, stock) de cuando se agregó. Si el admin cambió el precio, dio de
+  // baja el producto o se agotó, el visitante seguiría viendo — y enviando por
+  // WhatsApp — datos viejos. Una vez por carga de página, con el primer carrito
+  // no vacío, lo sincronizamos con el catálogo actual.
+  const reconciledRef = useRef(false);
   useEffect(() => {
-    setIsOpen(false);
-  }, [pathname]);
+    if (!isMounted || cart.length === 0 || reconciledRef.current) return;
+    reconciledRef.current = true;
+
+    (async () => {
+      try {
+        const res = await fetch(`${getApiUrl()}/products`);
+        if (!res.ok) return;
+        const fresh: unknown = await res.json();
+        if (!Array.isArray(fresh)) return;
+
+        const byId = new Map<number, Product>((fresh as Product[]).map((p) => [p.id, p]));
+        setCart((prev) => {
+          const next = prev.flatMap((item) => {
+            const current = byId.get(item.product.id);
+            // Ya no está en el catálogo (dado de baja/borrado) o se agotó.
+            if (!current || current.totalStock <= 0) return [];
+            return [{ product: current, quantity: Math.min(item.quantity, current.totalStock) }];
+          });
+          // Sin cambios reales, devolvemos el mismo estado para no re-renderizar.
+          return JSON.stringify(next) === JSON.stringify(prev) ? prev : next;
+        });
+      } catch {
+        // Sin conexión con el catálogo: se conserva el carrito tal cual estaba.
+      }
+    })();
+  }, [isMounted, cart.length]);
 
   useEffect(() => {
     if (isOpen) {
@@ -112,11 +150,12 @@ export default function CartProvider({ children }: { children: React.ReactNode }
   const handleCitySelect = (cityId: number, cityName: string, cityPrice: number) => {
     setSelectedCityName(cityName);
     setShippingCost(cityPrice);
+    setCityError(false);
   };
 
   const sendToWhatsApp = () => {
     if (shippingCost === 0 && selectedCityName === "No seleccionada") {
-        alert("Por favor, selecciona una ciudad para la entrega antes de continuar.");
+        setCityError(true);
         return;
     }
 
@@ -183,6 +222,7 @@ export default function CartProvider({ children }: { children: React.ReactNode }
                 onClick={() => setIsOpen(true)}
                 className="bg-blue-900 text-white p-4 rounded-full shadow-2xl hover:bg-blue-800 transition-transform hover:scale-110 group cursor-pointer"
                 title="Ver mi cotización"
+                aria-label={`Ver mi cotización (${cart.reduce((acc, item) => acc + item.quantity, 0)} unidades)`}
               >
                 <div className="relative">
                   <ShoppingCart className="w-6 h-6" />
@@ -207,7 +247,7 @@ export default function CartProvider({ children }: { children: React.ReactNode }
                 <h3 className={`text-2xl font-bold tracking-wide text-slate-900 flex items-center ${playfair.className}`}>
                   <ShoppingCart className="w-6 h-6 mr-3 text-blue-900" /> Cotización
                 </h3>
-                <button onClick={() => setIsOpen(false)} className="p-2 text-slate-400 hover:text-slate-700 bg-white rounded-full shadow-sm cursor-pointer"><X className="w-5 h-5" /></button>
+                <button onClick={() => setIsOpen(false)} aria-label="Cerrar cotización" className="p-2 text-slate-400 hover:text-slate-700 bg-white rounded-full shadow-sm cursor-pointer"><X className="w-5 h-5" /></button>
               </div>
 
               <div className="flex-1 overflow-y-auto p-6 bg-white">
@@ -240,12 +280,12 @@ export default function CartProvider({ children }: { children: React.ReactNode }
                             <p className="text-[#004080] font-sans font-bold text-sm mb-2">{formatPYG(item.product.pricePerDay)}</p>
                             <div className="flex items-center space-x-3">
                               <div className="flex items-center border border-slate-200 rounded-lg">
-                                <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)} className="px-2 py-1 text-slate-500 hover:bg-slate-50 cursor-pointer"><Minus className="w-3 h-3" /></button>
+                                <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)} aria-label={`Una unidad menos de ${item.product.name}`} className="px-2 py-1 text-slate-500 hover:bg-slate-50 cursor-pointer"><Minus className="w-3 h-3" /></button>
                                 {/* 👇 Asegurado font-sans para la cantidad */}
                                 <span className="px-2 font-sans text-sm font-bold text-slate-700 w-8 text-center">{item.quantity}</span>
-                                <button onClick={() => updateQuantity(item.product.id, item.quantity + 1)} disabled={item.quantity >= (item.product.totalStock ?? Infinity)} className="px-2 py-1 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"><Plus className="w-3 h-3" /></button>
+                                <button onClick={() => updateQuantity(item.product.id, item.quantity + 1)} disabled={item.quantity >= (item.product.totalStock ?? Infinity)} aria-label={`Una unidad más de ${item.product.name}`} className="px-2 py-1 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"><Plus className="w-3 h-3" /></button>
                               </div>
-                              <button onClick={() => removeFromCart(item.product.id)} className="text-xs text-red-500 hover:text-red-700 font-medium underline cursor-pointer">Quitar</button>
+                              <button onClick={() => removeFromCart(item.product.id)} aria-label={`Quitar ${item.product.name} de la cotización`} className="text-xs text-red-500 hover:text-red-700 font-medium underline cursor-pointer">Quitar</button>
                             </div>
                           </div>
                         </motion.div>
@@ -259,6 +299,11 @@ export default function CartProvider({ children }: { children: React.ReactNode }
                 <div className="border-t border-slate-200 p-6 bg-slate-50 flex flex-col gap-4">
                   
                   <CitySelector onCitySelect={handleCitySelect} />
+                  {cityError && (
+                    <p role="alert" className="text-sm font-medium text-red-600 -mt-2">
+                      Elegí la ciudad de entrega para poder enviar tu pedido.
+                    </p>
+                  )}
 
                   <div className="flex flex-col gap-2 text-sm text-slate-600 mt-2 border-t border-slate-200 pt-4">
                     <div className="flex justify-between items-center">

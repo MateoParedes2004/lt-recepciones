@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { Plus, Trash2, Search, X, CheckCircle, CalendarDays, PlusCircle, MapPin } from "lucide-react";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, readApiError } from "../../lib/api";
+import { useToast } from "./ToastProvider";
+import type { Product, Rental, City } from "../../types";
 
 const formatPYG = (amount: number) => `Gs. ${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 
@@ -13,23 +15,31 @@ const formatPYG = (amount: number) => `Gs. ${amount.toString().replace(/\B(?=(\d
 // la fecha tal cual se eligió.
 const formatFechaCalendario = (iso: string) => new Date(iso).toLocaleDateString('es-PY', { timeZone: 'UTC' });
 
-export default function RentalsTab({ rentals, products, cities, fetchData, isLoadingData }: { rentals: any[], products: any[], cities: any[], fetchData: () => void, isLoadingData: boolean }) {
+// Los <input> entregan texto: la cantidad puede ser string mientras se edita.
+interface RentalFormItem { productId: string; quantity: number | string }
+interface RentalForm { clientName: string; clientPhone: string; cityId: string; eventDate: string; returnDate: string; items: RentalFormItem[] }
+
+export default function RentalsTab({ rentals, products, cities, fetchData, isLoadingData }: { rentals: Rental[], products: Product[], cities: City[], fetchData: () => void, isLoadingData: boolean }) {
+  const toast = useToast();
   const [searchRental, setSearchRental] = useState("");
   const [isRentalModalOpen, setIsRentalModalOpen] = useState(false);
   const [isSavingRental, setIsSavingRental] = useState(false);
-  const [rentalForm, setRentalForm] = useState({ clientName: "", clientPhone: "", cityId: "", eventDate: "", returnDate: "", items: [{ productId: "", quantity: 1 }] });
+  const [rentalForm, setRentalForm] = useState<RentalForm>({ clientName: "", clientPhone: "", cityId: "", eventDate: "", returnDate: "", items: [{ productId: "", quantity: 1 }] });
 
   const filteredRentals = rentals.filter(r => r.clientName.toLowerCase().includes(searchRental.toLowerCase()));
 
   const addRentalItem = () => { setRentalForm({ ...rentalForm, items: [...rentalForm.items, { productId: "", quantity: 1 }] }); };
   const removeRentalItem = (index: number) => { const newItems = rentalForm.items.filter((_, i) => i !== index); setRentalForm({ ...rentalForm, items: newItems }); };
-  const updateRentalItem = (index: number, field: string, value: string | number) => { const newItems: any = [...rentalForm.items]; newItems[index][field] = value; setRentalForm({ ...rentalForm, items: newItems }); };
+  const updateRentalItem = (index: number, field: "productId" | "quantity", value: string | number) => {
+    const newItems = rentalForm.items.map((item, i) => (i === index ? { ...item, [field]: value } : item));
+    setRentalForm({ ...rentalForm, items: newItems });
+  };
 
   const handleSaveRental = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (new Date(rentalForm.returnDate) < new Date(rentalForm.eventDate)) {
-      alert("La fecha de devolución no puede ser anterior a la fecha del evento.");
+      toast.error("La fecha de devolución no puede ser anterior a la fecha del evento.");
       return;
     }
 
@@ -46,7 +56,7 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
     for (const [productId, quantity] of quantityByProduct) {
       const product = products.find((p) => p.id === productId);
       if (product && quantity > product.totalStock) {
-        alert(`No hay suficiente stock de "${product.name}": pediste ${quantity} y solo hay ${product.totalStock} disponibles.`);
+        toast.error(`No hay suficiente stock de "${product.name}": pediste ${quantity} y solo hay ${product.totalStock} disponibles.`);
         return;
       }
     }
@@ -60,17 +70,18 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
         items: rentalForm.items.map(item => ({ productId: parseInt(item.productId), quantity: parseInt(item.quantity.toString()) }))
       };
       const res = await apiFetch('/rentals', { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-      if (res.ok) { setIsRentalModalOpen(false); setRentalForm({ clientName: "", clientPhone: "", cityId: "", eventDate: "", returnDate: "", items: [{ productId: "", quantity: 1 }] }); fetchData(); }
-      else { const err = await res.json(); alert(`No se pudo crear: ${err.message}`); }
-    } catch (error) { alert("Error de conexión"); } finally { setIsSavingRental(false); }
+      if (res.ok) { setIsRentalModalOpen(false); setRentalForm({ clientName: "", clientPhone: "", cityId: "", eventDate: "", returnDate: "", items: [{ productId: "", quantity: 1 }] }); fetchData(); toast.success("Alquiler registrado y stock descontado."); }
+      else toast.error(`No se pudo crear el alquiler: ${await readApiError(res)}`);
+    } catch { toast.error("Error de conexión. Revisá tu internet e intentá de nuevo."); } finally { setIsSavingRental(false); }
   };
 
   const handleMarkAsReturned = async (id: number) => {
     if (!window.confirm("¿Confirmas que el cliente devolvió todos los productos? Esto repondrá el stock físico.")) return;
     try {
       const res = await apiFetch(`/rentals/${id}/return`, { method: "PUT" });
-      if (res.ok) fetchData(); else alert("Error al registrar devolución.");
-    } catch (error) { console.error(error); }
+      if (res.ok) { fetchData(); toast.success("Devolución registrada: el stock volvió al depósito."); }
+      else toast.error(`No se pudo registrar la devolución: ${await readApiError(res)}`);
+    } catch { toast.error("Error de conexión. Revisá tu internet e intentá de nuevo."); }
   };
 
   return (
@@ -78,7 +89,7 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
       <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between gap-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input type="text" placeholder="Buscar cliente..." value={searchRental} onChange={(e) => setSearchRental(e.target.value)} className="pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-900 focus:outline-none w-full sm:w-64" />
+          <input type="text" placeholder="Buscar cliente..." aria-label="Buscar cliente" value={searchRental} onChange={(e) => setSearchRental(e.target.value)} className="pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-900 focus:outline-none w-full sm:w-64" />
         </div>
         <button onClick={() => setIsRentalModalOpen(true)} className="flex items-center bg-emerald-600 text-white px-5 py-2.5 rounded-xl hover:bg-emerald-700 transition-colors font-medium shadow-md cursor-pointer">
           <Plus className="w-5 h-5 mr-2" /> Nuevo Alquiler
@@ -99,7 +110,7 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
           <tbody className="divide-y divide-slate-100">
             {isLoadingData ? <tr><td colSpan={5} className="text-center py-8 text-slate-500">Cargando...</td></tr> : 
              filteredRentals.length === 0 ? <tr><td colSpan={5} className="text-center py-12 text-slate-500"><CalendarDays className="w-12 h-12 text-slate-300 mx-auto mb-3"/>No hay alquileres.</td></tr> : 
-             filteredRentals.map((rental: any) => (
+             filteredRentals.map((rental) => (
                 <tr key={rental.id} className="hover:bg-slate-50 transition-colors">
                   <td className="px-6 py-4">
                     <p className="font-bold text-slate-900 text-lg">{rental.clientName}</p>
@@ -114,7 +125,7 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
                   </td>
                   <td className="px-6 py-4">
                     <ul className="text-sm text-slate-600 space-y-1">
-                      {rental.items.map((item: any, i: number) => (
+                      {rental.items.map((item, i) => (
                         <li key={i} className="flex items-center gap-2">
                           <span className="font-bold text-blue-900 bg-blue-50 px-1.5 rounded">{item.quantity}x</span> 
                           <span className="truncate w-40 block">{item.product?.name || 'Producto borrado'}</span>
@@ -148,7 +159,7 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[95vh]">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/80">
               <h3 className="text-xl font-bold text-slate-900 flex items-center"><CalendarDays className="w-6 h-6 mr-2 text-emerald-600"/> Registrar Alquiler</h3>
-              <button onClick={() => setIsRentalModalOpen(false)} className="text-slate-400 hover:text-slate-700 p-1 rounded-full cursor-pointer"><X className="w-6 h-6" /></button>
+              <button onClick={() => setIsRentalModalOpen(false)} aria-label="Cerrar" className="text-slate-400 hover:text-slate-700 p-1 rounded-full cursor-pointer"><X className="w-6 h-6" /></button>
             </div>
             
             <div className="p-6 overflow-y-auto">
@@ -193,7 +204,7 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
                           <input type="number" required min="1" placeholder="Cant." value={item.quantity} onChange={(e) => updateRentalItem(index, 'quantity', e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-center font-bold" />
                         </div>
                         {rentalForm.items.length > 1 && (
-                          <button type="button" onClick={() => removeRentalItem(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"><Trash2 className="w-5 h-5"/></button>
+                          <button type="button" onClick={() => removeRentalItem(index)} aria-label="Quitar este producto" title="Quitar este producto" className="p-2 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"><Trash2 className="w-5 h-5"/></button>
                         )}
                       </div>
                     ))}

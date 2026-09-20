@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { Minus, Plus, ShoppingBag, CheckCircle2, AlertCircle } from "lucide-react"; // 👇 Agregamos AlertCircle
 import { useCart } from "./CartProvider"; 
+import type { Product } from "../types";
 
-export default function ProductActions({ product }: { product: any }) {
+export default function ProductActions({ product }: { product: Product }) {
   const [quantity, setQuantity] = useState<number | string>(1);
   const [addedQty, setAddedQty] = useState(1);
   
@@ -133,6 +134,7 @@ export default function ProductActions({ product }: { product: any }) {
           <button 
             onClick={handleDecrease} 
             disabled={(Number(quantity) || 1) <= 1}
+            aria-label="Una unidad menos"
             className="w-10 h-10 flex items-center justify-center text-slate-500 hover:text-blue-900 hover:bg-blue-50 rounded-xl disabled:opacity-30 disabled:hover:bg-transparent transition-colors cursor-pointer shrink-0"
           >
             <Minus className="w-5 h-5" />
@@ -140,6 +142,7 @@ export default function ProductActions({ product }: { product: any }) {
           
           <input 
             type="number"
+            aria-label="Cantidad"
             min="1"
             max={product.totalStock}
             value={quantity}
@@ -152,6 +155,7 @@ export default function ProductActions({ product }: { product: any }) {
           <button 
             onClick={handleIncrease} 
             disabled={(Number(quantity) || 1) >= product.totalStock}
+            aria-label="Una unidad más"
             className="w-10 h-10 flex items-center justify-center text-slate-500 hover:text-blue-900 hover:bg-blue-50 rounded-xl disabled:opacity-30 disabled:hover:bg-transparent transition-colors cursor-pointer shrink-0"
           >
             <Plus className="w-5 h-5" />

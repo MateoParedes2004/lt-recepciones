@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -8,9 +8,8 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
-  // El DTO con whitelist:true ya filtra cualquier campo que no sea 'name'
-  // (ej. 'description', que la tabla Category no soporta), sin necesitar
-  // el filtrado manual que había antes.
+  // El DTO (con whitelist y forbidNonWhitelisted globales) define exactamente
+  // qué campos acepta una categoría: name y description.
   @UseGuards(JwtAuthGuard)
   @Post()
   create(@Body() body: CreateCategoryDto) {
@@ -23,19 +22,19 @@ export class CategoriesController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.categoriesService.findOne(Number(id));
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.categoriesService.findOne(id);
   }
 
   @UseGuards(JwtAuthGuard)
   @Put(':id')
-  update(@Param('id') id: string, @Body() body: UpdateCategoryDto) {
-    return this.categoriesService.update(Number(id), body);
+  update(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateCategoryDto) {
+    return this.categoriesService.update(id, body);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.categoriesService.remove(Number(id));
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.categoriesService.remove(id);
   }
 }

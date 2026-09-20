@@ -12,6 +12,23 @@ export function getImageUrl(path?: string | null): string {
   return `${getApiUrl()}${path}`;
 }
 
+/**
+ * Extrae un mensaje legible de una respuesta de error del backend. El
+ * validador de Nest devuelve `message` como array cuando fallan varios
+ * campos; mostrarlo crudo daba textos ilegibles ("a,b,c" o [object Object]).
+ */
+export async function readApiError(res: Response, fallback = "Ocurrió un error inesperado."): Promise<string> {
+  try {
+    const data = await res.json();
+    const msg = data?.message;
+    if (Array.isArray(msg)) return msg.join(". ");
+    if (typeof msg === "string" && msg) return msg;
+  } catch {
+    // respuesta sin cuerpo JSON: caemos al mensaje por defecto
+  }
+  return fallback;
+}
+
 function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("admin_token");

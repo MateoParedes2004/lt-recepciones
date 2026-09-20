@@ -4,13 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { Package, CalendarDays, TrendingUp, LogOut, Layers, Tags, BarChart3, Camera, MapPin, Loader2 } from "lucide-react";
+import { Package, CalendarDays, TrendingUp, LogOut, Layers, Tags, BarChart3, Camera, MapPin, Loader2, AlertCircle, RefreshCw } from "lucide-react";
 import ProductsTab from "../../components/admin/ProductsTab";
 import CategoriesTab from "../../components/admin/CategoriesTab";
 import RentalsTab from "../../components/admin/RentalsTab";
 import GalleryTab from "../../components/admin/GalleryTab";
 import CitiesTab from "../../components/admin/CitiesTab";
 import { apiFetch } from "../../lib/api";
+import type { Product, Category, Rental, GalleryImage, City } from "../../types";
 
 // StatisticsTab carga recharts (pesado): se difiere para que ese bundle solo
 // se descargue si el admin realmente abre la pestaña de Estadísticas.
@@ -26,50 +27,73 @@ const formatPYG = (amount: number) => `Gs. ${amount.toString().replace(/\B(?=(\d
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(true);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [activeTab, setActiveTab] = useState("products");
   
   // Base de Datos Global
-  const [products, setProducts] = useState<any[]>([]);
-  const [categories, setCategories] = useState<any[]>([]);
-  const [rentals, setRentals] = useState<any[]>([]);
-  const [gallery, setGallery] = useState<any[]>([]);
-  const [cities, setCities] = useState<any[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [rentals, setRentals] = useState<Rental[]>([]);
+  const [gallery, setGallery] = useState<GalleryImage[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
+  // Recursos que no se pudieron cargar (red caída, servidor caído, etc.):
+  // sin esto, una falla se veía igual que "todavía no hay datos cargados".
+  const [failedResources, setFailedResources] = useState<string[]>([]);
 
-  useEffect(() => {
-    const token = localStorage.getItem("admin_token");
-    if (!token) router.push("/iniciar-sesion");
-    else { setIsLoading(false); fetchData(); }
-  }, [router]);
-
-  const fetchData = async () => {
-    setIsLoadingData(true);
-    try {
-      const [prodRes, catRes, rentRes, galRes, cityRes] = await Promise.all([
-        apiFetch('/products'),
-        apiFetch('/categories'),
-        apiFetch('/rentals'),
-        apiFetch('/gallery?admin=true'),
-        apiFetch('/cities')
-      ]);
-      if (prodRes.ok) setProducts(await prodRes.json());
-      if (catRes.ok) setCategories(await catRes.json());
-      if (rentRes.ok) setRentals(await rentRes.json());
-      if (galRes.ok) setGallery(await galRes.json());
-      if (cityRes.ok) setCities(await cityRes.json());
-    } catch (error) { console.error("Error cargando datos", error); } 
-    finally { setIsLoadingData(false); }
+  const loadAll = async () => {
+    const failed: string[] = [];
+    const sources: { label: string; path: string; apply: (data: unknown) => void }[] = [
+      { label: "productos", path: "/products", apply: (d) => setProducts(d as Product[]) },
+      { label: "categorías", path: "/categories", apply: (d) => setCategories(d as Category[]) },
+      { label: "alquileres", path: "/rentals", apply: (d) => setRentals(d as Rental[]) },
+      { label: "galería", path: "/gallery/admin", apply: (d) => setGallery(d as GalleryImage[]) },
+      { label: "ciudades", path: "/cities", apply: (d) => setCities(d as City[]) },
+    ];
+    // Cada recurso se carga por separado: si uno falla, los demás igual se
+    // muestran (antes un solo error tiraba abajo la carga completa).
+    await Promise.all(sources.map(async ({ label, path, apply }) => {
+      try {
+        const res = await apiFetch(path);
+        if (res.ok) apply(await res.json());
+        else failed.push(label);
+      } catch {
+        failed.push(label);
+      }
+    }));
+    setFailedResources(failed);
+    setIsLoadingData(false);
   };
+
+  // Recarga los datos (lo usan las pestañas tras guardar, y el botón "Reintentar").
+  const fetchData = () => {
+    setIsLoadingData(true);
+    return loadAll();
+  };
+
+  // La sesión ya la valida AdminAuthGate (el layout del panel) antes de montar
+  // esta página: acá solo hay que hacer la carga inicial. isLoadingData ya
+  // arranca en true, por eso no hace falta marcarlo de nuevo acá.
+  useEffect(() => {
+    // Carga de datos del servidor (sistema externo) al montar: los setState de
+    // loadAll ocurren después de esperar las respuestas, no en el render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadAll();
+  }, []);
 
   const handleLogout = () => { localStorage.removeItem("admin_token"); router.push("/iniciar-sesion"); };
 
   // Cálculos Globales Rápidos para las tarjetas superiores
-  const totalPhysicalUnits = products.reduce((acc, p: any) => acc + (p.totalStock || 0), 0);
-  const activeRentalsCount = rentals.filter((r: any) => r.status === "ACTIVO").length;
-  const currentMonthIncome = rentals.reduce((acc, r: any) => acc + (Number(r.totalPrice) || 0), 0);
-
-  if (isLoading) return <div className="min-h-screen bg-slate-50"></div>;
+  const totalPhysicalUnits = products.reduce((acc, p) => acc + (p.totalStock || 0), 0);
+  const activeRentalsCount = rentals.filter((r) => r.status === "ACTIVO").length;
+  // Alquileres cuya fecha de evento cae en el mes actual (mismo criterio por
+  // fecha de evento que usa la pestaña Estadísticas). eventDate es una fecha de
+  // calendario pura (medianoche UTC), por eso se lee con getters UTC.
+  const now = new Date();
+  const currentMonthIncome = rentals.reduce((acc, r) => {
+    const d = new Date(r.eventDate);
+    const isThisMonth = d.getUTCFullYear() === now.getFullYear() && d.getUTCMonth() === now.getMonth();
+    return isThisMonth ? acc + (Number(r.totalPrice) || 0) : acc;
+  }, 0);
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 relative">
@@ -100,9 +124,22 @@ export default function AdminDashboard() {
         </div>
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center space-x-4">
           <div className="p-4 bg-amber-50 text-amber-600 rounded-2xl"><TrendingUp className="w-6 h-6" /></div>
-          <div><p className="text-sm font-medium text-slate-500">Ingresos Proyectados</p><h3 className="text-2xl font-bold text-slate-900">{formatPYG(currentMonthIncome)}</h3></div>
+          <div><p className="text-sm font-medium text-slate-500">Ingresos del Mes</p><h3 className="text-2xl font-bold text-slate-900">{formatPYG(currentMonthIncome)}</h3></div>
         </div>
       </div>
+
+      {/* AVISO DE CARGA FALLIDA (distingue "no se pudo cargar" de "no hay datos") */}
+      {failedResources.length > 0 && !isLoadingData && (
+        <div role="alert" className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3 bg-red-50 border border-red-200 text-red-800 px-5 py-4 rounded-2xl">
+          <AlertCircle className="w-5 h-5 shrink-0 text-red-500" />
+          <p className="flex-1 text-sm font-medium">
+            No se pudieron cargar: {failedResources.join(", ")}. Lo que ves puede estar incompleto — no significa que no haya datos.
+          </p>
+          <button onClick={fetchData} className="inline-flex items-center justify-center gap-2 bg-red-600 text-white text-sm font-bold px-4 py-2 rounded-xl hover:bg-red-700 cursor-pointer">
+            <RefreshCw className="w-4 h-4" /> Reintentar
+          </button>
+        </div>
+      )}
 
       {/* 3. MENÚ DE PESTAÑAS */}
       <div className="inline-flex space-x-2 mb-6 bg-slate-200/50 p-1 rounded-2xl overflow-x-auto max-w-full">
