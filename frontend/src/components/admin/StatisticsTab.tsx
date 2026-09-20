@@ -5,7 +5,7 @@ import {
   DollarSign, ShoppingBag, Users, Calendar, Filter, Loader2, Send, ArrowRight,
   Clock, Hourglass, MapPin, Tags, CheckCircle2, Wallet, TrendingUp,
 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, usePlotArea } from 'recharts';
 import { apiFetch } from "../../lib/api";
 
 const formatPYG = (amount: number) => `Gs. ${Math.round(amount).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
@@ -21,11 +21,122 @@ const COLOR_VISITAS = "#a855f7"; // purple-500
 const COLOR_PEDIDOS_WSP = "#14b8a6"; // teal-500
 const COLOR_ALQUILERES = "#f59e0b"; // amber-500
 
+// Gráfico de visitas: áreas superpuestas sobre un fondo gris claro con franjas
+// alternadas. Las visitas del período van al frente en degradé azul→turquesa
+// (semitransparente, por eso donde se cruzan con el gris se ve más oscuro); el
+// período anterior queda atrás en gris, para comparar de un vistazo.
+const VISITAS_DEGRADE = ["#0a7fb5", "#22b3a3"];
+const VISITAS_PUNTO = "#0e97b0";
+const ANTERIOR_GRIS = "#b4b4b6";
+const FONDO_GRAFICO = "#f4f4f5";
+const FRANJA_GRAFICO = "#e7e7e9";
+const SWATCH_VISITAS = `linear-gradient(90deg, ${VISITAS_DEGRADE[0]}, ${VISITAS_DEGRADE[1]})`;
+
+// Franjas verticales alternadas entre un punto del eje X y el siguiente. Se
+// dibujan con la posición real del área de trazado, sin capa propia: quedan
+// detrás de las áreas y (con la grilla subida de capa) debajo de las líneas blancas.
+function FranjasAlternadas({ count }: { count: number }) {
+  const area = usePlotArea();
+  if (!area || count < 2) return null;
+  const step = area.width / (count - 1);
+  return (
+    <g aria-hidden="true">
+      {Array.from({ length: count - 1 }, (_, i) =>
+        i % 2 === 0 ? <rect key={i} x={area.x + i * step} y={area.y} width={step} height={area.height} fill={FRANJA_GRAFICO} /> : null
+      )}
+    </g>
+  );
+}
+
+interface TooltipItem { dataKey?: string | number; value?: number | string }
+
+// Un solo tooltip con las dos series en ese punto del eje X: el valor es lo
+// destacado y el nombre de la serie va en segundo plano.
+function VisitasTooltip({ active, payload, label, anteriorLabel }: {
+  active?: boolean; payload?: readonly TooltipItem[]; label?: string | number; anteriorLabel: string;
+}) {
+  if (!active || !payload?.length) return null;
+  const valueOf = (key: string) => Number(payload.find((p) => p.dataKey === key)?.value ?? 0);
+  const rows = [
+    { key: "visitas", name: "Visitas", value: valueOf("visitas"), swatch: SWATCH_VISITAS },
+    { key: "visitasAnterior", name: anteriorLabel, value: valueOf("visitasAnterior"), swatch: ANTERIOR_GRIS },
+  ];
+  return (
+    <div className="bg-white rounded-xl shadow-lg border border-slate-100 px-3.5 py-2.5 text-sm">
+      <p className="text-xs font-medium text-slate-500 mb-1.5">{label}</p>
+      {rows.map((r) => (
+        <div key={r.key} className="flex items-center gap-2 py-0.5">
+          <span className="w-3 h-[3px] rounded-full shrink-0" style={{ background: r.swatch }} />
+          <span className="font-bold text-slate-900 tabular-nums">{r.value}</span>
+          <span className="text-xs text-slate-500">{r.name}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function VisitasChart({ data, mode, isLoading }: { data: ChartPoint[]; mode: "mensual" | "anual"; isLoading: boolean }) {
+  const anteriorLabel = mode === "mensual" ? "Mes anterior" : "Año anterior";
+  const isEmpty = data.every((p) => p.visitas === 0 && p.visitasAnterior === 0);
+  // En la vista anual el nombre trae el año ("Ene 2026"): en el eje sobra.
+  const tickName = (name: string) => (mode === "anual" ? name.replace(/ \d{4}$/, "") : name);
+
+  return (
+    <div>
+      <div className="flex items-center gap-5 mb-3 text-xs text-slate-600">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-3.5 h-3.5 rounded-sm" style={{ background: SWATCH_VISITAS }} /> Visitas
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-3.5 h-3.5 rounded-sm" style={{ backgroundColor: ANTERIOR_GRIS }} /> {anteriorLabel}
+        </span>
+      </div>
+
+      <div className="h-72 w-full rounded-2xl overflow-hidden relative" style={{ backgroundColor: FONDO_GRAFICO }} aria-busy={isLoading}>
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={data} margin={{ top: 16, right: 36, left: 0, bottom: 4 }}>
+            <defs>
+              <linearGradient id="degradeVisitas" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stopColor={VISITAS_DEGRADE[0]} />
+                <stop offset="100%" stopColor={VISITAS_DEGRADE[1]} />
+              </linearGradient>
+            </defs>
+            <FranjasAlternadas count={data.length} />
+            <CartesianGrid vertical={false} stroke="#ffffff" strokeWidth={2} zIndex={50} />
+            <XAxis dataKey="name" axisLine={false} tickLine={false} tickFormatter={tickName} tick={{ fill: "#3f3f46", fontSize: 12 }} />
+            <YAxis axisLine={false} tickLine={false} allowDecimals={false} width={44} tick={{ fill: "#3f3f46", fontSize: 12 }} />
+            <Tooltip content={<VisitasTooltip anteriorLabel={anteriorLabel} />} cursor={{ stroke: "#ffffff", strokeWidth: 2 }} />
+            <Area type="monotone" dataKey="visitasAnterior" name={anteriorLabel} stroke="#ffffff" strokeWidth={2} fill={ANTERIOR_GRIS} fillOpacity={0.9}
+              activeDot={{ r: 5, fill: ANTERIOR_GRIS, stroke: "#ffffff", strokeWidth: 2 }} />
+            <Area type="monotone" dataKey="visitas" name="Visitas" stroke="#ffffff" strokeWidth={2} fill="url(#degradeVisitas)" fillOpacity={0.88}
+              activeDot={{ r: 5, fill: VISITAS_PUNTO, stroke: "#ffffff", strokeWidth: 2 }} />
+          </AreaChart>
+        </ResponsiveContainer>
+        {isEmpty && !isLoading && (
+          <p className="absolute inset-0 flex items-center justify-center text-sm font-medium text-slate-500 pointer-events-none">
+            Todavía no hay visitas registradas en este período.
+          </p>
+        )}
+      </div>
+
+      {/* Los mismos datos como tabla, para lectores de pantalla */}
+      <table className="sr-only">
+        <caption>Visitas al sitio por período, comparadas con el {anteriorLabel.toLowerCase()}</caption>
+        <thead><tr><th scope="col">Período</th><th scope="col">Visitas</th><th scope="col">{anteriorLabel}</th></tr></thead>
+        <tbody>
+          {data.map((p) => (<tr key={p.name}><th scope="row">{p.name}</th><td>{p.visitas}</td><td>{p.visitasAnterior}</td></tr>))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 interface ChartPoint {
   name: string;
   ingresos: number;
   pedidos: number;
   visitas: number;
+  visitasAnterior: number;
   pedidosWhatsapp: number;
 }
 
@@ -38,6 +149,7 @@ interface Kpis {
   ticketPromedio: number;
   totalAlquileres: number;
   totalVisitas: number;
+  totalVisitasAnterior: number;
   totalPedidosWhatsapp: number;
   tasaVisitaPedido: number;
   tasaPedidoAlquiler: number;
@@ -127,6 +239,11 @@ export default function StatisticsTab() {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+
+  // Comparar en % contra el período anterior solo tiene sentido si el período
+  // elegido ya terminó: un mes (o año) a medias contra uno completo siempre
+  // daría una caída engañosa.
+  const periodoTerminado = viewMode === "mensual" ? selectedMonth < currentMonthStr : selectedYear < currentYearStr;
 
   useEffect(() => {
     apiFetch('/analytics/years').then(async (res) => {
@@ -301,21 +418,18 @@ export default function StatisticsTab() {
 
           <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative">
             {isLoading && <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 rounded-3xl flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-blue-600"/></div>}
-            <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center"><Users className="w-5 h-5 mr-2 text-purple-500" /> Actividad: Visitas, Pedidos y Alquileres</h3>
-            <div className="h-72 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="none" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
-                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} allowDecimals={false} />
-                  <Tooltip cursor={{stroke: '#cbd5e1', strokeWidth: 1}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
-                  <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Line type="monotone" dataKey="visitas" name="Visitas" stroke={COLOR_VISITAS} strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                  <Line type="monotone" dataKey="pedidosWhatsapp" name="Pedidos WhatsApp" stroke={COLOR_PEDIDOS_WSP} strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                  <Line type="monotone" dataKey="pedidos" name="Alquileres" stroke={COLOR_ALQUILERES} strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                </LineChart>
-              </ResponsiveContainer>
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+              <h3 className="text-lg font-bold text-slate-900 flex items-center"><Users className="w-5 h-5 mr-2 text-purple-500" /> Visitas al Sitio Web</h3>
+              {kpis && (
+                <span className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full">
+                  {kpis.totalVisitas} visitas
+                  {kpis.totalVisitasAnterior > 0 && periodoTerminado
+                    ? ` · ${kpis.totalVisitas >= kpis.totalVisitasAnterior ? "+" : ""}${Math.round(((kpis.totalVisitas - kpis.totalVisitasAnterior) / kpis.totalVisitasAnterior) * 100)}% vs ${viewMode === "mensual" ? "mes" : "año"} anterior`
+                    : ""}
+                </span>
+              )}
             </div>
+            <VisitasChart data={chartData} mode={viewMode === "anual" ? "anual" : "mensual"} isLoading={isLoading} />
           </div>
         </div>
       )}

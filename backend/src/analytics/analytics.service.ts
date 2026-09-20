@@ -107,7 +107,25 @@ export class AnalyticsService {
       realEnd = paraguayToUtc(year, 12, 31, 23, 59, 59, 999);
     }
 
-    const [visitas, alquileres, checkoutIntents] = await Promise.all([
+    // Período anterior (mes anterior si se mira un mes, año anterior si se mira
+    // un año): solo se usa para comparar visitas en el gráfico. Con un solo día
+    // no hay gráfico de series, así que no se consulta.
+    let prevRealStart: Date | null = null;
+    let prevRealEnd: Date | null = null;
+    if (!day) {
+      if (month) {
+        const prevMonth = month === 1 ? 12 : month - 1;
+        const prevYear = month === 1 ? year - 1 : year;
+        const lastDayPrev = new Date(Date.UTC(prevYear, prevMonth, 0)).getUTCDate();
+        prevRealStart = paraguayToUtc(prevYear, prevMonth, 1, 0, 0, 0);
+        prevRealEnd = paraguayToUtc(prevYear, prevMonth, lastDayPrev, 23, 59, 59, 999);
+      } else {
+        prevRealStart = paraguayToUtc(year - 1, 1, 1, 0, 0, 0);
+        prevRealEnd = paraguayToUtc(year - 1, 12, 31, 23, 59, 59, 999);
+      }
+    }
+
+    const [visitas, alquileres, checkoutIntents, visitasPrevias] = await Promise.all([
       this.prisma.siteVisit.findMany({ where: { date: { gte: realStart, lte: realEnd } } }),
       this.prisma.rental.findMany({
         where: { eventDate: { gte: calStart, lte: calEnd } },
@@ -116,6 +134,9 @@ export class AnalyticsService {
       // Los pedidos de WhatsApp no tienen "fecha de evento", solo el momento
       // en que el cliente los inició — se filtran por createdAt (real).
       this.prisma.checkoutIntent.findMany({ where: { createdAt: { gte: realStart, lte: realEnd } } }),
+      prevRealStart && prevRealEnd
+        ? this.prisma.siteVisit.findMany({ where: { date: { gte: prevRealStart, lte: prevRealEnd } } })
+        : Promise.resolve<{ date: Date; count: number }[]>([]),
     ]);
 
     // --- TOP PRODUCTOS (por ingresos) ---
@@ -165,7 +186,7 @@ export class AnalyticsService {
     // Misma distinción que arriba: bucketOfCalendarDate lee eventDate con
     // getters UTC (fecha de calendario pura); bucketOfRealDate convierte el
     // instante real al calendario de Paraguay antes de ubicarlo en un bucket.
-    type ChartPoint = { name: string; ingresos: number; pedidos: number; visitas: number; pedidosWhatsapp: number };
+    type ChartPoint = { name: string; ingresos: number; pedidos: number; visitas: number; visitasAnterior: number; pedidosWhatsapp: number };
     let chartData: ChartPoint[] = [];
     let bucketOfCalendarDate: (d: Date) => number;
     let bucketOfRealDate: (d: Date) => number;
@@ -173,7 +194,7 @@ export class AnalyticsService {
     if (month && day) {
       // Un único bucket: el día completo (los gráficos de series no aportan
       // nada con un solo punto — el frontend muestra los KPIs en su lugar).
-      chartData = [{ name: `${day} ${MONTH_NAMES[month - 1]} ${year}`, ingresos: 0, pedidos: 0, visitas: 0, pedidosWhatsapp: 0 }];
+      chartData = [{ name: `${day} ${MONTH_NAMES[month - 1]} ${year}`, ingresos: 0, pedidos: 0, visitas: 0, visitasAnterior: 0, pedidosWhatsapp: 0 }];
       bucketOfCalendarDate = () => 0;
       bucketOfRealDate = () => 0;
     } else if (month) {
@@ -182,20 +203,21 @@ export class AnalyticsService {
       const mName = MONTH_NAMES[month - 1];
 
       chartData = [
-        { name: `01-07 ${mName}`, ingresos: 0, pedidos: 0, visitas: 0, pedidosWhatsapp: 0 },
-        { name: `08-14 ${mName}`, ingresos: 0, pedidos: 0, visitas: 0, pedidosWhatsapp: 0 },
-        { name: `15-21 ${mName}`, ingresos: 0, pedidos: 0, visitas: 0, pedidosWhatsapp: 0 },
-        { name: `22-${lastDay} ${mName}`, ingresos: 0, pedidos: 0, visitas: 0, pedidosWhatsapp: 0 },
+        { name: `01-07 ${mName}`, ingresos: 0, pedidos: 0, visitas: 0, visitasAnterior: 0, pedidosWhatsapp: 0 },
+        { name: `08-14 ${mName}`, ingresos: 0, pedidos: 0, visitas: 0, visitasAnterior: 0, pedidosWhatsapp: 0 },
+        { name: `15-21 ${mName}`, ingresos: 0, pedidos: 0, visitas: 0, visitasAnterior: 0, pedidosWhatsapp: 0 },
+        { name: `22-${lastDay} ${mName}`, ingresos: 0, pedidos: 0, visitas: 0, visitasAnterior: 0, pedidosWhatsapp: 0 },
       ];
       bucketOfCalendarDate = (d) => getWeek(d.getUTCDate());
       bucketOfRealDate = (d) => getWeek(utcToParaguayDate(d).day);
     } else {
-      chartData = MONTH_NAMES.map((m) => ({ name: `${m} ${year}`, ingresos: 0, pedidos: 0, visitas: 0, pedidosWhatsapp: 0 }));
+      chartData = MONTH_NAMES.map((m) => ({ name: `${m} ${year}`, ingresos: 0, pedidos: 0, visitas: 0, visitasAnterior: 0, pedidosWhatsapp: 0 }));
       bucketOfCalendarDate = (d) => d.getUTCMonth();
       bucketOfRealDate = (d) => utcToParaguayDate(d).month - 1;
     }
 
     visitas.forEach((v) => { chartData[bucketOfRealDate(v.date)].visitas += v.count; });
+    visitasPrevias.forEach((v) => { chartData[bucketOfRealDate(v.date)].visitasAnterior += v.count; });
     alquileres.forEach((r) => {
       const b = bucketOfCalendarDate(r.eventDate);
       chartData[b].pedidos += 1;
@@ -207,6 +229,7 @@ export class AnalyticsService {
     const totalIngresos = alquileres.reduce((acc, r) => acc + Number(r.totalPrice), 0);
     const totalAlquileres = alquileres.length;
     const totalVisitas = visitas.reduce((acc, v) => acc + v.count, 0);
+    const totalVisitasAnterior = visitasPrevias.reduce((acc, v) => acc + v.count, 0);
     const totalPedidosWhatsapp = checkoutIntents.length;
     const alquileresActivos = alquileres.filter((r) => r.status === 'ACTIVO').length;
     const alquileresDevueltos = totalAlquileres - alquileresActivos;
@@ -227,6 +250,7 @@ export class AnalyticsService {
       ticketPromedio: totalAlquileres ? totalIngresos / totalAlquileres : 0,
       totalAlquileres,
       totalVisitas,
+      totalVisitasAnterior,
       totalPedidosWhatsapp,
       tasaVisitaPedido: totalVisitas ? (totalPedidosWhatsapp / totalVisitas) * 100 : 0,
       tasaPedidoAlquiler: totalPedidosWhatsapp ? (totalAlquileres / totalPedidosWhatsapp) * 100 : 0,

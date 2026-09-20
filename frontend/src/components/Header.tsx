@@ -199,10 +199,20 @@ export default function Header() {
       <div className={`md:hidden fixed top-0 right-0 h-dvh w-[80vw] max-w-[320px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-out flex flex-col ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         
         <div className="flex items-center justify-between p-5 border-b border-slate-100">
-          <span className="font-light text-xl tracking-tight text-slate-900 flex items-baseline">
-            LT 
-            <span className={`ml-1 text-2xl text-black ${cursiveFont.className}`}>Recepciones</span>
-          </span>
+          <Link href="/" onClick={() => setIsMenuOpen(false)} aria-label="LT Recepciones, ir al inicio" className="flex items-center">
+            {!logoError ? (
+              <Image
+                src="/logo.png"
+                alt="LT Recepciones Logo"
+                width={250}
+                height={80}
+                className="h-11 w-auto mr-1 object-contain"
+              />
+            ) : (
+              <span className="font-light text-xl tracking-tight text-slate-900">LT</span>
+            )}
+            <span className={`ml-1 text-2xl text-black mt-2 ${cursiveFont.className}`}>Recepciones</span>
+          </Link>
           <button 
             onClick={() => setIsMenuOpen(false)} 
             aria-label="Cerrar menú"
