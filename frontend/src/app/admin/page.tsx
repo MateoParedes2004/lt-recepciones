@@ -83,7 +83,9 @@ export default function AdminDashboard() {
   const handleLogout = () => { localStorage.removeItem("admin_token"); router.push("/iniciar-sesion"); };
 
   // Cálculos Globales Rápidos para las tarjetas superiores
-  const totalPhysicalUnits = products.reduce((acc, p) => acc + (p.totalStock || 0), 0);
+  // Unidades libres HOY (el inventario físico menos lo que hoy está afuera).
+  const totalAvailableUnits = products.reduce((acc, p) => acc + (p.availableStock ?? p.totalStock ?? 0), 0);
+  const overdueRentalsCount = rentals.filter((r) => r.phase === "ATRASADO").length;
   const activeRentalsCount = rentals.filter((r) => r.status === "ACTIVO").length;
   // Alquileres cuya fecha de evento cae en el mes actual (mismo criterio por
   // fecha de evento que usa la pestaña Estadísticas). eventDate es una fecha de
@@ -92,7 +94,8 @@ export default function AdminDashboard() {
   const currentMonthIncome = rentals.reduce((acc, r) => {
     const d = new Date(r.eventDate);
     const isThisMonth = d.getUTCFullYear() === now.getFullYear() && d.getUTCMonth() === now.getMonth();
-    return isThisMonth ? acc + (Number(r.totalPrice) || 0) : acc;
+    // Un alquiler anulado nunca se concretó: no suma ingresos.
+    return isThisMonth && r.status !== "CANCELADO" ? acc + (Number(r.totalPrice) || 0) : acc;
   }, 0);
 
   return (
@@ -116,7 +119,7 @@ export default function AdminDashboard() {
         </div>
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center space-x-4">
           <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl"><Layers className="w-6 h-6" /></div>
-          <div><p className="text-sm font-medium text-slate-500">Stock Libre (Total)</p><h3 className="text-2xl font-bold text-slate-900">{totalPhysicalUnits}</h3></div>
+          <div><p className="text-sm font-medium text-slate-500">Stock Libre Hoy</p><h3 className="text-2xl font-bold text-slate-900">{totalAvailableUnits}</h3></div>
         </div>
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center space-x-4">
           <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl"><CalendarDays className="w-6 h-6" /></div>
@@ -145,7 +148,7 @@ export default function AdminDashboard() {
       <div className="inline-flex space-x-2 mb-6 bg-slate-200/50 p-1 rounded-2xl overflow-x-auto max-w-full">
         <button onClick={() => setActiveTab("products")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "products" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Package className="w-4 h-4 mr-2" /> Productos</button>
         <button onClick={() => setActiveTab("categories")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "categories" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Tags className="w-4 h-4 mr-2" /> Categorías</button>
-        <button onClick={() => setActiveTab("rentals")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "rentals" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><CalendarDays className="w-4 h-4 mr-2" /> Alquileres</button>
+        <button onClick={() => setActiveTab("rentals")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "rentals" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><CalendarDays className="w-4 h-4 mr-2" /> Alquileres{overdueRentalsCount > 0 && <span aria-label={`${overdueRentalsCount} alquileres atrasados`} title="Alquileres atrasados" className="ml-2 min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">{overdueRentalsCount}</span>}</button>
         <button onClick={() => setActiveTab("gallery")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "gallery" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Camera className="w-4 h-4 mr-2" /> Galería</button>
         <button onClick={() => setActiveTab("statistics")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "statistics" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><BarChart3 className="w-4 h-4 mr-2" /> Estadísticas</button>
         {/*  NUEVO BOTÓN PARA CIUDADES */}

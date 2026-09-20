@@ -1,12 +1,15 @@
-import { Injectable, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { AvailabilityService } from '../availability/availability.service';
+import { formatDayIndex } from '../common/timezone';
 
 @Injectable()
 export class ProductsService {
   constructor(
     private prisma: PrismaService,
     private cloudinaryService: CloudinaryService,
+    private availability: AvailabilityService,
   ) {}
 
   async createProduct(data: any) {
@@ -32,7 +35,7 @@ export class ProductsService {
       ? { skip: ((page ?? 1) - 1) * Math.min(limit, 100), take: Math.min(limit, 100) }
       : {};
 
-    return this.prisma.product.findMany({
+    const products = await this.prisma.product.findMany({
       where: { isArchived: false },
       include: {
         category: true,
@@ -42,15 +45,18 @@ export class ProductsService {
       },
       ...pagination,
     });
+    // totalStock = inventario físico; availableStock = libres hoy (se calcula, no se guarda).
+    return this.availability.withAvailability(products);
   }
 
   // Solo para el panel admin: los productos dados de baja, para poder verlos y restaurarlos.
   async getArchivedProducts() {
-    return this.prisma.product.findMany({
+    const products = await this.prisma.product.findMany({
       where: { isArchived: true },
       include: { category: true },
       orderBy: { name: 'asc' },
     });
+    return this.availability.withAvailability(products);
   }
 
   async restoreProduct(id: number) {
@@ -58,7 +64,8 @@ export class ProductsService {
     if (!product || !product.isArchived) {
       throw new NotFoundException(`No hay ningún producto dado de baja con ID ${id}.`);
     }
-    return this.prisma.product.update({ where: { id }, data: { isArchived: false }, include: { category: true } });
+    const restored = await this.prisma.product.update({ where: { id }, data: { isArchived: false }, include: { category: true } });
+    return (await this.availability.withAvailability([restored]))[0];
   }
 
   async getProductById(id: number) {
@@ -67,7 +74,7 @@ export class ProductsService {
       include: { category: true },
     });
     if (!product || product.isArchived) throw new NotFoundException(`El producto con ID ${id} no existe.`);
-    return product;
+    return (await this.availability.withAvailability([product]))[0];
   }
 
   // 👇 TAMBIÉN BLINDAMOS LA ACTUALIZACIÓN
@@ -83,31 +90,13 @@ export class ProductsService {
     if (data.pricePerDay) dataToUpdate.pricePerDay = parseFloat(data.pricePerDay);
     if (data.categoryId) dataToUpdate.categoryId = Number(data.categoryId);
 
-    // Si se edita el stock, la escritura queda condicionada a que rentedCount
-    // siga siendo el que leímos (ver más abajo): sin eso, un alquiler o una
-    // devolución que entre justo en el medio dejaría el disponible calculado
-    // sobre un dato viejo y el inventario desincronizado en silencio.
-    let expectedRentedCount: number | undefined;
-
-    if (data.totalStock !== undefined && data.totalStock !== null && data.totalStock !== '') {
-      // El "Stock Total" que edita el admin representa el inventario FÍSICO
-      // completo (disponible + alquilado ahora mismo), no solo lo disponible.
-      // Si escribiéramos ese número directo en totalStock (disponible),
-      // cada edición mientras hay alquileres activos desincronizaría
-      // rentedCount y podía inflar el disponible por encima de la flota real.
-      const current = await this.prisma.product.findUnique({ where: { id }, select: { rentedCount: true } });
-      if (!current) throw new NotFoundException(`El producto con ID ${id} no existe.`);
-
-      const physicalTotal = Number(data.totalStock);
-      const newAvailable = physicalTotal - current.rentedCount;
-      if (newAvailable < 0) {
-        throw new BadRequestException(
-          `El stock total no puede ser menor a lo que ya está alquilado (${current.rentedCount} unidades afuera ahora mismo).`,
-        );
-      }
-      dataToUpdate.totalStock = newAvailable;
-      expectedRentedCount = current.rentedCount;
-    }
+    // "Stock Total" es el inventario FÍSICO. Cuántas unidades hay libres en
+    // una fecha se calcula desde los alquileres (no se guarda), así que
+    // editar este número nunca desincroniza nada; lo único a cuidar es no
+    // bajarlo por debajo de lo que las reservas ya necesitan a la vez.
+    const stockProvided = data.totalStock !== undefined && data.totalStock !== null && data.totalStock !== '';
+    const newTotal = stockProvided ? Number(data.totalStock) : undefined;
+    if (newTotal !== undefined) dataToUpdate.totalStock = newTotal;
 
     // Si se sube una foto nueva, guardamos la URL de la anterior para
     // liberarla en Cloudinary una vez que el reemplazo quedó guardado.
@@ -115,25 +104,32 @@ export class ProductsService {
       ? await this.prisma.product.findUnique({ where: { id }, select: { imageUrl: true } })
       : null;
 
-    const result = await this.prisma.product.updateMany({
-      where: expectedRentedCount === undefined ? { id } : { id, rentedCount: expectedRentedCount },
-      data: dataToUpdate,
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (newTotal !== undefined) {
+        // Con el producto bloqueado, ningún alquiler nuevo puede colarse entre
+        // la comprobación de abajo y la escritura.
+        await this.availability.lockProducts(tx, [id]);
+        const exists = await tx.product.findUnique({ where: { id }, select: { id: true } });
+        if (!exists) throw new NotFoundException(`El producto con ID ${id} no existe.`);
+
+        const { peak, day } = await this.availability.futurePeak(tx, id);
+        if (newTotal < peak) {
+          throw new BadRequestException(
+            `No podés bajar el stock total a ${newTotal}: hay alquileres vigentes que necesitan hasta ${peak} unidades a la vez` +
+              `${day !== null ? ` (el ${formatDayIndex(day)})` : ''}. Ajustá o anulá esos alquileres primero.`,
+          );
+        }
+      }
+
+      const result = await tx.product.updateMany({ where: { id }, data: dataToUpdate });
+      if (result.count === 0) throw new NotFoundException(`El producto con ID ${id} no existe.`);
+      return tx.product.findUniqueOrThrow({ where: { id } });
     });
-
-    if (result.count === 0) {
-      const exists = await this.prisma.product.findUnique({ where: { id }, select: { id: true } });
-      if (!exists) throw new NotFoundException(`El producto con ID ${id} no existe.`);
-      throw new ConflictException(
-        'El stock de este producto cambió mientras lo editabas (se registró un alquiler o una devolución). Recargá el panel y volvé a intentar.',
-      );
-    }
-
-    const updated = await this.prisma.product.findUniqueOrThrow({ where: { id } });
 
     if (previous?.imageUrl && previous.imageUrl !== updated.imageUrl) {
       await this.cloudinaryService.deleteByUrl(previous.imageUrl);
     }
-    return updated;
+    return (await this.availability.withAvailability([updated]))[0];
   }
 
   async deleteProduct(id: number) {

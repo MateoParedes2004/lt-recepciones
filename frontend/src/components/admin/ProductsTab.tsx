@@ -77,9 +77,9 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
   };
 
   const handleEditClick = (product: Product) => {
-    // El campo edita el inventario FÍSICO total (disponible + alquilado),
-    // no solo lo disponible — ver ProductsService.updateProduct.
-    const physicalTotal = (product.totalStock || 0) + (product.rentedCount || 0);
+    // totalStock ya es el inventario FÍSICO: lo libre en cada fecha se calcula
+    // aparte desde los alquileres (ver AvailabilityService).
+    const physicalTotal = product.totalStock || 0;
     setEditingId(product.id);
     setFormData({ name: product.name, description: product.description ?? "", price: product.pricePerDay.toString(), categoryId: product.categoryId.toString(), totalStock: physicalTotal.toString() });
     setImagePreview(product.imageUrl ? getImageUrl(product.imageUrl) : ""); setImageFile(null); setIsModalOpen(true);
@@ -187,7 +187,7 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-50 text-slate-500 text-sm uppercase"><th className="px-6 py-4">Producto</th><th className="px-6 py-4">Categoría</th><th className="px-6 py-4">Stock Disponible</th><th className="px-6 py-4">Precio Unit.</th><th className="px-6 py-4 text-right">Acciones</th></tr>
+            <tr className="bg-slate-50 text-slate-500 text-sm uppercase"><th className="px-6 py-4">Producto</th><th className="px-6 py-4">Categoría</th><th className="px-6 py-4">Stock</th><th className="px-6 py-4">Precio Unit.</th><th className="px-6 py-4 text-right">Acciones</th></tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {isLoadingData ? <tr><td colSpan={5} className="text-center py-8 text-slate-500">Cargando...</td></tr> : 
@@ -196,7 +196,7 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
               <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-4"><div className="flex items-center space-x-3"><div className="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden shrink-0 border border-slate-200">{p.imageUrl ? <img src={getImageUrl(p.imageUrl)} alt={p.name} className="w-full h-full object-contain mix-blend-multiply"/> : <ImageIcon className="w-5 h-5 m-auto text-slate-400 mt-2.5"/>}</div><p className="font-semibold text-slate-900">{p.name}</p></div></td>
                 <td className="px-6 py-4"><span className="px-2.5 py-0.5 rounded-full text-xs bg-blue-50 text-blue-900 border border-blue-100 font-medium">{p.category?.name || 'N/A'}</span></td>
-                <td className="px-6 py-4"><div className="flex flex-col"><span className="font-bold text-lg text-slate-900">{p.totalStock} <span className="text-xs font-normal text-slate-500">libres</span></span>{p.rentedCount > 0 && <span className="text-xs text-amber-600 font-medium">({p.rentedCount} en alquiler)</span>}</div></td>
+                <td className="px-6 py-4"><div className="flex flex-col"><span className="font-bold text-lg text-slate-900">{p.totalStock} <span className="text-xs font-normal text-slate-500">en total</span></span><span className="text-xs text-slate-500 font-medium">{p.availableStock ?? p.totalStock} libres hoy{(p.rentedCount ?? 0) > 0 && <span className="text-amber-600"> · {p.rentedCount} afuera</span>}</span></div></td>
                 <td className="px-6 py-4 font-medium">{formatPYG(p.pricePerDay)}</td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end space-x-2">
@@ -229,8 +229,12 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
                     <input type="number" required min={0} value={formData.totalStock} onChange={(e) => setFormData({...formData, totalStock: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl font-bold text-blue-900 outline-none" />
                     {editingId && (() => {
                       const editingProduct = products.find((p) => p.id === editingId);
-                      return editingProduct && editingProduct.rentedCount > 0 ? (
-                        <p className="text-xs text-amber-600 mt-1">{editingProduct.rentedCount} unidades están alquiladas ahora mismo — el total no puede bajar de esa cantidad.</p>
+                      return editingProduct ? (
+                        <p className="text-xs text-slate-500 mt-1">
+                          Lo libre en cada fecha se calcula solo según los alquileres.
+                          {(editingProduct.rentedCount ?? 0) > 0 && <span className="text-amber-600"> Hoy hay {editingProduct.rentedCount} afuera.</span>}
+                          {" "}El total no puede bajar de lo que tus reservas vigentes necesitan a la vez.
+                        </p>
                       ) : null;
                     })()}
                   </div>

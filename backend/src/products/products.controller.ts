@@ -34,7 +34,6 @@ export class ProductsController {
       pricePerDay: body.pricePerDay,
       categoryId: body.categoryId,
       totalStock: body.totalStock ?? 0,
-      rentedCount: 0,
       imageUrl: imageUrl, // Guardamos el link de internet en la Base de Datos
     };
 

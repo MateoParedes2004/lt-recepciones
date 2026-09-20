@@ -9,6 +9,7 @@ import { RentalsModule } from './rentals/rentals.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { GalleryModule } from './gallery/gallery.module';
 import { CitiesModule } from './cities/cities.module';
+import { AvailabilityModule } from './availability/availability.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { CitiesModule } from './cities/cities.module';
     AnalyticsModule,
     GalleryModule,
     CitiesModule,
+    AvailabilityModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })

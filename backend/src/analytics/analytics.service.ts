@@ -128,7 +128,8 @@ export class AnalyticsService {
     const [visitas, alquileres, checkoutIntents, visitasPrevias] = await Promise.all([
       this.prisma.siteVisit.findMany({ where: { date: { gte: realStart, lte: realEnd } } }),
       this.prisma.rental.findMany({
-        where: { eventDate: { gte: calStart, lte: calEnd } },
+        // Un alquiler anulado nunca se concretó: no suma ingresos, unidades ni conversión.
+        where: { eventDate: { gte: calStart, lte: calEnd }, status: { not: 'CANCELADO' } },
         include: { items: { include: { product: { include: { category: true } } } }, city: true },
       }),
       // Los pedidos de WhatsApp no tienen "fecha de evento", solo el momento
@@ -232,7 +233,7 @@ export class AnalyticsService {
     const totalVisitasAnterior = visitasPrevias.reduce((acc, v) => acc + v.count, 0);
     const totalPedidosWhatsapp = checkoutIntents.length;
     const alquileresActivos = alquileres.filter((r) => r.status === 'ACTIVO').length;
-    const alquileresDevueltos = totalAlquileres - alquileresActivos;
+    const alquileresDevueltos = alquileres.filter((r) => r.status === 'DEVUELTO').length;
 
     const duraciones = alquileres.map((r) => (r.returnDate.getTime() - r.eventDate.getTime()) / MS_PER_DAY);
     const anticipaciones = alquileres.map((r) => (r.eventDate.getTime() - r.createdAt.getTime()) / MS_PER_DAY);

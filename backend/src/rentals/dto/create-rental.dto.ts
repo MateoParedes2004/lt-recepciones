@@ -29,9 +29,10 @@ export class CreateRentalDto {
   @IsString()
   clientPhone?: string;
 
+  // null = "sin especificar" (al editar, permite quitar la ciudad).
   @IsOptional()
   @IsInt()
-  cityId?: number;
+  cityId?: number | null;
 
   @IsDateString()
   eventDate: string;

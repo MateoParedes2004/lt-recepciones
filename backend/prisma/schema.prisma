@@ -19,8 +19,10 @@ model Product {
   name        String
   description String?
   imageUrl    String?
+  // Inventario FÍSICO: cuántas unidades tiene el negocio en total. Cuántas están
+  // libres NO se guarda: se calcula a partir de los alquileres activos que se
+  // solapan con las fechas que se consulten (ver AvailabilityService).
   totalStock  Int      @default(0)
-  rentedCount Int      @default(0)
   pricePerDay Decimal  @db.Decimal(10, 2)
   categoryId  Int
   category    Category @relation(fields: [categoryId], references: [id])
@@ -59,7 +61,11 @@ model Rental {
   clientPhone String?  // Teléfono (Opcional)
   eventDate   DateTime // Fecha en la que usa los productos
   returnDate  DateTime // Fecha en la que debe devolverlos
-  status      String   @default("ACTIVO") // Puede ser "ACTIVO" o "DEVUELTO"
+  // "ACTIVO" (reservado / en uso / atrasado: se calcula por fecha), "DEVUELTO"
+  // o "CANCELADO". Solo los ACTIVO ocupan unidades del inventario.
+  status      String   @default("ACTIVO")
+  returnedAt  DateTime? // Cuándo se marcó como devuelto
+  cancelledAt DateTime? // Cuándo se anuló
   totalPrice  Float    @default(0) // El precio total en Guaraníes
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -147,4 +153,11 @@ model CheckoutIntent {
   createdAt   DateTime @default(now())
 
   @@index([createdAt])
+}
+
+// Marcas internas de la aplicación (ej. "esta migración de datos ya se hizo").
+model AppMeta {
+  key       String   @id
+  value     String
+  createdAt DateTime @default(now())
 }

@@ -12,8 +12,12 @@ export interface Product {
   name: string;
   description?: string | null;
   imageUrl?: string | null;
+  /** Inventario FÍSICO: cuántas unidades tiene el negocio en total. */
   totalStock: number;
-  rentedCount: number;
+  /** Unidades libres HOY (se calcula en el servidor desde los alquileres activos). Solo lo trae el listado del panel. */
+  availableStock?: number;
+  /** Unidades ocupadas HOY (total - libres hoy). */
+  rentedCount?: number;
   pricePerDay: number;
   categoryId: number;
   category?: Category;
@@ -38,13 +42,23 @@ export interface RentalItem {
   product?: Product;
 }
 
+// ACTIVO = vigente (reservado, en uso o atrasado según las fechas). Solo los ACTIVO ocupan unidades.
+export type RentalStatus = "ACTIVO" | "DEVUELTO" | "CANCELADO";
+export type RentalPhase = "RESERVADO" | "EN_USO" | "ATRASADO" | "DEVUELTO" | "CANCELADO";
+
 export interface Rental {
   id: number;
   clientName: string;
   clientPhone?: string | null;
   eventDate: string;
   returnDate: string;
-  status: "ACTIVO" | "DEVUELTO";
+  status: RentalStatus;
+  /** Etapa calculada por fecha en el servidor (no se guarda). */
+  phase?: RentalPhase;
+  /** Días de atraso: solo > 0 cuando phase es ATRASADO. */
+  daysOverdue?: number;
+  returnedAt?: string | null;
+  cancelledAt?: string | null;
   totalPrice: number;
   createdAt: string;
   updatedAt: string;

@@ -38,6 +38,14 @@ export default function CartProvider({ children }: { children: React.ReactNode }
   const [selectedCityName, setSelectedCityName] = useState<string>("No seleccionada");
   const [shippingCost, setShippingCost] = useState<number>(0);
   const [cityError, setCityError] = useState(false);
+
+  // Fechas opcionales que elige el cliente. Con ellas se consulta cuánto hay
+  // libre en ESE período (el stock se reserva por fecha: que hoy haya sillas
+  // afuera no significa que falten el mes que viene).
+  const [eventDate, setEventDate] = useState("");
+  const [returnDate, setReturnDate] = useState("");
+  const [availability, setAvailability] = useState<{ key: string; map: Record<number, number> } | null>(null);
+  const [availabilityError, setAvailabilityError] = useState(false);
   
   const pathname = usePathname() || "";
   const isOpen = openedAt === pathname;
@@ -49,7 +57,6 @@ export default function CartProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     // localStorage solo existe en el navegador: el carrito guardado se lee
     // recién después de montar (leerlo antes desincroniza el HTML del servidor).
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMounted(true);
     const savedCart = localStorage.getItem("lt_cart");
     if (savedCart) {
@@ -101,6 +108,42 @@ export default function CartProvider({ children }: { children: React.ReactNode }
       }
     })();
   }, [isMounted, cart.length]);
+
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+  const datesValid = !!eventDate && !!returnDate && eventDate >= todayStr && returnDate >= eventDate;
+  const datesKey = `${eventDate}|${returnDate}`;
+
+  useEffect(() => {
+    if (!datesValid) return;
+    // Si el cliente cambia las fechas rápido, se cancela la consulta anterior.
+    const controller = new AbortController();
+    (async () => {
+      try {
+        const res = await fetch(`${getApiUrl()}/availability?from=${eventDate}&to=${returnDate}`, { signal: controller.signal });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data: { products: { id: number; available: number }[] } = await res.json();
+        if (controller.signal.aborted) return;
+        setAvailability({ key: datesKey, map: Object.fromEntries(data.products.map((p) => [p.id, p.available])) });
+        setAvailabilityError(false);
+      } catch {
+        if (!controller.signal.aborted) setAvailabilityError(true);
+      }
+    })();
+    return () => controller.abort();
+  }, [datesValid, eventDate, returnDate, datesKey]);
+
+  // Solo vale la respuesta que corresponde a las fechas actuales.
+  const activeAvailability = datesValid && availability?.key === datesKey ? availability.map : null;
+  const limitFor = (product: Product): number => (activeAvailability ? activeAvailability[product.id] ?? 0 : product.totalStock ?? Infinity);
+  const hasConflicts = activeAvailability !== null && cart.some((item) => item.quantity > limitFor(item.product));
+  const formatDate = (iso: string) => iso.split('-').reverse().join('/');
+
+  const handleEventDateChange = (value: string) => {
+    setEventDate(value);
+    // Comodidad: si todavía no hay devolución (o quedó antes), se propone el mismo día.
+    if (value && (!returnDate || returnDate < value)) setReturnDate(value);
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -154,6 +197,7 @@ export default function CartProvider({ children }: { children: React.ReactNode }
   };
 
   const sendToWhatsApp = () => {
+    if (hasConflicts) return; // el botón ya está deshabilitado; por las dudas
     if (shippingCost === 0 && selectedCityName === "No seleccionada") {
         setCityError(true);
         return;
@@ -171,7 +215,10 @@ export default function CartProvider({ children }: { children: React.ReactNode }
     message += `🚚 *Envío (${selectedCityName}):* ${shippingCost > 0 ? formatPYG(shippingCost) : 'A coordinar'}\n`;
     message += `*💰 TOTAL ESTIMADO: ${formatPYG(totalAmount)}*\n\n`;
     
-    message += `📅 *Fecha del evento:* [ Indicar fecha ]\n📍 *Lugar/Zona:* ${selectedCityName}\n\n¡Quedo a la espera de su respuesta para coordinar! 🥂`;
+    const dateLine = datesValid
+      ? `📅 *Fecha del evento:* ${formatDate(eventDate)}\n🔁 *Devolución:* ${formatDate(returnDate)}`
+      : `📅 *Fecha del evento:* [ Indicar fecha ]`;
+    message += `${dateLine}\n📍 *Lugar/Zona:* ${selectedCityName}\n\n¡Quedo a la espera de su respuesta para coordinar! 🥂`;
 
     const encodedMessage = encodeURIComponent(message);
 
@@ -283,10 +330,17 @@ export default function CartProvider({ children }: { children: React.ReactNode }
                                 <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)} aria-label={`Una unidad menos de ${item.product.name}`} className="px-2 py-1 text-slate-500 hover:bg-slate-50 cursor-pointer"><Minus className="w-3 h-3" /></button>
                                 {/* 👇 Asegurado font-sans para la cantidad */}
                                 <span className="px-2 font-sans text-sm font-bold text-slate-700 w-8 text-center">{item.quantity}</span>
-                                <button onClick={() => updateQuantity(item.product.id, item.quantity + 1)} disabled={item.quantity >= (item.product.totalStock ?? Infinity)} aria-label={`Una unidad más de ${item.product.name}`} className="px-2 py-1 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"><Plus className="w-3 h-3" /></button>
+                                <button onClick={() => updateQuantity(item.product.id, item.quantity + 1)} disabled={item.quantity >= limitFor(item.product)} aria-label={`Una unidad más de ${item.product.name}`} className="px-2 py-1 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"><Plus className="w-3 h-3" /></button>
                               </div>
                               <button onClick={() => removeFromCart(item.product.id)} aria-label={`Quitar ${item.product.name} de la cotización`} className="text-xs text-red-500 hover:text-red-700 font-medium underline cursor-pointer">Quitar</button>
                             </div>
+                            {activeAvailability && item.quantity > limitFor(item.product) && (
+                              <p role="alert" className="text-xs font-sans font-medium text-red-600 mt-2">
+                                {limitFor(item.product) === 0
+                                  ? "No hay unidades disponibles en esas fechas."
+                                  : `En esas fechas solo hay ${limitFor(item.product)} disponibles.`}
+                              </p>
+                            )}
                           </div>
                         </motion.div>
                       ))}
@@ -296,8 +350,29 @@ export default function CartProvider({ children }: { children: React.ReactNode }
               </div>
 
               {cart.length > 0 && (
-                <div className="border-t border-slate-200 p-6 bg-slate-50 flex flex-col gap-4">
-                  
+                <div className="border-t border-slate-200 p-6 bg-slate-50 flex flex-col gap-4 max-h-[70vh] overflow-y-auto">
+
+                  <div className="flex flex-col gap-2">
+                    <p className={`${playfair.className} text-sm font-medium text-slate-800`}>¿Para qué fechas lo necesitás? <span className="font-sans font-normal text-slate-400">(opcional)</span></p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="flex flex-col gap-1 text-xs font-sans text-slate-500">
+                        Fecha del evento
+                        <input type="date" min={todayStr} value={eventDate} onChange={(e) => handleEventDateChange(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-sm text-slate-800 focus:ring-2 focus:ring-blue-900 focus:outline-none" />
+                      </label>
+                      <label className="flex flex-col gap-1 text-xs font-sans text-slate-500">
+                        Fecha de devolución
+                        <input type="date" min={eventDate || todayStr} value={returnDate} onChange={(e) => setReturnDate(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-sm text-slate-800 focus:ring-2 focus:ring-blue-900 focus:outline-none" />
+                      </label>
+                    </div>
+                    <p aria-live="polite" className={`text-xs font-sans ${hasConflicts ? "text-red-600 font-medium" : datesValid && activeAvailability ? "text-emerald-600 font-medium" : "text-slate-400"}`}>
+                      {!eventDate && !returnDate && "Con las fechas te mostramos al instante qué hay disponible."}
+                      {(eventDate || returnDate) && !datesValid && (eventDate && eventDate < todayStr ? "Elegí una fecha desde hoy." : "Completá las dos fechas para comprobar la disponibilidad.")}
+                      {datesValid && availabilityError && !activeAvailability && "No pudimos comprobar la disponibilidad ahora; la confirmamos por WhatsApp."}
+                      {datesValid && !availabilityError && !activeAvailability && "Comprobando disponibilidad…"}
+                      {datesValid && activeAvailability && (hasConflicts ? "Ajustá las cantidades marcadas en rojo o cambiá las fechas para poder enviar el pedido." : "Todo está disponible para esas fechas.")}
+                    </p>
+                  </div>
+
                   <CitySelector onCitySelect={handleCitySelect} />
                   {cityError && (
                     <p role="alert" className="text-sm font-medium text-red-600 -mt-2">
@@ -334,14 +409,14 @@ export default function CartProvider({ children }: { children: React.ReactNode }
 
                   <button 
                     onClick={sendToWhatsApp} 
-                    disabled={cart.length === 0} 
+                    disabled={cart.length === 0 || hasConflicts} 
                     className={`w-full py-3.5 text-white font-bold tracking-wide rounded-xl transition-colors flex items-center justify-center shadow-lg disabled:bg-slate-300 disabled:cursor-not-allowed cursor-pointer ${playfair.className}`}
-                    style={{ backgroundColor: cart.length === 0 ? undefined : '#004080' }}
+                    style={{ backgroundColor: cart.length === 0 || hasConflicts ? undefined : '#004080' }}
                     onMouseOver={(e) => {
-                      if (cart.length > 0) e.currentTarget.style.backgroundColor = '#002b5e'; 
+                      if (cart.length > 0 && !hasConflicts) e.currentTarget.style.backgroundColor = '#002b5e'; 
                     }}
                     onMouseOut={(e) => {
-                      if (cart.length > 0) e.currentTarget.style.backgroundColor = '#004080';
+                      if (cart.length > 0 && !hasConflicts) e.currentTarget.style.backgroundColor = '#004080';
                     }}
                   >
                     <Send className="w-5 h-5 mr-2" /> Enviar Pedido por WhatsApp

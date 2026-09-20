@@ -40,3 +40,37 @@ export function paraguayTodayUtc(now: Date = new Date()): Date {
   const { year, month, day } = utcToParaguayDate(now);
   return paraguayToUtc(year, month, day);
 }
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/**
+ * Número de día (días desde 1970-01-01) de una fecha de calendario pura
+ * (medianoche UTC, como Rental.eventDate/returnDate). Permite comparar y
+ * restar fechas de calendario sin preocuparse por horas.
+ */
+export function toDayIndex(calendarDate: Date): number {
+  return Math.floor(calendarDate.getTime() / MS_PER_DAY);
+}
+
+/** Inversa de toDayIndex: la fecha de calendario (medianoche UTC) de un número de día. */
+export function fromDayIndex(dayIndex: number): Date {
+  return new Date(dayIndex * MS_PER_DAY);
+}
+
+/**
+ * "Hoy" en Paraguay como fecha de calendario pura (medianoche UTC del día que
+ * marca el calendario de Paraguay), para compararla con eventDate/returnDate.
+ * No es lo mismo que paraguayTodayUtc(), que es un instante real (04:00 UTC).
+ */
+export function paraguayTodayIndex(now: Date = new Date()): number {
+  const { year, month, day } = utcToParaguayDate(now);
+  return toDayIndex(new Date(Date.UTC(year, month - 1, day)));
+}
+
+/** dd/mm/aaaa de un número de día, para mensajes de error legibles. */
+export function formatDayIndex(dayIndex: number): string {
+  const d = fromDayIndex(dayIndex);
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm}/${d.getUTCFullYear()}`;
+}
