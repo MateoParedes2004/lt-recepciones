@@ -58,7 +58,7 @@ export default function AddToCartButton({ product }: { product: Product }) {
       <button 
         onClick={() => setShowSelector(true)}
         disabled={product.totalStock <= 0}
-        className="flex items-center justify-center text-sm font-bold bg-blue-50 text-blue-900 border border-blue-100 px-4 py-2 rounded-lg hover:bg-blue-900 hover:text-white transition-colors duration-300 cursor-pointer shadow-sm w-full md:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+        className="lt-beam [--lt-beam-color:#3b9dff] flex items-center justify-center text-sm font-bold text-white bg-linear-to-br from-[#0d4a8a] to-[#00294f] px-4 py-2 rounded-lg hover:brightness-110 transition-all duration-300 cursor-pointer shadow-sm w-full md:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
       >
         <ShoppingCart className="w-4 h-4 mr-1.5" /> 
         {product.totalStock <= 0 ? "Agotado" : "Agregar"}

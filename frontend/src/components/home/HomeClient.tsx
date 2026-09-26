@@ -1,34 +1,90 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type MouseEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import AnchorLink from "../AnchorLink";
 import ScrollToHash from "../ScrollToHash";
 import { motion } from "framer-motion";
-import { ArrowRight, Star, Truck, ShieldCheck, Armchair, GlassWater, Sparkles, MapPin, Phone, Clock, Camera, Table2, Utensils, Wine, Flame, PackageOpen } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { ArrowRight, Star, Truck, ShieldCheck } from "lucide-react";
+// Íconos de categoría: Phosphor en peso "light" (trazo fino, más elegante)
+import { BowlFoodIcon, TableIcon, ForkKnifeIcon, WineIcon, ChairIcon, CampfireIcon, SnowflakeIcon, PackageIcon, MapPinIcon, PhoneIcon, ClockIcon, WhatsappLogoIcon, NavigationArrowIcon } from "@phosphor-icons/react";
+import type { Icon } from "@phosphor-icons/react";
 import type { Category, GalleryImage } from "../../types";
 // 👇 VISOR DE IMÁGENES: se difiere porque solo hace falta si el usuario abre una foto
 import "yet-another-react-lightbox/styles.css";
 const Lightbox = dynamic(() => import("yet-another-react-lightbox"), { ssr: false });
 
-// Ícono de respaldo por categoría, se usa si aún no se subió una foto
-const CATEGORIA_ICONOS: Record<string, LucideIcon> = {
-  "Vajilla y Cristalería": GlassWater,
-  "Mesas y Mantelería": Table2,
-  "Cubiertos y complementos": Utensils,
-  "Bebidas y Barra": Wine,
-  "Sillas": Armchair,
-  "Parrillas": Flame,
+// Ícono de cada categoría (las tarjetas no llevan fotos, solo el ícono)
+const CATEGORIA_ICONOS: Record<string, Icon> = {
+  "Vajilla y Cristalería": BowlFoodIcon,
+  "Mesas y Mantelería": TableIcon,
+  "Cubiertos y complementos": ForkKnifeIcon,
+  "Bebidas y Barra": WineIcon,
+  "Sillas": ChairIcon,
+  "Parrillas": CampfireIcon,
+  "Climatización": SnowflakeIcon,
 };
 
 const slugify = (name: string) => name.toLowerCase().replace(/ /g, "-");
 
-// Ruta esperada de la foto de cada categoría. Basta con subir el archivo
-// con este mismo nombre a /public/categorias para que reemplace el ícono.
-const getCategoriaImagen = (name: string) => `/categorias/${slugify(name)}.jpg`;
+// Tarjeta de categoría con brillo e inclinación 3D que siguen al mouse
+// (mismo tratamiento que se probó en el mockup de mejoras visuales). Solo
+// esta tarjeta (el recuadro navy) se mueve con el mouse: el fade-up al
+// hacer scroll lo sigue manejando el motion.div que la envuelve, así los
+// dos no compiten por la misma propiedad "transform".
+function CategoryCard({ category }: { category: Category }) {
+  const CategoryIcon = CATEGORIA_ICONOS[category.name] || PackageIcon;
+  const [tilt, setTilt] = useState<{ rx: number; ry: number; gx: number; gy: number } | null>(null);
+
+  const handleMove = (e: MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width;
+    const py = (e.clientY - rect.top) / rect.height;
+    setTilt({ rx: -(py - 0.5) * 10, ry: (px - 0.5) * 10, gx: px * 100, gy: py * 100 });
+  };
+
+  return (
+    <AnchorLink href={`/catalogos#categoria-${slugify(category.name)}`} className="group block">
+      <div
+        onMouseMove={handleMove}
+        onMouseLeave={() => setTilt(null)}
+        style={{
+          transform: tilt
+            ? `perspective(700px) rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg) scale(1.03) translateY(-3px)`
+            : undefined,
+          transition: "transform 0.15s ease",
+        }}
+        className="relative aspect-square rounded-3xl bg-linear-to-br from-[#0d4a8a] to-[#00294f] border border-blue-700/50 shadow-lg overflow-hidden group-hover:shadow-2xl group-hover:shadow-blue-900/30"
+      >
+        <div className="absolute top-0 left-0 w-24 h-24 bg-blue-400/20 rounded-full blur-2xl -translate-x-1/3 -translate-y-1/3 pointer-events-none"></div>
+
+        <div className="relative z-10 w-full h-full flex items-center justify-center">
+          {/* La luz animada (lt-beam) rodea SOLO al ícono, no el borde de la tarjeta */}
+          <div className="lt-beam w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white/10 flex items-center justify-center">
+            <CategoryIcon weight="light" className="w-9 h-9 md:w-11 md:h-11 text-blue-200" />
+          </div>
+        </div>
+
+        <div className="absolute inset-0 bg-linear-to-t from-blue-950/80 via-blue-950/0 to-transparent pointer-events-none"></div>
+
+        {/* Brillo que sigue al mouse (solo aparece mientras el cursor está encima) */}
+        {tilt && (
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{ background: `radial-gradient(220px circle at ${tilt.gx}% ${tilt.gy}%, rgba(255,255,255,0.30), transparent 55%)` }}
+          />
+        )}
+      </div>
+
+      <div className="mt-3 md:mt-4 flex items-center justify-between px-1 gap-2">
+        <h3 className="font-serif font-bold text-slate-900 text-xs sm:text-sm md:text-base leading-tight">{category.name}</h3>
+        <ArrowRight className="w-4 h-4 text-[#004080] shrink-0 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+      </div>
+    </AnchorLink>
+  );
+}
 
 interface HomeClientProps {
   categories: Category[];
@@ -46,7 +102,6 @@ export default function HomeClient({ categories, galeriaImages }: HomeClientProp
   ];
 
   const [currentImage, setCurrentImage] = useState(0);
-  const [brokenImages, setBrokenImages] = useState<Set<number>>(new Set());
   // 👇 ESTADOS PARA EL LIGHTBOX
   const [lightboxIndex, setLightboxIndex] = useState(-1);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -95,16 +150,6 @@ export default function HomeClient({ categories, galeriaImages }: HomeClientProp
         {/* CONTENIDO */}
         <div className="max-w-7xl mx-auto px-6 lg:px-8 relative z-20 py-24 flex flex-col items-center text-center w-full">
 
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            className="inline-flex items-center px-4 py-2 rounded-full bg-blue-500/30 border border-blue-300/30 mb-6 md:mb-8 backdrop-blur-md shadow-lg"
-          >
-            <Sparkles className="w-4 h-4 text-blue-200 mr-2 shrink-0" />
-            <span className="text-xs md:text-sm font-bold tracking-wider text-white uppercase drop-shadow-md">Equipamiento Premium para Eventos</span>
-          </motion.div>
-
           <motion.h1
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
@@ -129,10 +174,10 @@ export default function HomeClient({ categories, galeriaImages }: HomeClientProp
             transition={{ duration: 0.8, delay: 0.8 }}
             className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto"
           >
-            <Link href="/catalogos" className="flex items-center justify-center w-full sm:w-auto px-8 py-4 text-sm sm:text-base font-bold text-blue-900 bg-white rounded-xl hover:bg-slate-100 transition-colors shadow-xl shadow-white/10 group cursor-pointer">
+            <Link href="/catalogos" className="lt-beam flex items-center justify-center w-full sm:w-auto px-8 py-4 text-sm sm:text-base font-bold text-[#004080] bg-white rounded-xl hover:bg-slate-100 transition-colors shadow-xl shadow-white/10 group cursor-pointer">
               Ver Catálogos Completos <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 ml-2 group-hover:translate-x-1 transition-transform" />
             </Link>
-            <Link href="#contacto" className="flex items-center justify-center w-full sm:w-auto px-8 py-4 text-sm sm:text-base font-bold text-white bg-blue-600/80 backdrop-blur-sm border border-blue-400/50 rounded-xl hover:bg-blue-600 transition-colors shadow-xl cursor-pointer">
+            <Link href="#contacto" className="lt-beam flex items-center justify-center w-full sm:w-auto px-8 py-4 text-sm sm:text-base font-bold text-white bg-linear-to-br from-[#0d4a8a] to-[#00294f] rounded-xl hover:brightness-110 transition-all shadow-xl cursor-pointer">
               Contactar Asesor
             </Link>
           </motion.div>
@@ -145,43 +190,38 @@ export default function HomeClient({ categories, galeriaImages }: HomeClientProp
         </div>
       </section>
 
-      {/* 2. SECCIÓN DE BENEFICIOS */}
-      <section className="py-16 md:py-24 bg-white overflow-hidden" id="nuestro-trabajo">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+      {/* 2. VIDRIERA DE CATEGORÍAS */}
+      {categories.length > 0 && (
+        <section className="py-16 md:py-24 bg-slate-50 overflow-hidden">
+          <div className="max-w-7xl mx-auto px-6 lg:px-8">
+            <motion.div
+              initial={{ opacity: 0, y: 50 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true, margin: "-100px" }}
+              className="text-center max-w-2xl mx-auto mb-10 md:mb-16"
+            >
+              <h2 className="text-3xl md:text-5xl font-serif font-bold text-slate-900 mb-4 tracking-tight">Categorías disponibles</h2>
+              <p className="text-slate-500 text-base sm:text-lg">Explora por rubro y encontrá exactamente lo que tu evento necesita.</p>
+            </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            viewport={{ once: true, margin: "-100px" }}
-            className="text-center max-w-3xl mx-auto mb-10 md:mb-16"
-          >
-            <h2 className="text-3xl sm:text-4xl font-serif font-bold text-slate-900 mb-4 tracking-tight">El estándar de excelencia en tu evento</h2>
-            <p className="text-slate-500 text-base sm:text-lg">Nos obsesionan los detalles. Nos aseguramos de que cada silla, mesa y copa llegue en estado impecable a tu celebración.</p>
-          </motion.div>
-
-          <div className="flex overflow-x-auto snap-x snap-mandatory gap-6 pb-6 -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-3 md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {[
-              { icon: Star, title: "Calidad Premium", desc: "Renovamos constantemente nuestro stock. Te entregamos mobiliario moderno, limpio y sin rasguños." },
-              { icon: Truck, title: "Logística Puntual", desc: "Sabemos que el tiempo es oro en los eventos. Entregamos y retiramos con exactitud de relojero." },
-              { icon: ShieldCheck, title: "Stock Garantizado", desc: "Capacidad para eventos grandes y pequeños. Lo que reservas en nuestro sistema, está asegurado para tu fecha." }
-            ].map((item, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 50 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: i * 0.2 }}
-                viewport={{ once: true, margin: "-50px" }}
-                className="snap-center shrink-0 w-[85%] md:w-auto bg-slate-50 rounded-4xl p-8 md:p-10 border border-slate-100 hover:-translate-y-2 transition-transform duration-300"
-              >
-                <div className="w-12 h-12 md:w-14 md:h-14 bg-blue-100 text-blue-900 rounded-2xl flex items-center justify-center mb-6 shadow-sm"><item.icon className="w-6 h-6 md:w-7 md:h-7" /></div>
-                <h3 className="text-xl md:text-2xl font-serif font-bold text-slate-900 mb-3">{item.title}</h3>
-                <p className="text-slate-600 text-sm md:text-base leading-relaxed">{item.desc}</p>
-              </motion.div>
-            ))}
+            <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-6 -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-3 lg:grid-cols-6 md:gap-6 md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              {categories.map((category, index) => (
+                <motion.div
+                  key={category.id}
+                  className="snap-center shrink-0 w-32 sm:w-36 md:w-auto"
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: index * 0.08 }}
+                  viewport={{ once: true, margin: "-50px" }}
+                >
+                  <CategoryCard category={category} />
+                </motion.div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* GALERÍA DE EVENTOS */}
       {galeriaImages.length > 0 && (
@@ -196,10 +236,6 @@ export default function HomeClient({ categories, galeriaImages }: HomeClientProp
               className="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 md:mb-16 gap-4"
             >
               <div>
-                <div className="inline-flex items-center px-3 py-1 rounded-full bg-blue-500/10 border border-blue-400/20 mb-4 backdrop-blur-sm">
-                  <Camera className="w-4 h-4 text-blue-400 mr-2" />
-                  <span className="text-xs font-semibold tracking-wider text-blue-200 uppercase">Nuestro Trabajo</span>
-                </div>
                 <h2 className="text-3xl md:text-5xl font-serif font-bold text-white mb-4 tracking-tight">Inspiración para tu Evento</h2>
                 <p className="text-slate-400 text-base sm:text-lg max-w-2xl">Un vistazo a los montajes reales donde nuestro mobiliario fue protagonista de momentos únicos.</p>
               </div>
@@ -258,153 +294,136 @@ export default function HomeClient({ categories, galeriaImages }: HomeClientProp
         </section>
       )}
 
-      {/* 3. VIDRIERA DE CATEGORÍAS */}
-      {categories.length > 0 && (
-        <section className="py-16 md:py-24 bg-slate-50 overflow-hidden">
-          <div className="max-w-7xl mx-auto px-6 lg:px-8">
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              viewport={{ once: true, margin: "-100px" }}
-              className="text-center max-w-2xl mx-auto mb-10 md:mb-16"
-            >
-              <div className="inline-flex items-center px-3 py-1 rounded-full bg-blue-50 border border-blue-100 mb-4">
-                <Sparkles className="w-4 h-4 text-blue-600 mr-2" />
-                <span className="text-xs font-semibold tracking-wider text-blue-700 uppercase">Nuestro Catálogo</span>
-              </div>
-              <h2 className="text-3xl md:text-5xl font-serif font-bold text-slate-900 mb-4 tracking-tight">Categorías disponibles</h2>
-              <p className="text-slate-500 text-base sm:text-lg">Explora por rubro y encontrá exactamente lo que tu evento necesita.</p>
-            </motion.div>
+      {/* 3. SECCIÓN DE BENEFICIOS */}
+      <section className="py-16 md:py-24 bg-white overflow-hidden" id="nuestro-trabajo">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
 
-            <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-6 -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-3 lg:grid-cols-6 md:gap-6 md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-              {categories.map((category, index) => {
-                const Icon = CATEGORIA_ICONOS[category.name] || PackageOpen;
-                const hasImage = !brokenImages.has(category.id);
-                return (
-                  <motion.div
-                    key={category.id}
-                    className="snap-center shrink-0 w-32 sm:w-36 md:w-auto"
-                    initial={{ opacity: 0, y: 30 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: index * 0.08 }}
-                    viewport={{ once: true, margin: "-50px" }}
-                  >
-                    <AnchorLink
-                      href={`/catalogos#categoria-${slugify(category.name)}`}
-                      className="group block"
-                    >
-                      <div className="relative aspect-square rounded-3xl bg-linear-to-br from-blue-800 to-blue-900 border border-blue-700/50 shadow-lg overflow-hidden group-hover:-translate-y-2 group-hover:shadow-2xl group-hover:shadow-blue-900/30 transition-all duration-300">
-                        <div className="absolute top-0 left-0 w-24 h-24 bg-blue-400/20 rounded-full blur-2xl -translate-x-1/3 -translate-y-1/3 pointer-events-none"></div>
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true, margin: "-100px" }}
+            className="text-center max-w-3xl mx-auto mb-10 md:mb-16"
+          >
+            <h2 className="text-3xl sm:text-4xl font-serif font-bold text-slate-900 mb-4 tracking-tight">El estándar de excelencia en tu evento</h2>
+            <p className="text-slate-500 text-base sm:text-lg">Nos obsesionan los detalles. Nos aseguramos de que cada silla, mesa y copa llegue en estado impecable a tu celebración.</p>
+          </motion.div>
 
-                        {hasImage ? (
-                          <img
-                            src={getCategoriaImagen(category.name)}
-                            alt={category.name}
-                            loading="lazy"
-                            onError={() => setBrokenImages((prev) => new Set(prev).add(category.id))}
-                            className="relative z-10 w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                          />
-                        ) : (
-                          <div className="relative z-10 w-full h-full flex items-center justify-center">
-                            <Icon className="w-1/3 h-1/3 text-blue-300/70" strokeWidth={1.25} />
-                          </div>
-                        )}
-
-                        <div className="absolute inset-0 bg-linear-to-t from-blue-950/80 via-blue-950/0 to-transparent"></div>
-                      </div>
-
-                      <div className="mt-3 md:mt-4 flex items-center justify-between px-1 gap-2">
-                        <h3 className="font-serif font-bold text-slate-900 text-xs sm:text-sm md:text-base leading-tight">{category.name}</h3>
-                        <ArrowRight className="w-4 h-4 text-blue-600 shrink-0 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
-                      </div>
-                    </AnchorLink>
-                  </motion.div>
-                );
-              })}
-            </div>
+          <div className="flex overflow-x-auto snap-x snap-mandatory gap-6 pb-6 -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-3 md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            {[
+              { icon: Star, title: "Calidad Premium", desc: "Renovamos constantemente nuestro stock. Te entregamos mobiliario moderno, limpio y sin rasguños." },
+              { icon: Truck, title: "Logística Puntual", desc: "Sabemos que el tiempo es oro en los eventos. Entregamos y retiramos con exactitud de relojero." },
+              { icon: ShieldCheck, title: "Stock Garantizado", desc: "Capacidad para eventos grandes y pequeños. Lo que reservas en nuestro sistema, está asegurado para tu fecha." }
+            ].map((item, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 50 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, delay: i * 0.2 }}
+                viewport={{ once: true, margin: "-50px" }}
+                className="snap-center shrink-0 w-[85%] md:w-auto bg-slate-50 rounded-4xl p-8 md:p-10 border border-slate-100 hover:-translate-y-2 transition-transform duration-300"
+              >
+                <div className="w-12 h-12 md:w-14 md:h-14 bg-[#e8f0f8] text-[#004080] rounded-2xl flex items-center justify-center mb-6 shadow-sm"><item.icon className="w-6 h-6 md:w-7 md:h-7" /></div>
+                <h3 className="text-xl md:text-2xl font-serif font-bold text-slate-900 mb-3">{item.title}</h3>
+                <p className="text-slate-600 text-sm md:text-base leading-relaxed">{item.desc}</p>
+              </motion.div>
+            ))}
           </div>
-        </section>
-      )}
+        </div>
+      </section>
 
       {/* 4. SECCIÓN DE CONTACTO Y MAPA */}
       <section className="py-16 md:py-24 bg-white" id="contacto">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="flex flex-col lg:flex-row gap-12 lg:gap-16 items-center">
-
-            <motion.div
-              initial={{ opacity: 0, x: -50 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6 }}
-              viewport={{ once: true, margin: "-100px" }}
-              className="w-full lg:w-1/2 space-y-10"
-            >
-              <div>
-                <h2 className="text-3xl md:text-5xl font-serif font-bold text-slate-900 mb-4 tracking-tight">Estamos para ayudarte</h2>
-                <p className="text-slate-500 text-lg leading-relaxed max-w-xl">
-                  ¿Tenes dudas sobre las cantidades o necesitas asesoramiento para tu evento? Escribínos o visítanos, nos encantará formar parte de tu celebración.
-                </p>
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true, margin: "-100px" }}
+            className="relative rounded-4xl overflow-hidden shadow-xl border border-slate-200 bg-slate-100 lg:min-h-150 lg:flex lg:items-center lg:p-12"
+          >
+            {/* MAPA: en celular va arriba; en escritorio ocupa todo el fondo */}
+            <div className="relative h-64 lg:absolute lg:inset-0 lg:h-auto">
+              <iframe
+                src="https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d1803.5262122069216!2d-57.60189306166173!3d-25.302442669518815!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1ses-419!2spy!4v1771249262551!5m2!1ses-419!2spy"
+                width="100%"
+                height="100%"
+                style={{ border: 0, position: "absolute", top: 0, left: 0, filter: "saturate(0.75) hue-rotate(8deg)" }}
+                allowFullScreen={false}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Ubicación de LT Recepciones en Asunción"
+              ></iframe>
+              <div className="absolute inset-0 bg-[#004080]/10 mix-blend-multiply pointer-events-none"></div>
+              {/* Pin propio de la marca (el centro del mapa es la ubicación) */}
+              <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none" aria-hidden="true">
+                <span className="absolute -inset-3 rounded-full bg-[#004080]/25 animate-ping motion-reduce:animate-none"></span>
+                <span className="relative flex w-11 h-11 items-center justify-center rounded-full bg-linear-to-br from-[#0d4a8a] to-[#00294f] text-white border-[3px] border-white shadow-lg">
+                  <MapPinIcon weight="light" className="w-6 h-6" />
+                </span>
               </div>
+            </div>
 
-              <div className="space-y-6">
-                <div className="flex items-start group">
-                  <div className="w-14 h-14 bg-blue-100 text-blue-900 rounded-2xl flex items-center justify-center shrink-0 shadow-sm mt-1 group-hover:scale-110 transition-transform">
-                    <MapPin className="w-6 h-6" />
-                  </div>
-                  <div className="ml-5">
-                    <h3 className="text-xl font-serif font-bold text-slate-900">Ubicación central</h3>
-                    <p className="text-slate-600 mt-2 leading-relaxed">Asunción, Paraguay<br/>Atención en nuestras oficinas previa cita.</p>
+            {/* TARJETA DE CONTACTO */}
+            <div className="relative z-10 bg-white rounded-3xl shadow-2xl -mt-9 mx-3.5 mb-3.5 p-6 sm:p-8 lg:m-0 lg:w-[min(440px,46%)] lg:p-9 flex flex-col">
+              <h2 className="text-[28px] md:text-4xl font-serif font-extrabold text-slate-900 tracking-tight leading-tight">Estamos para ayudarte</h2>
+              <p className="text-slate-600 text-[15px] leading-relaxed mt-3">
+                ¿Tenés dudas sobre las cantidades o necesitás asesoramiento para tu evento? Escribinos o visitanos, nos encantará formar parte de tu celebración.
+              </p>
+
+              <div className="mt-6 flex flex-col">
+                <div className="flex items-start gap-4 py-4 border-t border-slate-100 first:border-t-0">
+                  <span className="w-11 h-11 rounded-xl bg-[#e8f0f8] text-[#004080] flex items-center justify-center shrink-0">
+                    <MapPinIcon weight="light" className="w-6 h-6" />
+                  </span>
+                  <div>
+                    <span className="block text-xs font-bold uppercase tracking-wider text-slate-500">Ubicación</span>
+                    <span className="block text-base font-bold text-slate-900">Asunción, Paraguay</span>
+                    <span className="block text-sm text-slate-500">Atención en nuestras oficinas previa cita.</span>
                   </div>
                 </div>
 
-                <div className="flex items-start group">
-                  <div className="w-14 h-14 bg-blue-100 text-blue-900 rounded-2xl flex items-center justify-center shrink-0 shadow-sm mt-1 group-hover:scale-110 transition-transform">
-                    <Phone className="w-6 h-6" />
-                  </div>
-                  <div className="ml-5">
-                    <h3 className="text-xl font-serif font-bold text-slate-900">Atención vía WhatsApp</h3>
-                    <p className="text-slate-600 mt-2">+595 985 867 749</p>
-                    <a href="https://api.whatsapp.com/send?phone=595985867749&text=Hola%20LT%20Recepciones!%20%E2%9C%A8%20Tengo%20una%20consulta." target="_blank" rel="noopener noreferrer" className="inline-flex items-center mt-3 text-sm font-bold text-blue-600 hover:text-blue-800 transition-colors">
-                      Enviar mensaje directamente <ArrowRight className="w-4 h-4 ml-1" />
-                    </a>
+                <div className="flex items-start gap-4 py-4 border-t border-slate-100">
+                  <span className="w-11 h-11 rounded-xl bg-[#e8f0f8] text-[#004080] flex items-center justify-center shrink-0">
+                    <PhoneIcon weight="light" className="w-6 h-6" />
+                  </span>
+                  <div>
+                    <span className="block text-xs font-bold uppercase tracking-wider text-slate-500">WhatsApp</span>
+                    <a href="tel:+595985867749" className="block text-base font-bold text-slate-900 hover:text-[#004080] transition-colors">+595 985 867 749</a>
                   </div>
                 </div>
 
-                <div className="flex items-start group">
-                  <div className="w-14 h-14 bg-blue-100 text-blue-900 rounded-2xl flex items-center justify-center shrink-0 shadow-sm mt-1 group-hover:scale-110 transition-transform">
-                    <Clock className="w-6 h-6" />
-                  </div>
-                  <div className="ml-5">
-                    <h3 className="text-xl font-serif font-bold text-slate-900">Horarios de Operación</h3>
-                    <p className="text-slate-600 mt-2 leading-relaxed">Lunes a Domingo</p>
+                <div className="flex items-start gap-4 py-4 border-t border-slate-100">
+                  <span className="w-11 h-11 rounded-xl bg-[#e8f0f8] text-[#004080] flex items-center justify-center shrink-0">
+                    <ClockIcon weight="light" className="w-6 h-6" />
+                  </span>
+                  <div>
+                    <span className="block text-xs font-bold uppercase tracking-wider text-slate-500">Horario</span>
+                    <span className="block text-base font-bold text-slate-900">Lunes a Domingo</span>
                   </div>
                 </div>
               </div>
-            </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.6 }}
-              viewport={{ once: true }}
-              className="w-full lg:w-1/2"
-            >
-              <div className="w-full h-100 md:h-125 bg-slate-100 rounded-4xl overflow-hidden shadow-xl border border-slate-200 relative group">
-                <div className="absolute inset-0 bg-blue-900/5 group-hover:bg-transparent transition-colors duration-500 pointer-events-none z-10"></div>
-                <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d1803.5262122069216!2d-57.60189306166173!3d-25.302442669518815!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1ses-419!2spy!4v1771249262551!5m2!1ses-419!2spy"
-                  width="100%"
-                  height="100%"
-                  style={{ border: 0, position: "absolute", top: 0, left: 0 }}
-                  allowFullScreen={false}
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  title="Ubicación de LT Recepciones en Asunción"
-                ></iframe>
+              <div className="mt-4 flex flex-col sm:flex-row lg:flex-col gap-3">
+                <a
+                  href="https://api.whatsapp.com/send?phone=595985867749&text=Hola%20LT%20Recepciones!%20%E2%9C%A8%20Tengo%20una%20consulta."
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="lt-beam [--lt-beam-color:#3b9dff] shrink-0 sm:flex-1 lg:flex-none flex items-center justify-center gap-2.5 h-13 px-6 rounded-xl text-[15px] font-extrabold text-white bg-linear-to-br from-[#0d4a8a] to-[#00294f] hover:brightness-110 transition-all cursor-pointer whitespace-nowrap"
+                >
+                  <WhatsappLogoIcon weight="light" className="w-6 h-6" /> Escribinos por WhatsApp
+                </a>
+                <a
+                  href="https://www.google.com/maps/dir/?api=1&destination=-25.302442669518815,-57.60189306166173"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2.5 h-13 px-6 rounded-xl text-[15px] font-extrabold text-[#004080] border-[1.5px] border-[#004080] hover:bg-[#e8f0f8] transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                >
+                  <NavigationArrowIcon weight="light" className="w-5 h-5" /> Cómo llegar
+                </a>
               </div>
-            </motion.div>
-
-          </div>
+            </div>
+          </motion.div>
         </div>
       </section>
 

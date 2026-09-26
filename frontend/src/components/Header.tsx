@@ -216,7 +216,7 @@ export default function Header() {
           <button 
             onClick={() => setIsMenuOpen(false)} 
             aria-label="Cerrar menú"
-            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors cursor-pointer"
+            className="p-2 text-[#004080] hover:text-red-500 hover:bg-red-50 rounded-full transition-colors cursor-pointer"
           >
             <X className="w-6 h-6" />
           </button>
@@ -229,22 +229,22 @@ export default function Header() {
             <Link href="/" onClick={() => setIsMenuOpen(false)} 
               className={`flex items-center px-4 py-3 text-lg tracking-wide font-medium text-slate-900 hover:text-blue-900 hover:bg-blue-50 rounded-xl transition-colors ${serifFont.className}`}
             >
-              <Home className="w-5 h-5 mr-3 text-blue-500" /> Inicio
+              <Home className="w-5 h-5 mr-3 text-[#004080]" /> Inicio
             </Link>
             <AnchorLink href="/#nuestro-trabajo" onNavigate={() => setIsMenuOpen(false)}
               className={`flex items-center px-4 py-3 text-lg tracking-wide font-medium text-slate-900 hover:text-blue-900 hover:bg-blue-50 rounded-xl transition-colors ${serifFont.className}`}
             >
-              <Info className="w-5 h-5 mr-3 text-blue-500" /> Nosotros
+              <Info className="w-5 h-5 mr-3 text-[#004080]" /> Nosotros
             </AnchorLink>
             <AnchorLink href="/#galeria" onNavigate={() => setIsMenuOpen(false)}
               className={`flex items-center px-4 py-3 text-lg tracking-wide font-medium text-slate-900 hover:text-blue-900 hover:bg-blue-50 rounded-xl transition-colors ${serifFont.className}`}
             >
-              <Camera className="w-5 h-5 mr-3 text-blue-500" /> Galería
+              <Camera className="w-5 h-5 mr-3 text-[#004080]" /> Galería
             </AnchorLink>
             <AnchorLink href="/#contacto" onNavigate={() => setIsMenuOpen(false)}
               className={`flex items-center px-4 py-3 text-lg tracking-wide font-medium text-slate-900 hover:text-blue-900 hover:bg-blue-50 rounded-xl transition-colors ${serifFont.className}`}
             >
-              <Phone className="w-5 h-5 mr-3 text-blue-500" /> Contacto
+              <Phone className="w-5 h-5 mr-3 text-[#004080]" /> Contacto
             </AnchorLink>
           </nav>
 
@@ -255,7 +255,7 @@ export default function Header() {
             <Link href="/catalogos" onClick={() => setIsMenuOpen(false)} 
               className={`flex items-center px-4 py-2 text-lg font-bold tracking-wide text-slate-900 mb-2 hover:text-blue-700 transition-colors ${serifFont.className}`}
             >
-              <Package className="w-5 h-5 mr-3" /> Catálogo Completo
+              <Package className="w-5 h-5 mr-3 text-[#004080]" /> Catálogo Completo
             </Link>
             <div className="ml-9 pl-4 space-y-1 border-l-2 border-slate-100">
               {catStatus === 'loading' && (
@@ -281,10 +281,10 @@ export default function Header() {
         </div>
 
         <div className="p-5 border-t border-slate-100 bg-slate-50 flex items-center justify-center space-x-6">
-          <a href="https://www.instagram.com/ltrecepciones?igsh=Z2xoNWVrOXQ0amg2" target="_blank" rel="noopener noreferrer" aria-label="Instagram de LT Recepciones" className="w-10 h-10 bg-white shadow-sm border border-slate-200 rounded-full flex items-center justify-center text-slate-500 hover:text-white hover:bg-blue-600 transition-all cursor-pointer">
+          <a href="https://www.instagram.com/ltrecepciones?igsh=Z2xoNWVrOXQ0amg2" target="_blank" rel="noopener noreferrer" aria-label="Instagram de LT Recepciones" className="w-10 h-10 bg-white shadow-sm border border-slate-200 rounded-full flex items-center justify-center text-[#004080] hover:text-white hover:bg-[#004080] transition-all cursor-pointer">
             <Instagram className="w-5 h-5" />
           </a>
-          <a href="https://www.facebook.com/share/14VSpY6d3hm/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" aria-label="Facebook de LT Recepciones" className="w-10 h-10 bg-white shadow-sm border border-slate-200 rounded-full flex items-center justify-center text-slate-500 hover:text-white hover:bg-blue-600 transition-all cursor-pointer">
+          <a href="https://www.facebook.com/share/14VSpY6d3hm/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" aria-label="Facebook de LT Recepciones" className="w-10 h-10 bg-white shadow-sm border border-slate-200 rounded-full flex items-center justify-center text-[#004080] hover:text-white hover:bg-[#004080] transition-all cursor-pointer">
             <Facebook className="w-5 h-5" />
           </a>
         </div>
