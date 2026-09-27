@@ -79,7 +79,7 @@ export default function GalleryTab({ gallery, fetchData, isLoadingData }: { gall
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 flex items-center">
-            <Camera className="w-6 h-6 mr-3 text-blue-900" /> Galería Pública
+            <Camera className="w-6 h-6 mr-3 text-[#004080]" /> Galería Pública
           </h2>
           <p className="text-slate-500 mt-1">Selecciona varias fotos a la vez para subir eventos completos más rápido.</p>
         </div>
@@ -89,7 +89,7 @@ export default function GalleryTab({ gallery, fetchData, isLoadingData }: { gall
             type="text" 
             placeholder="Título (Ej: Boda María)" 
             aria-label="Título de las fotos" 
-            className="px-4 py-2 rounded-xl border-none bg-white shadow-sm text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full md:w-48"
+            className="px-4 py-2 rounded-xl border-none bg-white shadow-sm text-sm focus:ring-2 focus:ring-[#004080] outline-none w-full md:w-48"
             value={uploadTitle}
             onChange={(e) => setUploadTitle(e.target.value)}
           />
@@ -104,7 +104,7 @@ export default function GalleryTab({ gallery, fetchData, isLoadingData }: { gall
           <button 
             onClick={() => fileInputRef.current?.click()}
             disabled={isUploading}
-            className="flex items-center px-4 py-2 bg-blue-900 text-white font-bold rounded-xl hover:bg-blue-800 transition-all cursor-pointer disabled:opacity-50 whitespace-nowrap"
+            className="flex items-center px-4 py-2 bg-[#004080] text-white font-bold rounded-xl hover:bg-[#00294f] transition-all cursor-pointer disabled:opacity-50 whitespace-nowrap"
           >
             {isUploading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
             {isUploading ? "Subiendo..." : "Subir Fotos"}

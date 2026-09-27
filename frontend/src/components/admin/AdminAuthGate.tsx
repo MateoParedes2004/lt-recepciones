@@ -29,7 +29,7 @@ export default function AdminAuthGate({ children }: { children: React.ReactNode 
     if (!isAuthorized) {
     return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-            <Loader2 className="w-10 h-10 animate-spin text-blue-600 mb-4" />
+            <Loader2 className="w-10 h-10 animate-spin text-[#004080] mb-4" />
             <p className="text-slate-500 font-medium animate-pulse">Verificando seguridad...</p>
         </div>
         );

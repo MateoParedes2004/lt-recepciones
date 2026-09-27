@@ -1,8 +1,21 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, UploadedFiles, UseGuards, ParseIntPipe } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseInterceptors,
+  UploadedFiles,
+  UseGuards,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { GalleryService } from './gallery.service';
 import { FilesInterceptor } from '@nestjs/platform-express'; // 👈 Cambiado a FilesInterceptor
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { multerImageOptions } from '../common/multer-image.config';
+import { CreateGalleryDto } from './dto/create-gallery.dto';
 
 @Controller('gallery')
 export class GalleryController {
@@ -11,8 +24,11 @@ export class GalleryController {
   @UseGuards(JwtAuthGuard)
   @Post()
   @UseInterceptors(FilesInterceptor('images', 20, multerImageOptions)) // 👈 Ahora espera un campo llamado 'images'
-  create(@UploadedFiles() files: Array<Express.Multer.File>, @Body('title') title?: string) {
-    return this.galleryService.create(files, title);
+  create(
+    @UploadedFiles() files: Array<Express.Multer.File>,
+    @Body() body: CreateGalleryDto,
+  ) {
+    return this.galleryService.create(files, body.title);
   }
 
   // Público: solo devuelve las fotos visibles.

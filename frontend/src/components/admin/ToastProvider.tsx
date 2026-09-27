@@ -28,7 +28,7 @@ export function useToast(): ToastApi {
 const STYLES: Record<ToastKind, { box: string; icon: React.ReactNode }> = {
   success: { box: "bg-emerald-50 border-emerald-200 text-emerald-900", icon: <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" /> },
   error: { box: "bg-red-50 border-red-200 text-red-900", icon: <AlertCircle className="w-5 h-5 text-red-600 shrink-0" /> },
-  info: { box: "bg-blue-50 border-blue-200 text-blue-900", icon: <Info className="w-5 h-5 text-blue-600 shrink-0" /> },
+  info: { box: "bg-[#e8f0f8] border-[#004080]/25 text-[#004080]", icon: <Info className="w-5 h-5 text-[#004080] shrink-0" /> },
 };
 
 // Reemplaza las alertas nativas del navegador (alert) en el panel admin:

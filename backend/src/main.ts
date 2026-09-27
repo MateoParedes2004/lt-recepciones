@@ -55,4 +55,7 @@ async function bootstrap() {
 
   console.log(`🚀 API ejecutándose en el puerto ${port}`);
 }
-bootstrap();
+bootstrap().catch((error) => {
+  console.error('El servidor no pudo arrancar:', (error as Error).message);
+  process.exit(1);
+});

@@ -107,7 +107,7 @@ export default function CitiesTab({ cities, fetchData, isLoadingData }: { cities
                 </div>
                 <button 
                     onClick={() => setIsAdding(!isAdding)} 
-                    className={`px-5 py-2.5 rounded-xl font-bold transition-colors flex items-center gap-2 ${isAdding ? 'bg-slate-100 text-slate-600' : 'bg-[#004080] text-white hover:bg-[#002b5e]'}`}
+                    className={`px-5 py-2.5 rounded-xl font-bold transition-colors flex items-center gap-2 ${isAdding ? 'bg-slate-100 text-slate-600' : 'bg-[#004080] text-white hover:bg-[#00294f]'}`}
                 >
                     {isAdding ? <><X className="w-5 h-5" /> Cancelar</> : <><Plus className="w-5 h-5" /> Nueva Ciudad</>}
                 </button>
@@ -115,7 +115,7 @@ export default function CitiesTab({ cities, fetchData, isLoadingData }: { cities
 
             {/* FORMULARIO DE NUEVA CIUDAD (Desplegable) */}
             {isAdding && (
-                <div className="bg-blue-50/50 p-5 rounded-2xl border border-blue-100 flex flex-wrap items-center gap-4 shadow-sm shrink-0">
+                <div className="bg-[#e8f0f8]/50 p-5 rounded-2xl border border-[#004080]/15 flex flex-wrap items-center gap-4 shadow-sm shrink-0">
                     <div className="flex-1 min-w-50">
                         <label className="block text-xs font-bold text-[#004080] mb-1 uppercase tracking-wider">Nombre de la Ciudad</label>
                         <input type="text" placeholder="Ej. Luque" value={newCityName} onChange={(e) => setNewCityName(e.target.value)} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg focus:border-[#004080] focus:ring-1 focus:ring-[#004080] outline-none transition-all" />
@@ -128,7 +128,7 @@ export default function CitiesTab({ cities, fetchData, isLoadingData }: { cities
                         </div>
                     </div>
                     <div className="mt-5">
-                        <button onClick={handleAddCity} className="px-6 py-2 bg-[#004080] text-white font-bold rounded-lg hover:bg-[#002b5e] shadow-md">Guardar</button>
+                        <button onClick={handleAddCity} className="px-6 py-2 bg-[#004080] text-white font-bold rounded-lg hover:bg-[#00294f] shadow-md">Guardar</button>
                     </div>
                 </div>
             )}
@@ -182,12 +182,12 @@ export default function CitiesTab({ cities, fetchData, isLoadingData }: { cities
                                             <td className="px-4 py-3 text-right">
                                                 {editingId === city.id ? (
                                                     <div className="flex justify-end gap-1">
-                                                        <button onClick={() => handleSavePrice(city.id)} aria-label="Guardar precio" title="Guardar precio" className="p-1.5 bg-[#004080] text-white rounded hover:bg-[#002b5e]"><Save className="w-3.5 h-3.5" /></button>
+                                                        <button onClick={() => handleSavePrice(city.id)} aria-label="Guardar precio" title="Guardar precio" className="p-1.5 bg-[#004080] text-white rounded hover:bg-[#00294f]"><Save className="w-3.5 h-3.5" /></button>
                                                         <button onClick={() => setEditingId(null)} aria-label="Cancelar edición" title="Cancelar edición" className="p-1.5 bg-slate-200 text-slate-600 rounded hover:bg-slate-300"><X className="w-3.5 h-3.5" /></button>
                                                     </div>
                                                 ) : (
                                                     <div className="flex justify-end items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <button onClick={() => { setEditingId(city.id); setEditPrice(city.price); }} className="p-1.5 text-slate-400 hover:text-[#004080] bg-slate-100 hover:bg-blue-50 rounded" title="Editar precio" aria-label="Editar precio"><Edit2 className="w-3.5 h-3.5" /></button>
+                                                        <button onClick={() => { setEditingId(city.id); setEditPrice(city.price); }} className="p-1.5 text-slate-400 hover:text-[#004080] bg-slate-100 hover:bg-[#e8f0f8] rounded" title="Editar precio" aria-label="Editar precio"><Edit2 className="w-3.5 h-3.5" /></button>
                                                         <button onClick={() => handleToggleActive(city.id, city.isActive)} className="p-1.5 text-emerald-600 hover:text-white bg-emerald-50 hover:bg-emerald-500 rounded flex items-center gap-1 ml-2" title="Desactivar ciudad">
                                                             <ArrowRightLeft className="w-3.5 h-3.5" /> <span className="text-xs font-bold">Desactivar</span>
                                                         </button>

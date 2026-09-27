@@ -114,19 +114,19 @@ export default function AdminDashboard() {
       {/* 2. TARJETAS DE RESUMEN GLOBALES */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center space-x-4">
-          <div className="p-4 bg-blue-50 text-[#004080] rounded-2xl"><Package className="w-6 h-6" /></div>
+          <div className="p-4 bg-[#e8f0f8] text-[#004080] rounded-2xl"><Package className="w-6 h-6" /></div>
           <div><p className="text-sm font-medium text-slate-500">Tipos de Producto</p><h3 className="text-2xl font-bold text-slate-900">{products.length}</h3></div>
         </div>
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center space-x-4">
-          <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl"><Layers className="w-6 h-6" /></div>
+          <div className="p-4 bg-[#e8f0f8] text-[#004080] rounded-2xl"><Layers className="w-6 h-6" /></div>
           <div><p className="text-sm font-medium text-slate-500">Stock Libre Hoy</p><h3 className="text-2xl font-bold text-slate-900">{totalAvailableUnits}</h3></div>
         </div>
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center space-x-4">
-          <div className="p-4 bg-purple-50 text-purple-600 rounded-2xl"><CalendarDays className="w-6 h-6" /></div>
+          <div className="p-4 bg-[#e8f0f8] text-[#004080] rounded-2xl"><CalendarDays className="w-6 h-6" /></div>
           <div><p className="text-sm font-medium text-slate-500">Alquileres Activos</p><h3 className="text-2xl font-bold text-slate-900">{activeRentalsCount}</h3></div>
         </div>
         <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center space-x-4">
-          <div className="p-4 bg-amber-50 text-amber-600 rounded-2xl"><TrendingUp className="w-6 h-6" /></div>
+          <div className="p-4 bg-[#e8f0f8] text-[#004080] rounded-2xl"><TrendingUp className="w-6 h-6" /></div>
           <div><p className="text-sm font-medium text-slate-500">Ingresos del Mes</p><h3 className="text-2xl font-bold text-slate-900">{formatPYG(currentMonthIncome)}</h3></div>
         </div>
       </div>

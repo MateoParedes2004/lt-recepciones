@@ -45,7 +45,7 @@ function PhaseBadge({ rental }: { rental: Rental }) {
     case "EN_USO":
       return <span className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-bold border border-amber-200 animate-pulse">EN USO</span>;
     case "RESERVADO":
-      return <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-bold border border-blue-200">RESERVADO</span>;
+      return <span className="px-3 py-1 bg-[#e8f0f8] text-[#004080] rounded-full text-xs font-bold border border-[#004080]/20">RESERVADO</span>;
     case "DEVUELTO":
       return <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-bold border border-slate-200">DEVUELTO</span>;
     default:
@@ -234,9 +234,9 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
       <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between gap-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input type="text" placeholder="Buscar cliente..." aria-label="Buscar cliente" value={searchRental} onChange={(e) => setSearchRental(e.target.value)} className="pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-900 focus:outline-none w-full sm:w-64" />
+          <input type="text" placeholder="Buscar cliente..." aria-label="Buscar cliente" value={searchRental} onChange={(e) => setSearchRental(e.target.value)} className="pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#004080] focus:outline-none w-full sm:w-64" />
         </div>
-        <button onClick={openNewRental} className="flex items-center bg-emerald-600 text-white px-5 py-2.5 rounded-xl hover:bg-emerald-700 transition-colors font-medium shadow-md cursor-pointer">
+        <button onClick={openNewRental} className="flex items-center bg-[#004080] text-white px-5 py-2.5 rounded-xl hover:bg-[#00294f] transition-colors font-medium shadow-md cursor-pointer">
           <Plus className="w-5 h-5 mr-2" /> Nuevo Alquiler
         </button>
       </div>
@@ -263,7 +263,7 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
             aria-pressed={phaseFilter === f.key}
             className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors cursor-pointer ${
               phaseFilter === f.key
-                ? "bg-blue-900 text-white border-blue-900"
+                ? "bg-[#004080] text-white border-[#004080]"
                 : f.key === "ATRASADO" && counts.ATRASADO > 0
                   ? "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
                   : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
@@ -294,7 +294,7 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
                     <p className="font-bold text-slate-900 text-lg">{rental.clientName}</p>
                     <p className="text-sm text-slate-500 mb-1">{rental.clientPhone || 'Sin teléfono'}</p>
                     {rental.city?.name && (
-                      <p className="text-xs text-blue-700 mb-1 flex items-center"><MapPin className="w-3 h-3 mr-1" />{rental.city.name}</p>
+                      <p className="text-xs text-[#004080] mb-1 flex items-center"><MapPin className="w-3 h-3 mr-1" />{rental.city.name}</p>
                     )}
                     <div className="text-xs bg-slate-100 inline-block px-2 py-1 rounded text-slate-600">
                       <strong>Uso:</strong> {formatFechaCalendario(rental.eventDate)} <br/>
@@ -305,7 +305,7 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
                     <ul className="text-sm text-slate-600 space-y-1">
                       {rental.items.map((item, i) => (
                         <li key={i} className="flex items-center gap-2">
-                          <span className="font-bold text-blue-900 bg-blue-50 px-1.5 rounded">{item.quantity}x</span>
+                          <span className="font-bold text-[#004080] bg-[#e8f0f8] px-1.5 rounded">{item.quantity}x</span>
                           <span className="truncate w-40 block">{item.product?.name || 'Producto borrado'}</span>
                         </li>
                       ))}
@@ -329,12 +329,12 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
                         </button>
                       )}
                       {rental.status !== "ACTIVO" && (
-                        <button onClick={() => changeStatus(rental, "reopen")} className="flex items-center justify-end w-full text-sm font-bold text-blue-700 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-lg transition-colors cursor-pointer">
+                        <button onClick={() => changeStatus(rental, "reopen")} className="flex items-center justify-end w-full text-sm font-bold text-[#004080] hover:text-[#00294f] bg-[#e8f0f8] hover:bg-[#d3e3f2] px-3 py-2 rounded-lg transition-colors cursor-pointer">
                           <RotateCcw className="w-4 h-4 mr-1" /> Reabrir
                         </button>
                       )}
                       <div className="flex items-center gap-2">
-                        <button onClick={() => openEditRental(rental)} aria-label={`Editar el alquiler de ${rental.clientName}`} title="Editar" className="p-2 text-slate-400 hover:text-blue-900 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors"><Pencil className="w-4 h-4" /></button>
+                        <button onClick={() => openEditRental(rental)} aria-label={`Editar el alquiler de ${rental.clientName}`} title="Editar" className="p-2 text-slate-400 hover:text-[#004080] hover:bg-[#e8f0f8] rounded-lg cursor-pointer transition-colors"><Pencil className="w-4 h-4" /></button>
                         {rental.status === "ACTIVO" && (
                           <button onClick={() => changeStatus(rental, "cancel")} aria-label={`Anular el alquiler de ${rental.clientName}`} title="Anular" className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer transition-colors"><Ban className="w-4 h-4" /></button>
                         )}
@@ -352,7 +352,7 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[95vh]">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/80">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center"><CalendarDays className="w-6 h-6 mr-2 text-emerald-600"/> {editingId !== null ? "Editar Alquiler" : "Registrar Alquiler"}</h3>
+              <h3 className="text-xl font-bold text-slate-900 flex items-center"><CalendarDays className="w-6 h-6 mr-2 text-[#004080]"/> {editingId !== null ? "Editar Alquiler" : "Registrar Alquiler"}</h3>
               <button onClick={closeRentalModal} aria-label="Cerrar" className="text-slate-400 hover:text-slate-700 p-1 rounded-full cursor-pointer"><X className="w-6 h-6" /></button>
             </div>
 
@@ -383,7 +383,7 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
                 <div>
                   <div className="flex justify-between items-center mb-3">
                     <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wider">2. Productos Solicitados</h4>
-                    {!scheduleLocked && <button type="button" onClick={addRentalItem} className="text-sm font-bold text-blue-900 hover:text-blue-700 flex items-center bg-blue-50 px-3 py-1 rounded-lg cursor-pointer"><PlusCircle className="w-4 h-4 mr-1"/> Añadir Producto</button>}
+                    {!scheduleLocked && <button type="button" onClick={addRentalItem} className="text-sm font-bold text-[#004080] hover:text-[#00294f] flex items-center bg-[#e8f0f8] px-3 py-1 rounded-lg cursor-pointer"><PlusCircle className="w-4 h-4 mr-1"/> Añadir Producto</button>}
                   </div>
                   {!scheduleLocked && (
                     <p className="text-xs text-slate-500 mb-3">
@@ -436,7 +436,7 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
 
             <div className="px-6 py-4 border-t border-slate-100 flex justify-end space-x-3 bg-slate-50/80">
               <button type="button" onClick={closeRentalModal} className="px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-200 rounded-xl cursor-pointer">Cancelar</button>
-              <button type="submit" form="rentalForm" disabled={isSavingRental} className="px-6 py-2.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 shadow-md flex items-center cursor-pointer">
+              <button type="submit" form="rentalForm" disabled={isSavingRental} className="px-6 py-2.5 bg-[#004080] text-white font-bold rounded-xl hover:bg-[#00294f] shadow-md flex items-center cursor-pointer">
                 {isSavingRental ? "Procesando..." : editingId !== null ? "Guardar Cambios" : "Confirmar y Reservar Stock"}
               </button>
             </div>

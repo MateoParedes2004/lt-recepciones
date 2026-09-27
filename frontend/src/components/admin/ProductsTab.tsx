@@ -120,7 +120,7 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
               aria-label="Buscar producto" 
               value={searchProduct} 
               onChange={(e) => setSearchProduct(e.target.value)} 
-              className="pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-900 focus:outline-none w-full shadow-sm" 
+              className="pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#004080] focus:outline-none w-full shadow-sm" 
             />
           </div>
 
@@ -131,7 +131,7 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
               aria-label="Filtrar por categoría"
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
-              className="pl-10 pr-8 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-900 focus:outline-none w-full appearance-none bg-white text-slate-600 shadow-sm cursor-pointer"
+              className="pl-10 pr-8 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#004080] focus:outline-none w-full appearance-none bg-white text-slate-600 shadow-sm cursor-pointer"
             >
               <option value="">Todas las categorías</option>
               {categories.map((cat) => (
@@ -147,7 +147,7 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
         <button onClick={toggleArchived} aria-pressed={showArchived} className={`flex items-center px-5 py-2.5 rounded-xl font-medium cursor-pointer border justify-center transition-colors ${showArchived ? "bg-amber-50 text-amber-800 border-amber-200" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}>
           <Archive className="w-5 h-5 mr-2" /> {showArchived ? "Volver a productos" : "Dados de baja"}
         </button>
-        <button onClick={() => setIsModalOpen(true)} className="flex items-center bg-blue-900 text-white px-5 py-2.5 rounded-xl hover:bg-blue-800 font-medium cursor-pointer shadow-md w-full lg:w-auto justify-center">
+        <button onClick={() => setIsModalOpen(true)} className="flex items-center bg-[#004080] text-white px-5 py-2.5 rounded-xl hover:bg-[#00294f] font-medium cursor-pointer shadow-md w-full lg:w-auto justify-center">
           <Plus className="w-5 h-5 mr-2" /> Nuevo Producto
         </button>
         </div>
@@ -195,12 +195,12 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
              filteredProducts.map((p) => (
               <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                 <td className="px-6 py-4"><div className="flex items-center space-x-3"><div className="w-10 h-10 bg-slate-100 rounded-lg overflow-hidden shrink-0 border border-slate-200">{p.imageUrl ? <img src={getImageUrl(p.imageUrl)} alt={p.name} className="w-full h-full object-contain mix-blend-multiply"/> : <ImageIcon className="w-5 h-5 m-auto text-slate-400 mt-2.5"/>}</div><p className="font-semibold text-slate-900">{p.name}</p></div></td>
-                <td className="px-6 py-4"><span className="px-2.5 py-0.5 rounded-full text-xs bg-blue-50 text-blue-900 border border-blue-100 font-medium">{p.category?.name || 'N/A'}</span></td>
+                <td className="px-6 py-4"><span className="px-2.5 py-0.5 rounded-full text-xs bg-[#e8f0f8] text-[#004080] border border-[#004080]/15 font-medium">{p.category?.name || 'N/A'}</span></td>
                 <td className="px-6 py-4"><div className="flex flex-col"><span className="font-bold text-lg text-slate-900">{p.totalStock} <span className="text-xs font-normal text-slate-500">en total</span></span><span className="text-xs text-slate-500 font-medium">{p.availableStock ?? p.totalStock} libres hoy{(p.rentedCount ?? 0) > 0 && <span className="text-amber-600"> · {p.rentedCount} afuera</span>}</span></div></td>
                 <td className="px-6 py-4 font-medium">{formatPYG(p.pricePerDay)}</td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end space-x-2">
-                    <button onClick={() => handleEditClick(p)} className="p-2 text-slate-400 hover:text-blue-900 hover:bg-blue-50 rounded-lg cursor-pointer transition-colors" title="Editar" aria-label={`Editar ${p.name}`}><Edit className="w-4 h-4" /></button>
+                    <button onClick={() => handleEditClick(p)} className="p-2 text-slate-400 hover:text-[#004080] hover:bg-[#e8f0f8] rounded-lg cursor-pointer transition-colors" title="Editar" aria-label={`Editar ${p.name}`}><Edit className="w-4 h-4" /></button>
                     <button onClick={() => handleDeleteClick(p.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer transition-colors" title="Eliminar" aria-label={`Eliminar ${p.name}`}><Trash2 className="w-4 h-4" /></button>
                   </div>
                 </td>
@@ -221,12 +221,12 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
             </div>
             <div className="p-6 overflow-y-auto custom-scrollbar">
               <form id="productForm" onSubmit={handleSaveProduct} className="space-y-4">
-                <div><label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label><input type="text" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-900 outline-none" /></div>
+                <div><label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label><input type="text" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#004080] outline-none" /></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Precio</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">Gs.</span><input type="number" required value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-900 outline-none" /></div></div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Precio</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">Gs.</span><input type="number" required value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#004080] outline-none" /></div></div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Stock Total (inventario físico)</label>
-                    <input type="number" required min={0} value={formData.totalStock} onChange={(e) => setFormData({...formData, totalStock: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl font-bold text-blue-900 outline-none" />
+                    <input type="number" required min={0} value={formData.totalStock} onChange={(e) => setFormData({...formData, totalStock: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl font-bold text-[#004080] outline-none" />
                     {editingId && (() => {
                       const editingProduct = products.find((p) => p.id === editingId);
                       return editingProduct ? (
@@ -239,12 +239,12 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
                     })()}
                   </div>
                 </div>
-                <div><label className="block text-sm font-medium text-slate-700 mb-1">Categoría</label><select required value={formData.categoryId} onChange={(e) => setFormData({...formData, categoryId: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-900 outline-none bg-white cursor-pointer"><option value="" disabled>Seleccionar...</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+                <div><label className="block text-sm font-medium text-slate-700 mb-1">Categoría</label><select required value={formData.categoryId} onChange={(e) => setFormData({...formData, categoryId: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#004080] outline-none bg-white cursor-pointer"><option value="" disabled>Seleccionar...</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label><textarea required rows={2} value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl outline-none resize-none" /></div>
-                <div><label className="block text-sm font-medium text-slate-700 mb-1">Foto</label><input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageChange} className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:bg-blue-50 file:text-blue-900 hover:file:bg-blue-100 cursor-pointer" />{imagePreview && <div className="mt-3 relative w-full h-32 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 flex justify-center items-center"><img src={imagePreview} alt="Vista previa" className="max-h-full object-contain mix-blend-multiply" /></div>}</div>
+                <div><label className="block text-sm font-medium text-slate-700 mb-1">Foto</label><input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageChange} className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:bg-[#e8f0f8] file:text-[#004080] hover:file:bg-[#d3e3f2] cursor-pointer" />{imagePreview && <div className="mt-3 relative w-full h-32 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 flex justify-center items-center"><img src={imagePreview} alt="Vista previa" className="max-h-full object-contain mix-blend-multiply" /></div>}</div>
               </form>
             </div>
-            <div className="px-6 py-4 border-t border-slate-100 flex justify-end space-x-3 bg-slate-50/50"><button type="button" onClick={closeModal} className="px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-200 rounded-xl cursor-pointer">Cancelar</button><button type="submit" form="productForm" disabled={isSaving} className="px-5 py-2.5 bg-blue-900 text-white font-medium rounded-xl hover:bg-blue-800 shadow-md disabled:bg-blue-400 cursor-pointer">{isSaving ? "Guardando..." : "Guardar Producto"}</button></div>
+            <div className="px-6 py-4 border-t border-slate-100 flex justify-end space-x-3 bg-slate-50/50"><button type="button" onClick={closeModal} className="px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-200 rounded-xl cursor-pointer">Cancelar</button><button type="submit" form="productForm" disabled={isSaving} className="px-5 py-2.5 bg-[#004080] text-white font-medium rounded-xl hover:bg-[#00294f] shadow-md disabled:bg-[#004080]/50 cursor-pointer">{isSaving ? "Guardando..." : "Guardar Producto"}</button></div>
           </div>
         </div>
       )}

@@ -17,9 +17,9 @@ const formatDias = (n: number) => `${Math.max(0, n).toFixed(1)} días`;
 // Colores fijos por serie/entidad — se reutilizan igual en el gráfico de
 // actividad, el embudo y cualquier otro lugar que hable de la misma métrica,
 // para que el color siempre identifique lo mismo en toda la pestaña.
-const COLOR_VISITAS = "#a855f7"; // purple-500
-const COLOR_PEDIDOS_WSP = "#14b8a6"; // teal-500
-const COLOR_ALQUILERES = "#f59e0b"; // amber-500
+const COLOR_VISITAS = "#3b9dff"; // celeste de marca (mismo tono que el efecto de luz)
+const COLOR_PEDIDOS_WSP = "#0d4a8a"; // navy medio de marca
+const COLOR_ALQUILERES = "#00294f"; // navy oscuro de marca
 
 // Gráfico de visitas: áreas superpuestas sobre un fondo gris claro con franjas
 // alternadas. Las visitas del período van al frente en degradé azul→turquesa
@@ -202,12 +202,12 @@ function RankedTable({ icon, title, subtitle, rows, emptyLabel, unitLabel, isLoa
                 <tr key={row.key} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
                   <td className="p-4 px-6">
                     <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${index === 0 ? 'bg-yellow-100 text-yellow-700' : index === 1 ? 'bg-slate-200 text-slate-700' : index === 2 ? 'bg-orange-100 text-orange-700' : 'bg-blue-50 text-blue-600'}`}>#{index + 1}</div>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${index === 0 ? 'bg-yellow-100 text-yellow-700' : index === 1 ? 'bg-slate-200 text-slate-700' : index === 2 ? 'bg-orange-100 text-orange-700' : 'bg-[#e8f0f8] text-[#004080]'}`}>#{index + 1}</div>
                       <span className="font-semibold text-slate-900">{row.nombre}</span>
                     </div>
                   </td>
                   <td className="p-4 text-center text-slate-600 font-medium tabular-nums">{row.alquileres}</td>
-                  <td className="p-4 px-6 text-right font-bold text-emerald-600 tabular-nums">{formatPYG(row.ingresos)}</td>
+                  <td className="p-4 px-6 text-right font-bold text-[#004080] tabular-nums">{formatPYG(row.ingresos)}</td>
                 </tr>
               ))
             )}
@@ -304,11 +304,11 @@ export default function StatisticsTab() {
 
       {/* CABECERA Y FILTROS */}
       <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 relative overflow-hidden">
-        {isLoading && <div className="absolute top-0 left-0 w-full h-1 bg-blue-100"><div className="h-full bg-blue-600 animate-pulse w-1/3 rounded-r-full"></div></div>}
+        {isLoading && <div className="absolute top-0 left-0 w-full h-1 bg-[#e8f0f8]"><div className="h-full bg-[#004080] animate-pulse w-1/3 rounded-r-full"></div></div>}
 
         <div>
           <h2 className="text-2xl font-bold text-slate-900 flex items-center">
-            Rendimiento del Negocio {isLoading && <Loader2 className="w-5 h-5 ml-3 animate-spin text-blue-600"/>}
+            Rendimiento del Negocio {isLoading && <Loader2 className="w-5 h-5 ml-3 animate-spin text-[#004080]"/>}
           </h2>
           <p className="text-slate-500 text-sm mt-1">Ingresos, productos, conversión de visitantes y demanda por zona.</p>
         </div>
@@ -316,19 +316,19 @@ export default function StatisticsTab() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-slate-50 p-2.5 rounded-2xl border border-slate-100 w-full lg:w-auto">
           <div className="flex items-center text-slate-500 font-medium text-sm px-2"><Filter className="w-4 h-4 mr-2" /> Filtrar por:</div>
           <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200 w-full sm:w-auto">
-            <button onClick={() => setViewMode("diario")} aria-pressed={viewMode === "diario"} className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-sm font-bold transition-all cursor-pointer ${viewMode === "diario" ? "bg-blue-50 text-blue-700" : "text-slate-500 hover:text-slate-700"}`}>Día</button>
-            <button onClick={() => setViewMode("mensual")} aria-pressed={viewMode === "mensual"} className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-sm font-bold transition-all cursor-pointer ${viewMode === "mensual" ? "bg-blue-50 text-blue-700" : "text-slate-500 hover:text-slate-700"}`}>Mes</button>
-            <button onClick={() => setViewMode("anual")} aria-pressed={viewMode === "anual"} className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-sm font-bold transition-all cursor-pointer ${viewMode === "anual" ? "bg-blue-50 text-blue-700" : "text-slate-500 hover:text-slate-700"}`}>Año</button>
+            <button onClick={() => setViewMode("diario")} aria-pressed={viewMode === "diario"} className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-sm font-bold transition-all cursor-pointer ${viewMode === "diario" ? "bg-[#e8f0f8] text-[#004080]" : "text-slate-500 hover:text-slate-700"}`}>Día</button>
+            <button onClick={() => setViewMode("mensual")} aria-pressed={viewMode === "mensual"} className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-sm font-bold transition-all cursor-pointer ${viewMode === "mensual" ? "bg-[#e8f0f8] text-[#004080]" : "text-slate-500 hover:text-slate-700"}`}>Mes</button>
+            <button onClick={() => setViewMode("anual")} aria-pressed={viewMode === "anual"} className={`flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-sm font-bold transition-all cursor-pointer ${viewMode === "anual" ? "bg-[#e8f0f8] text-[#004080]" : "text-slate-500 hover:text-slate-700"}`}>Año</button>
           </div>
           <div className="w-px h-6 bg-slate-200 hidden sm:block"></div>
           <div className="relative w-full sm:w-auto">
-            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-600 pointer-events-none" />
+            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#004080] pointer-events-none" />
             {viewMode === "diario" ? (
-              <input type="date" aria-label="Día a consultar" value={selectedDay} onChange={(e) => { if (e.target.value) setSelectedDay(e.target.value); }} className="pl-9 pr-4 py-1.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-600 focus:outline-none cursor-pointer w-full sm:w-auto shadow-sm" />
+              <input type="date" aria-label="Día a consultar" value={selectedDay} onChange={(e) => { if (e.target.value) setSelectedDay(e.target.value); }} className="pl-9 pr-4 py-1.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-[#004080] focus:outline-none cursor-pointer w-full sm:w-auto shadow-sm" />
             ) : viewMode === "mensual" ? (
-              <input type="month" aria-label="Mes a consultar" value={selectedMonth} onChange={(e) => { if (e.target.value) setSelectedMonth(e.target.value); }} className="pl-9 pr-4 py-1.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-600 focus:outline-none cursor-pointer w-full sm:w-auto shadow-sm" />
+              <input type="month" aria-label="Mes a consultar" value={selectedMonth} onChange={(e) => { if (e.target.value) setSelectedMonth(e.target.value); }} className="pl-9 pr-4 py-1.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-[#004080] focus:outline-none cursor-pointer w-full sm:w-auto shadow-sm" />
             ) : (
-              <select aria-label="Año a consultar" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="pl-9 pr-8 py-1.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-600 focus:outline-none cursor-pointer w-full sm:w-auto appearance-none shadow-sm">
+              <select aria-label="Año a consultar" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} className="pl-9 pr-8 py-1.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-[#004080] focus:outline-none cursor-pointer w-full sm:w-auto appearance-none shadow-sm">
                 {availableYears.map((y) => (<option key={y} value={y}>Año {y}</option>))}
               </select>
             )}
@@ -345,14 +345,14 @@ export default function StatisticsTab() {
 
       {/* FILA DE KPIs */}
       <div aria-busy={isLoading} className={`grid grid-cols-2 lg:grid-cols-4 gap-4 transition-opacity duration-200 ${isLoading ? "opacity-50" : ""}`}>
-        <StatTile icon={<Wallet className="w-5 h-5" />} label="Ingresos totales" value={formatPYG(kpis?.totalIngresos ?? 0)} accent="#059669" />
+        <StatTile icon={<Wallet className="w-5 h-5" />} label="Ingresos totales" value={formatPYG(kpis?.totalIngresos ?? 0)} accent="#004080" />
         <StatTile icon={<ShoppingBag className="w-5 h-5" />} label="Alquileres confirmados" value={String(kpis?.totalAlquileres ?? 0)} accent={COLOR_ALQUILERES} />
-        <StatTile icon={<TrendingUp className="w-5 h-5" />} label="Ticket promedio" value={formatPYG(kpis?.ticketPromedio ?? 0)} accent="#2563eb" />
+        <StatTile icon={<TrendingUp className="w-5 h-5" />} label="Ticket promedio" value={formatPYG(kpis?.ticketPromedio ?? 0)} accent="#004080" />
         <StatTile icon={<Users className="w-5 h-5" />} label="Visitas al sitio" value={String(kpis?.totalVisitas ?? 0)} accent={COLOR_VISITAS} />
         <StatTile icon={<Send className="w-5 h-5" />} label="Pedidos por WhatsApp" value={String(kpis?.totalPedidosWhatsapp ?? 0)} accent={COLOR_PEDIDOS_WSP} />
-        <StatTile icon={<Clock className="w-5 h-5" />} label="Duración prom. de alquiler" value={formatDias(kpis?.duracionPromedioDias ?? 0)} accent="#0ea5e9" />
-        <StatTile icon={<Hourglass className="w-5 h-5" />} label="Anticipación prom. de reserva" value={formatDias(kpis?.anticipacionPromedioDias ?? 0)} accent="#8b5cf6" />
-        <StatTile icon={<CheckCircle2 className="w-5 h-5" />} label="Activos / Devueltos" value={`${kpis?.alquileresActivos ?? 0} / ${kpis?.alquileresDevueltos ?? 0}`} accent="#64748b" />
+        <StatTile icon={<Clock className="w-5 h-5" />} label="Duración prom. de alquiler" value={formatDias(kpis?.duracionPromedioDias ?? 0)} accent="#004080" />
+        <StatTile icon={<Hourglass className="w-5 h-5" />} label="Anticipación prom. de reserva" value={formatDias(kpis?.anticipacionPromedioDias ?? 0)} accent="#004080" />
+        <StatTile icon={<CheckCircle2 className="w-5 h-5" />} label="Activos / Devueltos" value={`${kpis?.alquileresActivos ?? 0} / ${kpis?.alquileresDevueltos ?? 0}`} accent="#004080" />
       </div>
 
       {/* EMBUDO DE CONVERSIÓN */}
@@ -394,11 +394,11 @@ export default function StatisticsTab() {
       {viewMode !== "diario" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative">
-            {isLoading && <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 rounded-3xl flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-blue-600"/></div>}
+            {isLoading && <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 rounded-3xl flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#004080]"/></div>}
             <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
-              <h3 className="text-lg font-bold text-slate-900 flex items-center"><DollarSign className="w-5 h-5 mr-2 text-emerald-500" /> Historial de Recaudación</h3>
+              <h3 className="text-lg font-bold text-slate-900 flex items-center"><DollarSign className="w-5 h-5 mr-2 text-[#004080]" /> Historial de Recaudación</h3>
               {kpis?.picoBucket && (
-                <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full">
+                <span className="text-xs font-bold text-[#004080] bg-[#e8f0f8] border border-[#004080]/15 px-2.5 py-1 rounded-full">
                   Pico: {kpis.picoBucket.name} · {formatPYG(kpis.picoBucket.ingresos)}
                 </span>
               )}
@@ -410,16 +410,16 @@ export default function StatisticsTab() {
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
                   <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} tickFormatter={(value) => `Gs. ${value / 1000000}M`} />
                   <Tooltip formatter={(value) => [formatPYG(Number(value) || 0), "Ingresos"]} cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
-                  <Bar dataKey="ingresos" name="Ingresos" fill="#3b82f6" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  <Bar dataKey="ingresos" name="Ingresos" fill="#004080" radius={[4, 4, 0, 0]} maxBarSize={40} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
           <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative">
-            {isLoading && <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 rounded-3xl flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-blue-600"/></div>}
+            {isLoading && <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 rounded-3xl flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#004080]"/></div>}
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-              <h3 className="text-lg font-bold text-slate-900 flex items-center"><Users className="w-5 h-5 mr-2 text-purple-500" /> Visitas al Sitio Web</h3>
+              <h3 className="text-lg font-bold text-slate-900 flex items-center"><Users className="w-5 h-5 mr-2 text-[#004080]" /> Visitas al Sitio Web</h3>
               {kpis && (
                 <span className="text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-full">
                   {kpis.totalVisitas} visitas
@@ -436,7 +436,7 @@ export default function StatisticsTab() {
 
       {/* TABLA DE PRODUCTOS TOP */}
       <RankedTable
-        icon={<ShoppingBag className="w-5 h-5 mr-2 text-blue-500" />}
+        icon={<ShoppingBag className="w-5 h-5 mr-2 text-[#004080]" />}
         title="Top 4 Productos por Ingresos"
         subtitle="(En el periodo seleccionado)"
         rows={topProductos.map((p) => ({ key: String(p.id), nombre: p.nombre, alquileres: p.alquileres, ingresos: p.ingresos }))}
@@ -448,7 +448,7 @@ export default function StatisticsTab() {
       {/* NUEVAS SECCIONES: CATEGORÍA Y CIUDAD */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <RankedTable
-          icon={<Tags className="w-5 h-5 mr-2 text-indigo-500" />}
+          icon={<Tags className="w-5 h-5 mr-2 text-[#004080]" />}
           title="Ingresos por Categoría"
           rows={ingresosPorCategoria.map((c) => ({ key: c.categoria, nombre: c.categoria, alquileres: c.alquileres, ingresos: c.ingresos }))}
           emptyLabel="No hay datos para este periodo."
@@ -456,7 +456,7 @@ export default function StatisticsTab() {
           isLoading={isLoading}
         />
         <RankedTable
-          icon={<MapPin className="w-5 h-5 mr-2 text-rose-500" />}
+          icon={<MapPin className="w-5 h-5 mr-2 text-[#004080]" />}
           title="Demanda por Ciudad"
           rows={demandaPorCiudad.map((c) => ({ key: c.ciudad, nombre: c.ciudad, alquileres: c.alquileres, ingresos: c.ingresos }))}
           emptyLabel="No hay datos para este periodo."
