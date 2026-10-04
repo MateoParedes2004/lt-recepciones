@@ -11,6 +11,10 @@ model Category {
   name        String    @unique
   // Texto corto que se muestra bajo el título de la categoría en el catálogo.
   description String?
+  // Orden en el catálogo: menor número primero. Dos rubros con el mismo número
+  // se ordenan por id. Los rubros existentes arrancan con id × 10 (ver
+  // CategoryOrderMigration), así que el orden actual no cambia.
+  sortOrder   Int       @default(0)
   products    Product[]
 }
 

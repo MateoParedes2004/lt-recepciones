@@ -5,18 +5,25 @@ import { PrismaService } from '../prisma/prisma.service';
 export class CategoriesService {
   constructor(private prisma: PrismaService) {}
 
-  create(data: any) {
-    return this.prisma.category.create({ data });
+  // Un rubro nuevo sin posición va al final (el último número + 10, para dejar
+  // lugar a insertar otro entre medio sin renumerar todo).
+  async create(data: any) {
+    const { sortOrder, ...rest } = data ?? {};
+    const position = sortOrder ?? (await this.nextSortOrder());
+    return this.prisma.category.create({ data: { ...rest, sortOrder: position } });
   }
 
-  // Categorías por ID (orden original), Productos de la A a la Z.
+  private async nextSortOrder(): Promise<number> {
+    const last = await this.prisma.category.aggregate({ _max: { sortOrder: true } });
+    return (last._max.sortOrder ?? 0) + 10;
+  }
+
+  // Categorías por posición (sortOrder; a igual posición, por ID), Productos de la A a la Z.
   // Los productos archivados (baja lógica, ver ProductsService.deleteProduct)
   // nunca aparecen en el catálogo público.
   findAll() {
     return this.prisma.category.findMany({
-      orderBy: {
-        id: 'asc', // AQUÍ ESTÁ EL CAMBIO: Volvemos a ordenar por ID
-      },
+      orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
       include: {
         products: {
           where: { isArchived: false },
@@ -45,7 +52,10 @@ export class CategoriesService {
   }
 
   update(id: number, data: any) {
-    return this.prisma.category.update({ where: { id }, data });
+    // null no es una posición válida (la columna no admite nulos): si llega, se ignora.
+    const { sortOrder, ...rest } = data ?? {};
+    const patch = sortOrder === undefined || sortOrder === null ? rest : { ...rest, sortOrder };
+    return this.prisma.category.update({ where: { id }, data: patch });
   }
 
   async remove(id: number) {

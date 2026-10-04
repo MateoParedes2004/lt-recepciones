@@ -1,6 +1,6 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { trimString } from '../../common/trim';
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
 
 export class CreateCategoryDto {
   // El nombre arma la dirección de la página del rubro (/catalogos/sillas).
@@ -18,4 +18,14 @@ export class CreateCategoryDto {
   @IsString()
   @MaxLength(500)
   description?: string | null;
+
+  // Posición en el catálogo (menor número primero). Si no se manda, el backend
+  // lo pone al final. Es un entero: el panel manda undefined si se deja vacío,
+  // nunca "" (Number("") daría 0 y reordenaría el rubro sin querer).
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(1000000)
+  sortOrder?: number;
 }

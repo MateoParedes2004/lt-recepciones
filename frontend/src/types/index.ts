@@ -4,6 +4,8 @@ export interface Category {
   id: number;
   name: string;
   description?: string | null;
+  /** Posición en el catálogo: menor número primero. */
+  sortOrder?: number;
   products?: Product[];
 }
 

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import {
   DollarSign, ShoppingBag, Users, Calendar, Filter, Loader2, Send, ArrowRight,
   Clock, Hourglass, MapPin, Tags, CheckCircle2, Wallet, TrendingUp,
-  Eye, ShoppingCart, Search, SearchX, CalendarDays, Globe, Smartphone, MessageCircle, FileText,
+  Eye, ShoppingCart, Search, SearchX, CalendarDays, Globe, Smartphone, MessageCircle, FileText, Layers,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, usePlotArea } from 'recharts';
 import { apiFetch } from "../../lib/api";
@@ -252,6 +252,8 @@ interface Kpis {
   paginasPorVisita?: number;
   totalConsultasWhatsapp?: number;
   picoVisitas?: { name: string; visitas: number } | null;
+  // null si no existe el rubro "Manteles" (ver AnalyticsService).
+  manteles?: { conManteles: number; sinManteles: number } | null;
 }
 
 function StatTile({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: string; accent: string }) {
@@ -462,6 +464,9 @@ export default function StatisticsTab() {
         <StatTile icon={<Clock className="w-5 h-5" />} label="Duración prom. de alquiler" value={formatDias(kpis?.duracionPromedioDias ?? 0)} accent="#004080" />
         <StatTile icon={<Hourglass className="w-5 h-5" />} label="Anticipación prom. de reserva" value={formatDias(kpis?.anticipacionPromedioDias ?? 0)} accent="#004080" />
         <StatTile icon={<CheckCircle2 className="w-5 h-5" />} label="Activos / Devueltos" value={`${kpis?.alquileresActivos ?? 0} / ${kpis?.alquileresDevueltos ?? 0}`} accent="#004080" />
+        {kpis?.manteles && (
+          <StatTile icon={<Layers className="w-5 h-5" />} label="Alquileres sin manteles" value={`${kpis.manteles.sinManteles} de ${kpis.totalAlquileres}`} accent="#004080" />
+        )}
       </div>
 
       {/* EMBUDO DE CONVERSIÓN */}

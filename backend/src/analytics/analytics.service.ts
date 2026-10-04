@@ -49,6 +49,10 @@ const MONTH_NAMES = [
 ];
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
+// Nombre exacto del rubro de manteles: lo usa la estadística "alquileres con
+// manteles". Si se renombra el rubro en el panel, hay que actualizar esta constante.
+const NOMBRE_RUBRO_MANTELES = 'Manteles';
+
 @Injectable()
 export class AnalyticsService {
   constructor(private prisma: PrismaService) {}
@@ -767,8 +771,27 @@ export class AnalyticsService {
       }
     }
 
+    // --- MANTELERÍA ---
+    // Control de olvidos: cuántos alquileres del período llevaron algún mantel.
+    // Se identifica el rubro por su nombre exacto ("Manteles") y se compara por
+    // id. Si el rubro no existe, no hay cifra que mostrar (null), en vez de
+    // marcar todos los alquileres como "sin manteles".
+    const rubroManteles = await this.prisma.category.findUnique({
+      where: { name: NOMBRE_RUBRO_MANTELES },
+      select: { id: true },
+    });
+    const manteles = rubroManteles
+      ? (() => {
+          const conManteles = alquileres.filter((r) =>
+            r.items.some((i) => i.product?.categoryId === rubroManteles.id),
+          ).length;
+          return { conManteles, sinManteles: totalAlquileres - conManteles };
+        })()
+      : null;
+
     const totalPaginasVistas = total('pageview');
     const kpis = {
+      manteles,
       totalIngresos,
       ticketPromedio: totalAlquileres ? totalIngresos / totalAlquileres : 0,
       totalAlquileres,

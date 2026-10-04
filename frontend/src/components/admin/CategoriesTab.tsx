@@ -12,7 +12,7 @@ export default function CategoriesTab({ categories, fetchData }: { categories: C
   const [isCatModalOpen, setIsCatModalOpen] = useState(false);
   const [isSavingCat, setIsSavingCat] = useState(false);
   const [editingCatId, setEditingCatId] = useState<number | null>(null);
-  const [catFormData, setCatFormData] = useState({ name: "", description: "" });
+  const [catFormData, setCatFormData] = useState({ name: "", description: "", sortOrder: "" });
 
   const filteredCategories = categories.filter(c => c.name.toLowerCase().includes(searchCategory.toLowerCase()));
 
@@ -22,14 +22,19 @@ export default function CategoriesTab({ categories, fetchData }: { categories: C
       const method = editingCatId ? "PUT" : "POST";
       const endpoint = editingCatId ? `/categories/${editingCatId}` : "/categories";
       const res = await apiFetch(endpoint, {
-        method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(catFormData)
+        method, headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+          name: catFormData.name,
+          description: catFormData.description,
+          // Vacío = sin posición: el backend lo pone al final. Nunca mandar "" (sería 0).
+          sortOrder: catFormData.sortOrder.trim() === "" ? undefined : Number(catFormData.sortOrder),
+        })
       });
       if (res.ok) { closeCatModal(); fetchData(); toast.success(editingCatId ? "Categoría actualizada." : "Categoría creada."); }
       else toast.error(`No se pudo guardar la categoría: ${await readApiError(res)}`);
     } catch { toast.error("Error de conexión. Revisá tu internet e intentá de nuevo."); } finally { setIsSavingCat(false); }
   };
 
-  const handleEditCatClick = (category: Category) => { setEditingCatId(category.id); setCatFormData({ name: category.name, description: category.description || "" }); setIsCatModalOpen(true); };
+  const handleEditCatClick = (category: Category) => { setEditingCatId(category.id); setCatFormData({ name: category.name, description: category.description || "", sortOrder: category.sortOrder === undefined ? "" : String(category.sortOrder) }); setIsCatModalOpen(true); };
   
   const handleDeleteCatClick = async (id: number) => {
     if (!window.confirm("¿Eliminar esta categoría? Asegúrate de que no tenga productos asignados.")) return;
@@ -40,7 +45,7 @@ export default function CategoriesTab({ categories, fetchData }: { categories: C
     } catch { toast.error("Error de conexión. Revisá tu internet e intentá de nuevo."); }
   };
 
-  const closeCatModal = () => { setIsCatModalOpen(false); setEditingCatId(null); setCatFormData({ name: "", description: "" }); };
+  const closeCatModal = () => { setIsCatModalOpen(false); setEditingCatId(null); setCatFormData({ name: "", description: "", sortOrder: "" }); };
 
   return (
     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -76,6 +81,7 @@ export default function CategoriesTab({ categories, fetchData }: { categories: C
             <div className="p-6">
               <form id="catForm" onSubmit={handleSaveCategory} className="space-y-4">
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label><input type="text" required value={catFormData.name} onChange={(e) => setCatFormData({...catFormData, name: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#004080] outline-none" /></div>
+                <div><label htmlFor="catSortOrder" className="block text-sm font-medium text-slate-700 mb-1">Orden en el catálogo (Opcional)</label><input id="catSortOrder" type="number" inputMode="numeric" min={0} step={1} value={catFormData.sortOrder} onChange={(e) => setCatFormData({...catFormData, sortOrder: e.target.value})} placeholder="Vacío = al final" className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#004080] outline-none" /><p className="text-xs text-slate-500 mt-1">Aparece primero el número más chico. Para que Manteles quede debajo de Mesas, poné un número justo después del de Mesas.</p></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Descripción (Opcional)</label><textarea rows={3} value={catFormData.description} onChange={(e) => setCatFormData({...catFormData, description: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#004080] outline-none resize-none" /></div>
               </form>
             </div>
