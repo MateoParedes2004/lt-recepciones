@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import AddToCartButton from "../AddToCartButton";
+import ProductPlaceholder from "./ProductPlaceholder";
 import { getImageUrl } from "../../lib/api";
 import { productPath } from "../../lib/site";
 import type { Product } from "../../types";
@@ -32,10 +33,7 @@ export default function ProductCard({ product, layout = "carousel" }: { product:
               className="object-contain p-3 group-hover:scale-105 transition-transform duration-700 drop-shadow-sm mix-blend-multiply"
             />
           ) : (
-            <div className="text-slate-400 font-medium flex flex-col items-center">
-              <span className="text-[9px] uppercase tracking-wider mb-1 opacity-50">LT Recepciones</span>
-              <span className="text-xs">Sin imagen</span>
-            </div>
+            <ProductPlaceholder size="card" />
           )}
         </div>
 

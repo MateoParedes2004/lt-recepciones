@@ -1,9 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
-import { CheckCircle, AlertCircle, Package } from "lucide-react";
+import { CheckCircle, AlertCircle } from "lucide-react";
 import ProductActions from "../ProductActions";
 import { ProductImageAnimator, ProductInfoAnimator } from "../ProductDetailAnimator";
 import ProductCard from "./ProductCard";
+import ProductPlaceholder from "./ProductPlaceholder";
 import Breadcrumbs from "./Breadcrumbs";
 import JsonLd from "../JsonLd";
 import TrackView from "../TrackView";
@@ -88,7 +89,7 @@ export default function ProductDetail({ product, category }: { product: Product;
                     className="object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-500 mix-blend-multiply"
                   />
                 ) : (
-                  <Package className="w-32 h-32 text-slate-300" />
+                  <ProductPlaceholder size="detail" />
                 )}
                 {category ? (
                   <Link href={categoryPath(category)} className="absolute top-0 left-0 bg-white/90 backdrop-blur-sm px-4 py-1.5 rounded-full shadow-sm border border-slate-200 hover:border-[#004080] transition-colors">

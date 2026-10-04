@@ -226,13 +226,16 @@ export default function HomeClient({ categories, galeriaImages, cityNames, faq }
               <p className="text-slate-500 text-base sm:text-lg">Explora por rubro y encontrá exactamente lo que tu evento necesita.</p>
             </motion.div>
 
-            <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-6 -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-3 lg:grid-cols-6 md:gap-6 md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory gap-4 pb-6 -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-3 lg:grid-cols-6 md:gap-6 md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               {categories.map((category, index) => (
                 <motion.div
                   key={category.id}
                   className="snap-center shrink-0 w-32 sm:w-36 md:w-auto"
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
+                  // Solo opacidad: un desplazamiento en Y deja la tarjeta corrida
+                  // hacia abajo mientras está fuera de la fila, y eso la hace
+                  // deslizable en vertical.
+                  initial={{ opacity: 0 }}
+                  whileInView={{ opacity: 1 }}
                   transition={{ duration: 0.5, delay: index * 0.08 }}
                   viewport={{ once: true, margin: "-50px" }}
                 >
@@ -267,7 +270,7 @@ export default function HomeClient({ categories, galeriaImages, cityNames, faq }
               </div>
             </motion.div>
 
-            <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-6 -mx-6 px-6 md:mx-0 md:px-0 md:pb-0 md:grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            <div className="flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory gap-4 pb-6 -mx-6 px-6 md:mx-0 md:px-0 md:pb-0 md:grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               {galeriaImages.map((img, index) => (
                 <motion.div
                   key={img.id}
@@ -330,7 +333,7 @@ export default function HomeClient({ categories, galeriaImages, cityNames, faq }
             <p className="text-slate-500 text-base sm:text-lg">Nos obsesionan los detalles. Nos aseguramos de que cada silla, mesa y copa llegue en estado impecable a tu celebración.</p>
           </motion.div>
 
-          <div className="flex overflow-x-auto snap-x snap-mandatory gap-6 pb-6 -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-3 md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <div className="flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory gap-6 pb-6 -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-3 md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {[
               { icon: Star, title: "Calidad Premium", desc: "Renovamos constantemente nuestro stock. Te entregamos mobiliario moderno, limpio y sin rasguños." },
               { icon: Truck, title: "Logística Puntual", desc: "Sabemos que el tiempo es oro en los eventos. Entregamos y retiramos con exactitud de relojero." },
@@ -338,8 +341,8 @@ export default function HomeClient({ categories, galeriaImages, cityNames, faq }
             ].map((item, i) => (
               <motion.div
                 key={i}
-                initial={{ opacity: 0, y: 50 }}
-                whileInView={{ opacity: 1, y: 0 }}
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
                 transition={{ duration: 0.5, delay: i * 0.2 }}
                 viewport={{ once: true, margin: "-50px" }}
                 className="snap-center shrink-0 w-[85%] md:w-auto bg-slate-50 rounded-4xl p-8 md:p-10 border border-slate-100 hover:-translate-y-2 transition-transform duration-300"
