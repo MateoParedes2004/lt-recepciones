@@ -7,6 +7,7 @@ import { Menu, X, Instagram, Facebook, ChevronDown, Package, Home, Info, Phone, 
 import { Great_Vibes, Playfair_Display } from 'next/font/google';
 import AnchorLink from './AnchorLink';
 import { getApiUrl } from '../lib/api';
+import { categoryPath } from '../lib/site';
 import type { Category } from '../types';
 
 const cursiveFont = Great_Vibes({
@@ -19,11 +20,14 @@ const serifFont = Playfair_Display({
   weight: ['400', '600', '700'],
 });
 
-export default function Header() {
+// Los rubros llegan ya cargados desde el servidor (layout raíz): así están en
+// el HTML que leen los buscadores y el menú no arranca en "Cargando…". Solo si
+// el servidor no pudo traerlos se vuelven a pedir desde el navegador.
+export default function Header({ initialCategories = [] }: { initialCategories?: Category[] }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
-  const [catalogos, setCatalogos] = useState<Category[]>([]);
-  const [catStatus, setCatStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [catalogos, setCatalogos] = useState<Category[]>(initialCategories);
+  const [catStatus, setCatStatus] = useState<'loading' | 'ready' | 'error'>(initialCategories.length ? 'ready' : 'loading');
   const [logoError, setLogoError] = useState(false);
 
   const fetchCategories = async () => {
@@ -40,7 +44,8 @@ export default function Header() {
   };
 
   useEffect(() => {
-    fetchCategories();
+    if (initialCategories.length === 0) fetchCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -51,11 +56,6 @@ export default function Header() {
     }
     return () => { document.body.style.overflow = 'unset'; };
   }, [isMenuOpen]);
-
-  const getCategoryLink = (name: string) => {
-    if (!name) return '#';
-    return `/catalogos#categoria-${name.toLowerCase().replace(/ /g, '-')}`;
-  };
 
   return (
     <>
@@ -130,14 +130,14 @@ export default function Header() {
                         </button>
                       )}
                       {catalogos.map((cat) => (
-                        <AnchorLink
+                        <Link
                           key={cat.id}
-                          href={getCategoryLink(cat.name)}
-                          onNavigate={() => setIsCatalogOpen(false)}
+                          href={categoryPath(cat)}
+                          onClick={() => setIsCatalogOpen(false)}
                           className={`block px-5 py-2.5 text-base tracking-wide text-slate-900 hover:text-blue-700 hover:bg-slate-50 transition-colors duration-200 ${serifFont.className}`}
                         >
                           {cat.name}
-                        </AnchorLink>
+                        </Link>
                       ))}
                     </div>
                   </div>
@@ -267,14 +267,14 @@ export default function Header() {
                 </button>
               )}
               {catalogos.map((cat) => (
-                <AnchorLink
+                <Link
                   key={cat.id}
-                  href={getCategoryLink(cat.name)}
-                  onNavigate={() => setIsMenuOpen(false)}
+                  href={categoryPath(cat)}
+                  onClick={() => setIsMenuOpen(false)}
                   className={`block py-2 text-base tracking-wide text-slate-700 hover:text-blue-700 transition-colors ${serifFont.className}`}
                 >
                   {cat.name}
-                </AnchorLink>
+                </Link>
               ))}
             </div>
           </div>

@@ -10,6 +10,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { GalleryModule } from './gallery/gallery.module';
 import { CitiesModule } from './cities/cities.module';
 import { AvailabilityModule } from './availability/availability.module';
+import { AppController } from './app.controller';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { AvailabilityModule } from './availability/availability.module';
     CitiesModule,
     AvailabilityModule,
   ],
+  controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

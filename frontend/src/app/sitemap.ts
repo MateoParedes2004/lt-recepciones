@@ -1,45 +1,46 @@
 import { MetadataRoute } from 'next'
+import { getCategories } from '../lib/catalog'
+import { absoluteUrl, categoryPath, productPath } from '../lib/site'
+import { getImageUrl } from '../lib/api'
+
+// Se regenera como mucho una vez por hora con lo que haya en el catálogo.
+export const revalidate = 3600
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.ltrecepciones.com').replace(/\/$/, '')
+  const categories = await getCategories()
+  const products = categories.flatMap((c) => c.products ?? [])
 
-  const routes: MetadataRoute.Sitemap = [
-    '',
-    '/catalogos',
-  ].map((route) => ({
-    url: `${baseUrl}${route}`,
-    lastModified: new Date(),
-    changeFrequency: 'weekly',
-    priority: route === '' ? 1.0 : 0.8,
-  }))
+  // La fecha de la última modificación real del catálogo (no "ahora": si
+  // cambia en cada visita, Google deja de creerle a este dato).
+  const lastCatalogChange = products.reduce<Date | undefined>((latest, p) => {
+    if (!p.updatedAt) return latest
+    const d = new Date(p.updatedAt)
+    return !latest || d > latest ? d : latest
+  }, undefined)
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL
+  const pages: MetadataRoute.Sitemap = [
+    { url: absoluteUrl('/'), lastModified: lastCatalogChange, changeFrequency: 'weekly', priority: 1 },
+    { url: absoluteUrl('/catalogos'), lastModified: lastCatalogChange, changeFrequency: 'weekly', priority: 0.9 },
+  ]
 
-  if (!apiUrl) {
-    return routes
-  }
-
-  try {
-    const res = await fetch(`${apiUrl}/products`, {
-      next: { revalidate: 3600 },
+  const categoryPages: MetadataRoute.Sitemap = categories
+    .filter((c) => (c.products ?? []).length > 0)
+    .map((c) => {
+      const latest = (c.products ?? []).reduce<Date | undefined>((acc, p) => {
+        const d = p.updatedAt ? new Date(p.updatedAt) : undefined
+        return d && (!acc || d > acc) ? d : acc
+      }, undefined)
+      return { url: absoluteUrl(categoryPath(c)), lastModified: latest, changeFrequency: 'weekly' as const, priority: 0.8 }
     })
 
-    if (!res.ok) return routes
+  const productPages: MetadataRoute.Sitemap = products.map((p) => ({
+    url: absoluteUrl(productPath(p)),
+    lastModified: p.updatedAt ? new Date(p.updatedAt) : undefined,
+    changeFrequency: 'weekly' as const,
+    priority: 0.7,
+    // Las fotos de producto también aparecen en Google Imágenes.
+    ...(p.imageUrl ? { images: [getImageUrl(p.imageUrl)] } : {}),
+  }))
 
-    const products = await res.json()
-
-    const productRoutes = Array.isArray(products)
-      ? products.map((product: { id: number; updatedAt?: string }) => ({
-          url: `${baseUrl}/catalogos/${product.id}`,
-          lastModified: new Date(product.updatedAt || new Date()),
-          changeFrequency: 'daily' as const,
-          priority: 0.7,
-        }))
-      : []
-
-    return [...routes, ...productRoutes]
-  } catch (error) {
-    console.error('Sitemap error:', error)
-    return routes
-  }
+  return [...pages, ...categoryPages, ...productPages]
 }

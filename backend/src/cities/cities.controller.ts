@@ -3,12 +3,15 @@ import { CitiesService } from './cities.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateCityDto } from './dto/create-city.dto';
 import { UpdateCityDto } from './dto/update-city.dto';
+import { SkipThrottle } from '@nestjs/throttler';
 
 @Controller('cities')
 export class CitiesController {
     constructor(private readonly citiesService: CitiesService) {}
 
     // 1. OBTENER CIUDADES (GET /cities) — público, lo usa el selector de envío del carrito
+    // Sin límite por IP: lo leen el carrito y el Home (ver products.controller).
+    @SkipThrottle()
     @Get()
     async findAll() {
         return this.citiesService.getCities();

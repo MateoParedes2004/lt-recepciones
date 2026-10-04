@@ -170,7 +170,7 @@ export default function CitySelector({ onCitySelect }: CitySelectorProps) {
                                     </span>
                                 ) : city.price > 0 ? (
                                     <span className="text-xs font-sans font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
-                                        + Gs. {city.price}
+                                        + Gs. {Math.round(Number(city.price)).toLocaleString("es-PY")}
                                     </span>
                                 ) : (
                                     <span className="text-[10px] font-sans uppercase tracking-wider text-[#004080] font-bold bg-[#004080]/10 px-2 py-1 rounded-md border border-[#004080]/20">

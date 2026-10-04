@@ -4,6 +4,9 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  // Nadie puede mostrar el sitio (ni el panel) dentro de un marco de otra
+  // página: evita engaños tipo "clickjacking" con un login falso encima.
+  { key: "X-Frame-Options", value: "SAMEORIGIN" },
 ];
 
 const nextConfig: NextConfig = {

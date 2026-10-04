@@ -1,5 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import compression from 'compression';
 import { AppModule } from './app.module';
@@ -19,7 +20,22 @@ function assertRequiredEnvVars() {
 async function bootstrap() {
   assertRequiredEnvVars();
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // En Render cada pedido llega a través de su balanceador: sin esto, Express
+  // ve la IP del balanceador en vez de la del visitante, y los límites por IP
+  // (login, visitas, eventos) se volvían límites compartidos por TODO el sitio.
+  // "1" = confiar solo en el último proxy (el de Render), así nadie puede
+  // falsificar su IP mandando su propio X-Forwarded-For. Render define RENDER
+  // automáticamente; en otro hosting se configura con TRUST_PROXY.
+  const trustProxy =
+    process.env.TRUST_PROXY ?? (process.env.RENDER ? '1' : undefined);
+  if (trustProxy) {
+    app.set(
+      'trust proxy',
+      /^\d+$/.test(trustProxy) ? Number(trustProxy) : trustProxy,
+    );
+  }
 
   app.use(helmet());
   app.use(compression());

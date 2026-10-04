@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ChairIcon, MagnifyingGlassIcon, XIcon } from "@phosphor-icons/react";
-import AddToCartButton from "../AddToCartButton";
+import { ChairIcon, MagnifyingGlassIcon, XIcon, ArrowRightIcon } from "@phosphor-icons/react";
+import ProductCard from "./ProductCard";
 import { getImageUrl } from "../../lib/api";
+import { categoryPath, productPath } from "../../lib/site";
+import { firstTimeThisSession, track } from "../../lib/track";
 import type { Category, Product } from "../../types";
 
 const formatPYG = (amount: number) => {
@@ -73,7 +75,26 @@ export default function CatalogBrowser({ categories }: { categories: Category[] 
     return { cats, names, products: ranked.slice(0, 4).map((x) => x.item) };
   }, [allProducts, categories, liveQ]);
 
+  // Para el panel: qué busca la gente y qué no encuentra (ideas de productos
+  // para sumar). Se registra cuando deja de escribir un momento, no cada
+  // letra, y cada término una sola vez por sesión.
+  const hasResults = suggestions.products.length > 0 || suggestions.cats.length > 0;
+  useEffect(() => {
+    if (liveQ.length < 3) return;
+    const timer = setTimeout(() => {
+      if (firstTimeThisSession(`search_${liveQ}`)) track(hasResults ? "search" : "search_empty", liveQ);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [liveQ, hasResults]);
+
   const commit = (text: string) => {
+    const term = normalize(text);
+    if (term.length >= 2 && firstTimeThisSession(`search_${term}`)) {
+      const found = allProducts.some(({ product, category }) =>
+        normalize(`${product.name} ${product.description ?? ""} ${category}`).includes(term)
+      );
+      track(found ? "search" : "search_empty", term);
+    }
     setQuery(text);
     setApplied(text);
     setOpen(false);
@@ -188,7 +209,7 @@ export default function CatalogBrowser({ categories }: { categories: Category[] 
               Nuestros Catálogos
             </h1>
             <p className="text-[13.5px] md:text-base text-slate-600 mt-1">
-              Elegí, cotizá y enviá tu pedido por WhatsApp.
+              Alquiler de sillas, mesas, vajilla y más para eventos en Asunción. Elegí, cotizá y enviá tu pedido por WhatsApp.
             </p>
           </div>
 
@@ -285,7 +306,7 @@ export default function CatalogBrowser({ categories }: { categories: Category[] 
                         {suggestions.products.map(({ product, category }) => (
                           <li key={product.id}>
                             <Link
-                              href={`/catalogos/${product.id}`}
+                              href={productPath(product)}
                               className="flex md:flex-col items-center md:items-stretch gap-3 md:gap-0 rounded-xl border border-slate-100 hover:border-[#004080] hover:shadow-lg transition-all overflow-hidden bg-white h-full"
                             >
                               <div className="relative w-16 h-16 md:w-full md:h-28 shrink-0 bg-slate-100 flex items-center justify-center">
@@ -391,6 +412,14 @@ export default function CatalogBrowser({ categories }: { categories: Category[] 
                       <p className="text-slate-500 text-xs md:text-sm mt-1 max-w-2xl">{category.description}</p>
                     )}
                   </div>
+                  {(category.products?.length ?? 0) > 0 && (
+                    <Link
+                      href={categoryPath(category)}
+                      className="shrink-0 inline-flex items-center gap-1.5 text-sm font-bold text-[#004080] hover:text-[#00294f] hover:underline underline-offset-2"
+                    >
+                      Más sobre {category.name} <ArrowRightIcon weight="light" className="w-4 h-4" />
+                    </Link>
+                  )}
                 </div>
 
                 {/* CONTENEDOR MÁGICO Y COMPACTO */}
@@ -398,49 +427,7 @@ export default function CatalogBrowser({ categories }: { categories: Category[] 
 
                   {category.products && category.products.length > 0 ? (
                     category.products.map((product: Product) => (
-
-                      // TARJETA DE PRODUCTO
-                      <div key={product.id} className="snap-center shrink-0 w-[60vw] sm:w-55 md:w-auto bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col group relative">
-
-                        <Link href={`/catalogos/${product.id}`} className="block flex-col grow cursor-pointer">
-                          {/* Imagen */}
-                          <div className="h-36 md:h-40 bg-slate-100 relative overflow-hidden flex items-center justify-center">
-                            {product.imageUrl ? (
-                              <Image
-                                src={getImageUrl(product.imageUrl)}
-                                alt={product.name}
-                                fill
-                                sizes="(max-width: 768px) 60vw, (max-width: 1024px) 33vw, 20vw"
-                                className="object-contain p-3 group-hover:scale-105 transition-transform duration-700 drop-shadow-sm mix-blend-multiply"
-                              />
-                            ) : (
-                              <div className="text-slate-400 font-medium flex flex-col items-center">
-                                <span className="text-[9px] uppercase tracking-wider mb-1 opacity-50">LT Recepciones</span>
-                                <span className="text-xs">Sin imagen</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Detalles */}
-                          <div className="p-3 md:p-4 flex flex-col grow">
-                            <h3 className="font-serif font-bold text-slate-900 text-base md:text-lg mb-1 line-clamp-1 group-hover:text-blue-600 transition-colors">{product.name}</h3>
-                            <p className="text-[11px] md:text-xs text-slate-500 line-clamp-2 mb-3 grow leading-relaxed">{product.description}</p>
-                          </div>
-                        </Link>
-
-                        {/* ZONA DE COMPRA */}
-                        <div className="px-3 md:px-4 pb-3 md:pb-4 flex items-center justify-between border-t border-slate-50 pt-3 mt-auto gap-2">
-                          <div className="flex flex-col pointer-events-none">
-                            <span className="text-[8px] md:text-[9px] uppercase font-bold text-slate-400 tracking-wider">Precio / Unidad</span>
-                            <span className="font-serif font-bold text-blue-900 text-sm md:text-base">{formatPYG(product.pricePerDay)}</span>
-                          </div>
-
-                          <div className="shrink-0 transform scale-90 md:scale-100 origin-right relative z-10">
-                            <AddToCartButton product={product} />
-                          </div>
-                        </div>
-
-                      </div>
+                      <ProductCard key={product.id} product={product} />
                     ))
                   ) : (
                     <div className="col-span-full py-8 md:py-10 bg-white rounded-2xl border border-dashed border-slate-200 flex items-center justify-center">

@@ -117,6 +117,28 @@ model SiteVisit {
   updatedAt DateTime @updatedAt
 }
 
+// Contadores diarios del sitio público. Nunca guarda datos de la persona:
+// solo "cuántas veces pasó X ese día". Tipos (type → qué es key):
+//   pageview           → "" (páginas vistas)
+//   product_view       → id del producto (fichas abiertas)
+//   add_to_cart        → id del producto (agregados a la cotización)
+//   search             → texto buscado en el catálogo (con resultados)
+//   search_empty       → texto buscado sin resultados
+//   availability_check → fecha de evento consultada en el carrito (AAAA-MM-DD)
+//   whatsapp_click     → qué botón de WhatsApp (flotante, contacto, rubro…)
+//   source             → de dónde llegó el visitante del día (google, instagram…)
+//   device             → celular | tablet | computadora
+model SiteMetric {
+  id    Int      @id @default(autoincrement())
+  date  DateTime // Medianoche de Paraguay de ese día (mismo criterio que SiteVisit.date)
+  type  String
+  key   String   @default("")
+  count Int      @default(0)
+
+  @@unique([date, type, key])
+  @@index([type, date])
+}
+
 // ==========================================
 // SISTEMA DE GALERÍA DE EVENTOS
 // ==========================================
@@ -150,9 +172,28 @@ model CheckoutIntent {
   totalAmount Float
   itemCount   Int
   cityName    String?
+  // Fecha del evento que eligió en el carrito (opcional; fecha de calendario
+  // pura, medianoche UTC como Rental.eventDate).
+  eventDate   DateTime?
   createdAt   DateTime @default(now())
+  items       CheckoutIntentItem[]
 
   @@index([createdAt])
+}
+
+// Qué productos llevaba cada pedido por WhatsApp ("los más pedidos").
+// productId sin clave foránea a propósito: si el producto se borra, el
+// histórico del pedido se conserva con el nombre que tenía.
+model CheckoutIntentItem {
+  id               Int            @id @default(autoincrement())
+  checkoutIntentId Int
+  checkoutIntent   CheckoutIntent @relation(fields: [checkoutIntentId], references: [id], onDelete: Cascade)
+  productId        Int
+  productName      String
+  quantity         Int
+
+  @@index([checkoutIntentId])
+  @@index([productId])
 }
 
 // Marcas internas de la aplicación (ej. "esta migración de datos ya se hizo").

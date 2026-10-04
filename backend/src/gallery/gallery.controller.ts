@@ -16,6 +16,7 @@ import { FilesInterceptor } from '@nestjs/platform-express'; // 👈 Cambiado a 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { multerImageOptions } from '../common/multer-image.config';
 import { CreateGalleryDto } from './dto/create-gallery.dto';
+import { SkipThrottle } from '@nestjs/throttler';
 
 @Controller('gallery')
 export class GalleryController {
@@ -31,7 +32,8 @@ export class GalleryController {
     return this.galleryService.create(files, body.title);
   }
 
-  // Público: solo devuelve las fotos visibles.
+  // Público: solo devuelve las fotos visibles. Sin límite por IP (ver products.controller).
+  @SkipThrottle()
   @Get()
   findAll() {
     return this.galleryService.findAll(false);

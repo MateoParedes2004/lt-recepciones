@@ -5,7 +5,9 @@ import { ShoppingCart, Check, X, Minus, Plus } from "lucide-react";
 import { useCart } from "./CartProvider";
 import type { Product } from "../types";
 
-export default function AddToCartButton({ product }: { product: Product }) {
+// popupFullWidth: el selector de cantidad ocupa el ancho de la tarjeta (para
+// tarjetas angostas, donde el ancho fijo de siempre quedaría cortado).
+export default function AddToCartButton({ product, popupFullWidth = false }: { product: Product; popupFullWidth?: boolean }) {
   const { addToCart } = useCart();
   
   const [showSelector, setShowSelector] = useState(false);
@@ -66,7 +68,7 @@ export default function AddToCartButton({ product }: { product: Product }) {
 
       {/* TARJETITA FLOTANTE (Ahora más compacta: w-48) */}
       {showSelector && (
-        <div className="absolute bottom-0 right-0 w-48 sm:w-52 bg-white border border-slate-200 shadow-2xl rounded-xl p-3 z-50 flex flex-col gap-3 transform origin-bottom-right transition-all duration-200">
+        <div className={`absolute bottom-0 right-0 ${popupFullWidth ? "left-0 sm:left-auto sm:w-52" : "w-48 sm:w-52"} bg-white border border-slate-200 shadow-2xl rounded-xl p-3 z-50 flex flex-col gap-3 transform origin-bottom-right transition-all duration-200`}>
           
           {/* Cabecera */}
           <div className="flex justify-between items-start">

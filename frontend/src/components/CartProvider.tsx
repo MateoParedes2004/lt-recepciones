@@ -6,6 +6,7 @@ import { ShoppingCart, X, Plus, Minus, Send, PackageOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import CitySelector from "./CitySelector";
 import { getApiUrl, getImageUrl } from "../lib/api";
+import { firstTimeThisSession, track } from "../lib/track";
 import type { CartItem, Product } from "../types";
 
 // 👇 Importamos la fuente corporativa
@@ -126,6 +127,8 @@ export default function CartProvider({ children }: { children: React.ReactNode }
         if (controller.signal.aborted) return;
         setAvailability({ key: datesKey, map: Object.fromEntries(data.products.map((p) => [p.id, p.available])) });
         setAvailabilityError(false);
+        // Para el panel: qué fechas de evento consulta la gente (demanda futura).
+        if (firstTimeThisSession(`avail_${eventDate}`)) track("availability_check", eventDate);
       } catch {
         if (!controller.signal.aborted) setAvailabilityError(true);
       }
@@ -157,6 +160,7 @@ export default function CartProvider({ children }: { children: React.ReactNode }
   }, [isOpen]);
 
   const addToCart = (product: Product, quantity: number = 1) => {
+    track("add_to_cart", product.id);
     setCart((prev) => {
       const exists = prev.find((item) => item.product.id === product.id);
       // El techo siempre es el stock disponible, restando lo que ya haya en
@@ -234,7 +238,11 @@ export default function CartProvider({ children }: { children: React.ReactNode }
         totalAmount: totalAmount,
         itemCount: cart.reduce((acc, item) => acc + item.quantity, 0),
         cityName: selectedCityName,
+        // Qué productos pidió: así el panel sabe cuáles son los más pedidos.
+        items: cart.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
+        ...(datesValid ? { eventDate } : {}),
       }),
+      keepalive: true,
     }).catch(() => {});
 
     window.open(`https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodedMessage}`, "_blank");
@@ -255,6 +263,8 @@ export default function CartProvider({ children }: { children: React.ReactNode }
                 href={`https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodeURIComponent("¡Hola LT Recepciones! ✨ Me gustaría hacerles una consulta sobre sus servicios.")}`}
                 target="_blank"
                 rel="noopener noreferrer"
+                data-wa="flotante"
+                aria-label="Escribinos por WhatsApp"
                 className="bg-[#25D366] text-white p-3.5 rounded-full shadow-2xl hover:bg-[#20b858] transition-transform hover:scale-110 group cursor-pointer flex items-center justify-center"
                 title="Chatea directamente con nosotros"
               >

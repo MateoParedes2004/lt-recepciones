@@ -1,14 +1,15 @@
 import { MetadataRoute } from 'next'
+import { SITE_URL } from '../lib/site'
 
 export default function robots(): MetadataRoute.Robots {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.ltrecepciones.com'
-
   return {
     rules: {
       userAgent: '*', // Aplica para todos los buscadores (Google, Bing, Yahoo)
       allow: '/', // Permite ver toda la página pública
-      disallow: ['/admin/', '/iniciar-sesion/'], // Bloquea el panel de control por seguridad
+      // Sin barra final: "/admin/" no bloqueaba la dirección "/admin" en sí.
+      disallow: ['/admin', '/iniciar-sesion'],
     },
-    sitemap: `${baseUrl}/sitemap.xml`, // Le dice a Google dónde está el mapa que creamos en el Paso 1
+    sitemap: `${SITE_URL}/sitemap.xml`,
+    host: SITE_URL,
   }
 }

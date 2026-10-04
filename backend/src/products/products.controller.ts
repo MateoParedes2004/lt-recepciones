@@ -7,6 +7,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { multerImageOptions } from '../common/multer-image.config';
+import { SkipThrottle } from '@nestjs/throttler';
 
 @Controller('products')
 export class ProductsController {
@@ -47,6 +48,11 @@ export class ProductsController {
     }
   }
 
+  // Lectura pública del catálogo: sin límite por IP. Las páginas del sitio se
+  // arman en los servidores de Vercel, que comparten unas pocas IPs: con el
+  // límite general, Google recorriendo muchas fichas a la vez podía agotarlo
+  // y dejar páginas guardadas en caché sin productos.
+  @SkipThrottle()
   @Get()
   getAllProducts(
     @Query('page', new ParseIntPipe({ optional: true })) page?: number,
@@ -63,6 +69,7 @@ export class ProductsController {
     return this.productsService.getArchivedProducts();
   }
 
+  @SkipThrottle()
   @Get(':id')
   getProductById(@Param('id', ParseIntPipe) id: number) {
     return this.productsService.getProductById(id);

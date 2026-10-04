@@ -49,6 +49,9 @@ export async function apiFetch(path: string, options: RequestInit = {}): Promise
 
   if (res.status === 401 && typeof window !== "undefined") {
     localStorage.removeItem("admin_token");
+    // Recarga completa a propósito (no router.push): esta función no es un
+    // componente, y así se descarta todo el estado del panel de la sesión vencida.
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.href = "/iniciar-sesion";
   }
 

@@ -95,7 +95,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link 
-                  href="#nuestro-trabajo" 
+                  href="/#nuestro-trabajo"
                   className="text-slate-400 hover:text-blue-400 transition-all duration-300 transform hover:scale-105 origin-left flex items-center text-sm group w-fit"
                 >
                   <ArrowRight className="w-3 h-3 mr-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" /> 

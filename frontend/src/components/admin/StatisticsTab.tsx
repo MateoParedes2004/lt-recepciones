@@ -4,12 +4,19 @@ import { useState, useEffect } from "react";
 import {
   DollarSign, ShoppingBag, Users, Calendar, Filter, Loader2, Send, ArrowRight,
   Clock, Hourglass, MapPin, Tags, CheckCircle2, Wallet, TrendingUp,
+  Eye, ShoppingCart, Search, SearchX, CalendarDays, Globe, Smartphone, MessageCircle, FileText,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, usePlotArea } from 'recharts';
 import { apiFetch } from "../../lib/api";
 
 const formatPYG = (amount: number) => `Gs. ${Math.round(amount).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 const formatPct = (n: number) => `${n.toFixed(1)}%`;
+// Eje de montos: "Gs. 1,5M" / "Gs. 800k" (antes, sin ingresos, mostraba "Gs. 0.000004M").
+const formatEje = (value: number) => {
+  if (Math.abs(value) >= 1_000_000) return `Gs. ${(value / 1_000_000).toLocaleString("es-PY", { maximumFractionDigits: 1 })}M`;
+  if (Math.abs(value) >= 1_000) return `Gs. ${Math.round(value / 1_000)}k`;
+  return `Gs. ${Math.round(value)}`;
+};
 // Nunca mostramos días negativos: un alquiler cargado después de la fecha del
 // evento (carga retroactiva) daría una anticipación negativa sin sentido.
 const formatDias = (n: number) => `${Math.max(0, n).toFixed(1)} días`;
@@ -78,8 +85,9 @@ function VisitasTooltip({ active, payload, label, anteriorLabel }: {
 function VisitasChart({ data, mode, isLoading }: { data: ChartPoint[]; mode: "mensual" | "anual"; isLoading: boolean }) {
   const anteriorLabel = mode === "mensual" ? "Mes anterior" : "Año anterior";
   const isEmpty = data.every((p) => p.visitas === 0 && p.visitasAnterior === 0);
-  // En la vista anual el nombre trae el año ("Ene 2026"): en el eje sobra.
-  const tickName = (name: string) => (mode === "anual" ? name.replace(/ \d{4}$/, "") : name);
+  // En la vista anual el nombre trae el año ("Ene 2026") y en la mensual el
+  // mes ("5 Sep"): en el eje sobran (el tooltip muestra el nombre completo).
+  const tickName = (name: string) => (mode === "anual" ? name.replace(/ \d{4}$/, "") : name.replace(/ \S+$/, ""));
 
   return (
     <div>
@@ -138,6 +146,87 @@ interface ChartPoint {
   visitas: number;
   visitasAnterior: number;
   pedidosWhatsapp: number;
+  paginasVistas?: number;
+}
+
+interface RankedItem { key: string; nombre: string; cantidad: number; pedidos?: number }
+interface Interes { masVistos: RankedItem[]; masAgregados: RankedItem[]; masPedidos: RankedItem[]; fechasConsultadas: RankedItem[] }
+interface Busquedas { total: number; conResultados: RankedItem[]; sinResultados: RankedItem[] }
+interface Trafico { fuentes: RankedItem[]; dispositivos: RankedItem[]; whatsapp: RankedItem[] }
+interface PeriodoResumen { visitantes: number; paginasVistas: number }
+interface Resumen { hoy: PeriodoResumen; ayer: PeriodoResumen; ultimos7: PeriodoResumen; mes: PeriodoResumen; anio: PeriodoResumen }
+
+// Ranking con barras horizontales finas (un solo tono: es magnitud, no
+// identidad). El número va en tinta de texto; la barra es proporcional al
+// primero del ranking, o al total si se pide porcentaje.
+function BarList({ icon, title, subtitle, rows, emptyLabel, unit, showShare, isLoading, extra }: {
+  icon: React.ReactNode; title: string; subtitle?: string; rows: RankedItem[]; emptyLabel: string;
+  unit: string; showShare?: boolean; isLoading: boolean; extra?: (row: RankedItem) => string | null;
+}) {
+  const total = rows.reduce((acc, r) => acc + r.cantidad, 0);
+  const max = rows.reduce((acc, r) => Math.max(acc, r.cantidad), 0);
+  return (
+    <div aria-busy={isLoading} className={`bg-white rounded-3xl border border-slate-100 shadow-sm p-6 transition-opacity duration-200 ${isLoading ? "opacity-50" : ""}`}>
+      <h3 className="text-base font-bold text-slate-900 flex items-center">{icon} {title}</h3>
+      {subtitle && <p className="text-xs text-slate-500 mt-1">{subtitle}</p>}
+      {rows.length === 0 ? (
+        <p className="text-sm text-slate-500 py-6 text-center">{emptyLabel}</p>
+      ) : (
+        <ol className="mt-4 space-y-3">
+          {rows.map((row) => {
+            const share = total ? (row.cantidad / total) * 100 : 0;
+            const width = showShare ? share : max ? (row.cantidad / max) * 100 : 0;
+            const note = extra?.(row);
+            return (
+              <li key={row.key} title={`${row.nombre}: ${row.cantidad} ${unit}${showShare ? ` (${share.toFixed(1)}%)` : ""}${note ? ` · ${note}` : ""}`}>
+                <div className="flex items-baseline justify-between gap-3 text-sm">
+                  <span className="text-slate-800 font-medium truncate">{row.nombre}</span>
+                  <span className="shrink-0 tabular-nums text-slate-900 font-bold">
+                    {row.cantidad}
+                    <span className="text-slate-500 font-normal text-xs ml-1">
+                      {showShare ? `· ${share.toFixed(0)}%` : unit}
+                    </span>
+                  </span>
+                </div>
+                <div className="mt-1.5 h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                  <div className="h-full rounded-full bg-[#004080]" style={{ width: `${Math.max(width, 2)}%` }} />
+                </div>
+                {note && <p className="text-[11px] text-slate-500 mt-1">{note}</p>}
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+// Tarjetas fijas de tráfico: hoy, ayer, últimos 7 días, este mes y este año.
+function ResumenTrafico({ resumen }: { resumen: Resumen | null }) {
+  const items: { label: string; data?: PeriodoResumen }[] = [
+    { label: "Hoy", data: resumen?.hoy },
+    { label: "Ayer", data: resumen?.ayer },
+    { label: "Últimos 7 días", data: resumen?.ultimos7 },
+    { label: "Este mes", data: resumen?.mes },
+    { label: "Este año", data: resumen?.anio },
+  ];
+  return (
+    <div className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+        <h3 className="text-base font-bold text-slate-900 flex items-center"><Users className="w-5 h-5 mr-2 text-[#004080]" /> Visitas al sitio</h3>
+        <p className="text-xs text-slate-500">Visitantes = personas distintas por día · Páginas = todo lo que abrieron</p>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {items.map((it) => (
+          <div key={it.label} className="rounded-2xl bg-slate-50 border border-slate-100 p-4">
+            <p className="text-xs font-medium text-slate-500">{it.label}</p>
+            <p className="text-2xl font-bold text-slate-900 tabular-nums mt-0.5">{it.data?.visitantes ?? "–"}</p>
+            <p className="text-xs text-slate-500 tabular-nums">{it.data ? `${it.data.paginasVistas} páginas vistas` : " "}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 interface ProductoStat { id: number; nombre: string; alquileres: number; ingresos: number; }
@@ -158,6 +247,11 @@ interface Kpis {
   alquileresActivos: number;
   alquileresDevueltos: number;
   picoBucket: { name: string; ingresos: number } | null;
+  // Campos nuevos (opcionales: un backend todavía sin actualizar no los manda).
+  totalPaginasVistas?: number;
+  paginasPorVisita?: number;
+  totalConsultasWhatsapp?: number;
+  picoVisitas?: { name: string; visitas: number } | null;
 }
 
 function StatTile({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: string; accent: string }) {
@@ -236,6 +330,10 @@ export default function StatisticsTab() {
   const [topProductos, setTopProductos] = useState<ProductoStat[]>([]);
   const [ingresosPorCategoria, setIngresosPorCategoria] = useState<CategoriaStat[]>([]);
   const [demandaPorCiudad, setDemandaPorCiudad] = useState<CiudadStat[]>([]);
+  const [interes, setInteres] = useState<Interes | null>(null);
+  const [busquedas, setBusquedas] = useState<Busquedas | null>(null);
+  const [trafico, setTrafico] = useState<Trafico | null>(null);
+  const [resumen, setResumen] = useState<Resumen | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -252,7 +350,10 @@ export default function StatisticsTab() {
         if (Array.isArray(years) && years.length) setAvailableYears(years);
       }
     }).catch(() => {});
-  }, []);
+    apiFetch('/analytics/resumen').then(async (res) => {
+      if (res.ok) setResumen(await res.json());
+    }).catch(() => {});
+  }, [reloadKey]);
 
   useEffect(() => {
     // Si el usuario cambia de filtro rápido, las respuestas pueden llegar en
@@ -285,6 +386,9 @@ export default function StatisticsTab() {
           setTopProductos(data.topProductos);
           setIngresosPorCategoria(data.ingresosPorCategoria);
           setDemandaPorCiudad(data.demandaPorCiudad);
+          setInteres(data.interes ?? null);
+          setBusquedas(data.busquedas ?? null);
+          setTrafico(data.trafico ?? null);
         } else {
           setLoadError(true);
         }
@@ -343,13 +447,18 @@ export default function StatisticsTab() {
         </div>
       )}
 
+      {/* RESUMEN FIJO DE VISITAS (no depende del filtro) */}
+      <ResumenTrafico resumen={resumen} />
+
       {/* FILA DE KPIs */}
-      <div aria-busy={isLoading} className={`grid grid-cols-2 lg:grid-cols-4 gap-4 transition-opacity duration-200 ${isLoading ? "opacity-50" : ""}`}>
+      <div aria-busy={isLoading} className={`grid grid-cols-2 lg:grid-cols-5 gap-4 transition-opacity duration-200 ${isLoading ? "opacity-50" : ""}`}>
         <StatTile icon={<Wallet className="w-5 h-5" />} label="Ingresos totales" value={formatPYG(kpis?.totalIngresos ?? 0)} accent="#004080" />
         <StatTile icon={<ShoppingBag className="w-5 h-5" />} label="Alquileres confirmados" value={String(kpis?.totalAlquileres ?? 0)} accent={COLOR_ALQUILERES} />
         <StatTile icon={<TrendingUp className="w-5 h-5" />} label="Ticket promedio" value={formatPYG(kpis?.ticketPromedio ?? 0)} accent="#004080" />
         <StatTile icon={<Users className="w-5 h-5" />} label="Visitas al sitio" value={String(kpis?.totalVisitas ?? 0)} accent={COLOR_VISITAS} />
+        <StatTile icon={<FileText className="w-5 h-5" />} label="Páginas vistas" value={`${kpis?.totalPaginasVistas ?? 0}${kpis?.paginasPorVisita ? ` · ${kpis.paginasPorVisita.toFixed(1)} x visita` : ""}`} accent={COLOR_VISITAS} />
         <StatTile icon={<Send className="w-5 h-5" />} label="Pedidos por WhatsApp" value={String(kpis?.totalPedidosWhatsapp ?? 0)} accent={COLOR_PEDIDOS_WSP} />
+        <StatTile icon={<MessageCircle className="w-5 h-5" />} label="Consultas por WhatsApp" value={String(kpis?.totalConsultasWhatsapp ?? 0)} accent={COLOR_PEDIDOS_WSP} />
         <StatTile icon={<Clock className="w-5 h-5" />} label="Duración prom. de alquiler" value={formatDias(kpis?.duracionPromedioDias ?? 0)} accent="#004080" />
         <StatTile icon={<Hourglass className="w-5 h-5" />} label="Anticipación prom. de reserva" value={formatDias(kpis?.anticipacionPromedioDias ?? 0)} accent="#004080" />
         <StatTile icon={<CheckCircle2 className="w-5 h-5" />} label="Activos / Devueltos" value={`${kpis?.alquileresActivos ?? 0} / ${kpis?.alquileresDevueltos ?? 0}`} accent="#004080" />
@@ -408,7 +517,7 @@ export default function StatisticsTab() {
                 <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="none" vertical={false} stroke="#f1f5f9" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
-                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} tickFormatter={(value) => `Gs. ${value / 1000000}M`} />
+                  <YAxis axisLine={false} tickLine={false} allowDecimals={false} tick={{fill: '#64748b', fontSize: 12}} tickFormatter={formatEje} />
                   <Tooltip formatter={(value) => [formatPYG(Number(value) || 0), "Ingresos"]} cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
                   <Bar dataKey="ingresos" name="Ingresos" fill="#004080" radius={[4, 4, 0, 0]} maxBarSize={40} />
                 </BarChart>
@@ -426,6 +535,7 @@ export default function StatisticsTab() {
                   {kpis.totalVisitasAnterior > 0 && periodoTerminado
                     ? ` · ${kpis.totalVisitas >= kpis.totalVisitasAnterior ? "+" : ""}${Math.round(((kpis.totalVisitas - kpis.totalVisitasAnterior) / kpis.totalVisitasAnterior) * 100)}% vs ${viewMode === "mensual" ? "mes" : "año"} anterior`
                     : ""}
+                  {kpis.picoVisitas ? ` · Pico: ${kpis.picoVisitas.name} (${kpis.picoVisitas.visitas})` : ""}
                 </span>
               )}
             </div>
@@ -463,6 +573,40 @@ export default function StatisticsTab() {
           unitLabel="Alquileres"
           isLoading={isLoading}
         />
+      </div>
+
+      {/* LO QUE MÁS QUIERE LA GENTE (lo que pasa en el sitio público) */}
+      <div>
+        <h2 className="text-xl font-bold text-slate-900 mt-4">Lo que más quiere la gente</h2>
+        <p className="text-slate-500 text-sm mt-1 mb-4">Qué productos miran, cuáles agregan a su cotización, cuáles piden por WhatsApp y para qué fechas consultan.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+          <BarList icon={<Eye className="w-5 h-5 mr-2 text-[#004080]" />} title="Más vistos" subtitle="Fichas de producto abiertas" rows={interes?.masVistos ?? []} unit="vistas" emptyLabel="Todavía no hay datos en este período." isLoading={isLoading} />
+          <BarList icon={<ShoppingCart className="w-5 h-5 mr-2 text-[#004080]" />} title="Más agregados" subtitle="Veces que los sumaron a la cotización" rows={interes?.masAgregados ?? []} unit="veces" emptyLabel="Todavía no hay datos en este período." isLoading={isLoading} />
+          <BarList icon={<Send className="w-5 h-5 mr-2 text-[#004080]" />} title="Más pedidos por WhatsApp" subtitle="Unidades pedidas en cotizaciones enviadas" rows={interes?.masPedidos ?? []} unit="u." emptyLabel="Todavía no hay pedidos en este período." isLoading={isLoading}
+            extra={(r) => (r.pedidos ? `En ${r.pedidos} ${r.pedidos === 1 ? "pedido" : "pedidos"}` : null)} />
+          <BarList icon={<CalendarDays className="w-5 h-5 mr-2 text-[#004080]" />} title="Fechas más consultadas" subtitle="Fechas de evento que buscaron o pidieron" rows={interes?.fechasConsultadas ?? []} unit="consultas" emptyLabel="Nadie consultó fechas en este período." isLoading={isLoading} />
+        </div>
+      </div>
+
+      {/* QUÉ BUSCA LA GENTE */}
+      <div>
+        <h2 className="text-xl font-bold text-slate-900 mt-4">Qué busca la gente {busquedas ? <span className="text-slate-400 font-normal text-base">· {busquedas.total} búsquedas</span> : null}</h2>
+        <p className="text-slate-500 text-sm mt-1 mb-4">Lo que escriben en el buscador del catálogo. Las búsquedas sin resultados son ideas de productos para sumar (o de palabras para agregar a las descripciones).</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <BarList icon={<Search className="w-5 h-5 mr-2 text-[#004080]" />} title="Búsquedas más frecuentes" rows={busquedas?.conResultados ?? []} unit="veces" emptyLabel="Todavía no hay búsquedas en este período." isLoading={isLoading} />
+          <BarList icon={<SearchX className="w-5 h-5 mr-2 text-[#004080]" />} title="Buscaron y no encontraron" rows={busquedas?.sinResultados ?? []} unit="veces" emptyLabel="Ninguna búsqueda quedó sin resultados." isLoading={isLoading} />
+        </div>
+      </div>
+
+      {/* DE DÓNDE LLEGAN */}
+      <div>
+        <h2 className="text-xl font-bold text-slate-900 mt-4">De dónde llegan</h2>
+        <p className="text-slate-500 text-sm mt-1 mb-4">Por dónde entró cada visitante del día y desde qué dispositivo. &quot;Google&quot; es lo que trae el SEO.</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <BarList icon={<Globe className="w-5 h-5 mr-2 text-[#004080]" />} title="Origen de las visitas" rows={trafico?.fuentes ?? []} unit="visitas" showShare emptyLabel="Todavía no hay datos en este período." isLoading={isLoading} />
+          <BarList icon={<Smartphone className="w-5 h-5 mr-2 text-[#004080]" />} title="Dispositivo" rows={trafico?.dispositivos ?? []} unit="visitas" showShare emptyLabel="Todavía no hay datos en este período." isLoading={isLoading} />
+          <BarList icon={<MessageCircle className="w-5 h-5 mr-2 text-[#004080]" />} title="Botones de WhatsApp más usados" subtitle="Sin contar las cotizaciones enviadas desde el carrito" rows={trafico?.whatsapp ?? []} unit="toques" emptyLabel="Nadie tocó WhatsApp en este período." isLoading={isLoading} />
+        </div>
       </div>
     </div>
   );

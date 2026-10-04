@@ -4,14 +4,15 @@ import { useState, useEffect, type MouseEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import AnchorLink from "../AnchorLink";
 import ScrollToHash from "../ScrollToHash";
 import { motion } from "framer-motion";
 import { ArrowRight, Star, Truck, ShieldCheck } from "lucide-react";
 // Íconos de categoría: Phosphor en peso "light" (trazo fino, más elegante)
-import { BowlFoodIcon, TableIcon, ForkKnifeIcon, WineIcon, ChairIcon, CampfireIcon, SnowflakeIcon, PackageIcon, MapPinIcon, PhoneIcon, ClockIcon, WhatsappLogoIcon, NavigationArrowIcon } from "@phosphor-icons/react";
+import { BowlFoodIcon, TableIcon, ForkKnifeIcon, WineIcon, ChairIcon, CampfireIcon, SnowflakeIcon, PackageIcon, MapPinIcon, PhoneIcon, ClockIcon, WhatsappLogoIcon, NavigationArrowIcon, PlusIcon } from "@phosphor-icons/react";
 import type { Icon } from "@phosphor-icons/react";
 import type { Category, GalleryImage } from "../../types";
+import type { FaqItem } from "../../lib/faq";
+import { categoryPath } from "../../lib/site";
 // 👇 VISOR DE IMÁGENES: se difiere porque solo hace falta si el usuario abre una foto
 import "yet-another-react-lightbox/styles.css";
 const Lightbox = dynamic(() => import("yet-another-react-lightbox"), { ssr: false });
@@ -26,8 +27,6 @@ const CATEGORIA_ICONOS: Record<string, Icon> = {
   "Parrillas": CampfireIcon,
   "Climatización": SnowflakeIcon,
 };
-
-const slugify = (name: string) => name.toLowerCase().replace(/ /g, "-");
 
 // Tarjeta de categoría con brillo e inclinación 3D que siguen al mouse
 // (mismo tratamiento que se probó en el mockup de mejoras visuales). Solo
@@ -46,7 +45,7 @@ function CategoryCard({ category }: { category: Category }) {
   };
 
   return (
-    <AnchorLink href={`/catalogos#categoria-${slugify(category.name)}`} className="group block">
+    <Link href={categoryPath(category)} className="group block">
       <div
         onMouseMove={handleMove}
         onMouseLeave={() => setTilt(null)}
@@ -82,26 +81,36 @@ function CategoryCard({ category }: { category: Category }) {
         <h3 className="font-serif font-bold text-slate-900 text-xs sm:text-sm md:text-base leading-tight">{category.name}</h3>
         <ArrowRight className="w-4 h-4 text-[#004080] shrink-0 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
       </div>
-    </AnchorLink>
+    </Link>
   );
 }
 
 interface HomeClientProps {
   categories: Category[];
   galeriaImages: GalleryImage[];
+  cityNames: string[];
+  faq: FaqItem[];
 }
 
-export default function HomeClient({ categories, galeriaImages }: HomeClientProps) {
-  const heroImages = [
-    "/principal1.png",
-    "/principal2.png",
-    "/principal5.png",
-    "/principal6.png",
-    "/principal3.png",
-    "/principal4.png"
-  ];
+// Fotos del carrusel del Hero, con su descripción (Google Imágenes y lectores de pantalla).
+const HERO_IMAGES = [
+  { src: "/principal1.png", alt: "Mesa de evento con sillas Tiffany doradas, copas y servilletas rosas" },
+  { src: "/principal2.png", alt: "Mesa con mantel blanco y azul, platos dorados y sillas Tiffany" },
+  { src: "/principal5.png", alt: "Mesa con copas de cristal, platos, servilletas y centro de flores" },
+  { src: "/principal6.png", alt: "Salón de eventos con mesas vestidas y sillas Tiffany doradas" },
+  { src: "/principal3.png", alt: "Mesas redondas con mantel blanco y sillas Tiffany doradas" },
+  { src: "/principal4.png", alt: "Mesas con mantel rosa y sillas blancas para un evento" },
+];
+
+export default function HomeClient({ categories, galeriaImages, cityNames, faq }: HomeClientProps) {
+  const heroImages = HERO_IMAGES;
 
   const [currentImage, setCurrentImage] = useState(0);
+  // Las 6 fotos del Hero se descargaban todas juntas al abrir la página y
+  // competían con la primera (la que se ve), sobre todo en el celular. Ahora
+  // arrancan solo la 1ª y la 2ª; el resto se agrega cuando la página ya cargó,
+  // mucho antes de que el carrusel llegue a ellas: el fundido se ve igual.
+  const [allImagesMounted, setAllImagesMounted] = useState(false);
   // 👇 ESTADOS PARA EL LIGHTBOX
   const [lightboxIndex, setLightboxIndex] = useState(-1);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -114,6 +123,11 @@ export default function HomeClient({ categories, galeriaImages }: HomeClientProp
     return () => clearInterval(interval);
   }, [heroImages.length]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => setAllImagesMounted(true), 2500);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <main className="min-h-screen bg-slate-50">
       <ScrollToHash />
@@ -123,22 +137,24 @@ export default function HomeClient({ categories, galeriaImages }: HomeClientProp
 
         <div className="absolute inset-0 bg-slate-950 z-0" />
 
-        {heroImages.map((src, index) => (
+        {heroImages.map(({ src, alt }, index) => (
           <div
             key={src}
             className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
               index === currentImage ? "opacity-100" : "opacity-0"
             }`}
           >
-            <Image
-              src={src}
-              alt={`LT Recepciones Evento ${index + 1}`}
-              fill
-              priority={index === 0}
-              quality={90}
-              className="object-cover object-center md:object-[center_30%] contrast-[1.1] brightness-[0.85] blur-[1px] md:blur-0"
-              sizes="100vw"
-            />
+            {(index <= 1 || index === currentImage || allImagesMounted) && (
+              <Image
+                src={src}
+                alt={alt}
+                fill
+                priority={index === 0}
+                quality={90}
+                className="object-cover object-center md:object-[center_30%] contrast-[1.1] brightness-[0.85] blur-[1px] md:blur-0"
+                sizes="100vw"
+              />
+            )}
           </div>
         ))}
 
@@ -156,6 +172,11 @@ export default function HomeClient({ categories, galeriaImages }: HomeClientProp
             transition={{ duration: 0.8, delay: 0.4 }}
             className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-serif font-bold text-white tracking-tight mb-6 max-w-5xl drop-shadow-xl leading-[1.1]"
           >
+            {/* Línea chica con lo que hacemos y dónde: es lo primero que lee
+                Google para entender de qué trata el sitio. */}
+            <span className="block text-xs sm:text-sm md:text-base font-bold uppercase tracking-[0.18em] text-blue-100 mb-4 md:mb-6 drop-shadow-md">
+              Alquiler de mobiliario, vajilla y mantelería para eventos en Asunción
+            </span>
             Transformamos tus espacios en <span className="text-transparent bg-clip-text bg-linear-to-r from-blue-300 to-blue-100 filter drop-shadow-lg block sm:inline mt-2 sm:mt-0">momentos inolvidables</span>
           </motion.h1>
 
@@ -332,6 +353,67 @@ export default function HomeClient({ categories, galeriaImages }: HomeClientProp
         </div>
       </section>
 
+      {/* ZONAS DE ENTREGA (ciudades cargadas en el panel) */}
+      {cityNames.length > 0 && (
+        <section className="py-16 md:py-20 bg-slate-50" id="zonas" aria-labelledby="zonas-titulo">
+          <div className="max-w-7xl mx-auto px-6 lg:px-8">
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true, margin: "-100px" }}
+              className="text-center max-w-3xl mx-auto"
+            >
+              <h2 id="zonas-titulo" className="text-3xl sm:text-4xl font-serif font-bold text-slate-900 mb-4 tracking-tight">
+                Entregamos en Asunción y Gran Asunción
+              </h2>
+              <p className="text-slate-500 text-base sm:text-lg">
+                Llevamos y retiramos todo en el lugar de tu evento. El costo de envío lo ves en tu cotización al elegir la ciudad.
+              </p>
+              <ul className="mt-8 flex flex-wrap justify-center gap-2.5">
+                {cityNames.map((name) => (
+                  <li key={name} className="inline-flex items-center gap-1.5 h-10 px-4 rounded-full bg-white border border-slate-200 text-sm font-bold text-slate-700 shadow-sm">
+                    <MapPinIcon weight="light" className="w-4 h-4 text-[#004080]" aria-hidden="true" />
+                    {name}
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+          </div>
+        </section>
+      )}
+
+      {/* PREGUNTAS FRECUENTES (el mismo texto va a Google como FAQPage, ver lib/faq.ts) */}
+      {faq.length > 0 && (
+        <section className="py-16 md:py-24 bg-white" id="preguntas-frecuentes" aria-labelledby="faq-titulo">
+          <div className="max-w-3xl mx-auto px-6 lg:px-8">
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true, margin: "-100px" }}
+            >
+              <h2 id="faq-titulo" className="text-3xl sm:text-4xl font-serif font-bold text-slate-900 mb-8 md:mb-10 tracking-tight text-center">
+                Preguntas frecuentes
+              </h2>
+              <div className="flex flex-col gap-3">
+                {faq.map((item) => (
+                  <details key={item.question} className="group rounded-2xl border border-slate-200 bg-slate-50 open:bg-white open:shadow-md open:border-[#004080]/25 transition-colors">
+                    <summary className="flex items-center justify-between gap-4 cursor-pointer list-none px-5 py-4 md:px-6 md:py-5 [&::-webkit-details-marker]:hidden">
+                      <h3 className="text-base md:text-lg font-serif font-bold text-slate-900">{item.question}</h3>
+                      <span className="w-8 h-8 rounded-full bg-[#e8f0f8] text-[#004080] flex items-center justify-center shrink-0 transition-transform duration-300 group-open:rotate-45" aria-hidden="true">
+                        <PlusIcon weight="light" className="w-4 h-4" />
+                      </span>
+                    </summary>
+                    <p className="px-5 pb-5 md:px-6 md:pb-6 -mt-1 text-slate-600 text-[15px] leading-relaxed">{item.answer}</p>
+                  </details>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        </section>
+      )}
+
       {/* 4. SECCIÓN DE CONTACTO Y MAPA */}
       <section className="py-16 md:py-24 bg-white" id="contacto">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
@@ -409,6 +491,7 @@ export default function HomeClient({ categories, galeriaImages }: HomeClientProp
                   href="https://api.whatsapp.com/send?phone=595985867749&text=Hola%20LT%20Recepciones!%20%E2%9C%A8%20Tengo%20una%20consulta."
                   target="_blank"
                   rel="noopener noreferrer"
+                  data-wa="contacto"
                   className="lt-beam [--lt-beam-color:#3b9dff] shrink-0 sm:flex-1 lg:flex-none flex items-center justify-center gap-2.5 h-13 px-6 rounded-xl text-[15px] font-extrabold text-white bg-linear-to-br from-[#0d4a8a] to-[#00294f] hover:brightness-110 transition-all cursor-pointer whitespace-nowrap"
                 >
                   <WhatsappLogoIcon weight="light" className="w-6 h-6" /> Escribinos por WhatsApp
