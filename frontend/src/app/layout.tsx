@@ -111,6 +111,22 @@ const businessJsonLd = {
         contactType: "customer service",
         availableLanguage: ["es"],
       },
+      // Lunes a Domingo, 7:00 a 22:00 — confirmado por el dueño, mismo
+      // horario que se cargó en el Perfil de Empresa de Google.
+      openingHoursSpecification: {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: [
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+          "Sunday",
+        ],
+        opens: "07:00",
+        closes: "22:00",
+      },
       sameAs: [BUSINESS.instagram, BUSINESS.facebook],
     },
     {
