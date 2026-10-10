@@ -72,6 +72,14 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#004080",
+  // El sitio está diseñado solo para modo claro (paleta navy sobre blanco).
+  // Sin esto, los celulares con "tema oscuro" activado (Chrome/Samsung
+  // Internet en Android) reinventan una versión oscura a su manera,
+  // invirtiendo colores sección por sección de forma inconsistente — se ve
+  // bien en las secciones que ya eran oscuras por diseño (Hero, galería, pie)
+  // y mal en las que son blancas, dando un resultado parchado. "only light"
+  // le avisa al navegador que no lo intente: el sitio se ve igual para todos.
+  colorScheme: "only light",
 };
 
 // Quién es el negocio, para Google (ficha de empresa local) y para las IA que

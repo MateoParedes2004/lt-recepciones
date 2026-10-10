@@ -10,6 +10,10 @@
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 100px;
+  /* Refuerzo en CSS de lo que ya declara el <meta name="color-scheme"> en
+     layout.tsx (viewport.colorScheme): el sitio es solo modo claro, para
+     que el navegador no intente generar una versión oscura por su cuenta. */
+  color-scheme: only light;
 }
 
 /* 👇 FUERZA BRUTA: APLICAMOS LAS FUENTES DIRECTAMENTE A LAS ETIQUETAS */
