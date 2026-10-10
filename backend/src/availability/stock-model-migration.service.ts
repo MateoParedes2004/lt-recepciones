@@ -18,8 +18,21 @@ import { PrismaService } from '../prisma/prisma.service';
  */
 // P1001/P1002: servidor inalcanzable o sin respuesta a tiempo; P1008/P1017: cortó la conexión.
 const CONNECTION_ERROR_CODES = ['P1001', 'P1002', 'P1008', 'P1017'];
-const CONNECT_ATTEMPTS = 6;
-const CONNECT_DELAY_MS = 5000;
+
+// Presupuesto total para reintentar una falla de CONEXIÓN antes de rendirse.
+// Con la base en Neon (se "duerme" tras un rato sin uso, como Render) el
+// primer arranque después de la siesta puede tardar unos segundos en
+// responder — antes esperábamos 30 s fijos y si no alcanzaba, el proceso se
+// apagaba solo (process.exit en main.ts), lo que Render reporta como
+// "Instance failed" y reinicia: un reinicio innecesario y ruidoso para algo
+// que con un poco más de paciencia se resuelve solo. 10 minutos es tiempo de
+// sobra para una demora real (Neon despierta en segundos, no minutos); pasado
+// eso sí es una caída de verdad y conviene que se note.
+const MAX_CONNECT_WAIT_MS = 10 * 60 * 1000;
+// Entre intentos: arranca rápido (3 s, para no notar una demora corta) y va
+// espaciándose hasta un máximo de 30 s si el problema persiste.
+const INITIAL_RETRY_DELAY_MS = 3000;
+const MAX_RETRY_DELAY_MS = 30000;
 
 const isConnectionError = (error: unknown) =>
   CONNECTION_ERROR_CODES.includes((error as { code?: string })?.code ?? '');
@@ -31,22 +44,28 @@ export class StockModelMigration implements OnModuleInit {
   constructor(private prisma: PrismaService) {}
 
   async onModuleInit(): Promise<void> {
+    const startedAt = Date.now();
+    let delay = INITIAL_RETRY_DELAY_MS;
+
     for (let attempt = 1; ; attempt++) {
       try {
         await this.migrate();
         return;
       } catch (error) {
         const unreachable = isConnectionError(error);
-        if (unreachable && attempt < CONNECT_ATTEMPTS) {
+        const elapsed = Date.now() - startedAt;
+
+        if (unreachable && elapsed < MAX_CONNECT_WAIT_MS) {
           this.logger.warn(
-            `La base de datos no responde (intento ${attempt} de ${CONNECT_ATTEMPTS}). Reintento en ${CONNECT_DELAY_MS / 1000} s…`,
+            `La base de datos no responde todavía (intento ${attempt}, ${Math.round(elapsed / 1000)} s transcurridos). Reintento en ${Math.round(delay / 1000)} s…`,
           );
-          await new Promise((resolve) => setTimeout(resolve, CONNECT_DELAY_MS));
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          delay = Math.min(delay * 2, MAX_RETRY_DELAY_MS);
           continue;
         }
         this.logger.error(
           unreachable
-            ? 'No se pudo conectar a la base de datos. Revisá en Render que el Postgres esté "Available" (los gratuitos vencen a los 30 días), que esté en la misma región que este servicio y que DATABASE_URL sea la Internal URL vigente.'
+            ? `No se pudo conectar a la base de datos tras ${Math.round(elapsed / 1000)} s de reintentos. Revisá en Render/Neon que la base esté activa, en la misma región que este servicio, y que DATABASE_URL sea la vigente.`
             : 'No se pudo verificar la migración del modelo de stock. Si falta la tabla AppMeta, corré "npx prisma db push".',
           (error as Error).stack,
         );
