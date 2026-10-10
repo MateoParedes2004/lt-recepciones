@@ -299,17 +299,17 @@ export default function CartProvider({ children }: { children: React.ReactNode }
           </div>
 
           {showCartButton && (
-            <div className={`fixed inset-y-0 right-0 w-full md:w-105 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? "translate-x-0" : "translate-x-full"}`}>
-              <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                <h3 className={`text-2xl font-bold tracking-wide text-slate-900 flex items-center ${playfair.className}`}>
-                  <ShoppingCart className="w-6 h-6 mr-3 text-blue-900" /> Cotización
+            <div className={`fixed inset-y-0 right-0 w-full md:w-105 bg-white dark:bg-slate-900 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col ${isOpen ? "translate-x-0" : "translate-x-full"}`}>
+              <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
+                <h3 className={`text-2xl font-bold tracking-wide text-slate-900 dark:text-slate-100 flex items-center ${playfair.className}`}>
+                  <ShoppingCart className="w-6 h-6 mr-3 text-blue-900 dark:text-[#3b9dff]" /> Cotización
                 </h3>
-                <button onClick={() => setIsOpen(false)} aria-label="Cerrar cotización" className="p-2 text-slate-400 hover:text-slate-700 bg-white rounded-full shadow-sm cursor-pointer"><X className="w-5 h-5" /></button>
+                <button onClick={() => setIsOpen(false)} aria-label="Cerrar cotización" className="p-2 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 bg-white dark:bg-slate-800 rounded-full shadow-sm cursor-pointer"><X className="w-5 h-5" /></button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-6 bg-white">
+              <div className="flex-1 overflow-y-auto p-6 bg-white dark:bg-slate-900">
                 {cart.length === 0 ? (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full flex flex-col items-center justify-center text-slate-400 space-y-4">
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 space-y-4">
                     <PackageOpen className="w-16 h-16 opacity-20" />
                     <p className="font-medium">Tu lista está vacía</p>
                   </motion.div>
@@ -322,25 +322,25 @@ export default function CartProvider({ children }: { children: React.ReactNode }
                           animate={{ opacity: 1, height: "auto", marginBottom: 24 }}
                           exit={{ opacity: 0, height: 0, marginBottom: 0, paddingBottom: 0, borderBottomWidth: 0, overflow: "hidden" }}
                           transition={{ duration: 0.3, ease: "easeInOut" }}
-                          className="flex gap-4 border-b border-slate-50 pb-4"
+                          className="flex gap-4 border-b border-slate-50 dark:border-slate-800 pb-4"
                         >
-                          <div className="w-16 h-16 bg-slate-100 rounded-xl overflow-hidden shrink-0">
+                          <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-xl overflow-hidden shrink-0">
                             {item.product.imageUrl ? (
                               <img src={getImageUrl(item.product.imageUrl)} alt={item.product.name} className="w-full h-full object-cover" />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-slate-300"><ShoppingCart className="w-6 h-6"/></div>
+                              <div className="w-full h-full flex items-center justify-center text-slate-300 dark:text-slate-600"><ShoppingCart className="w-6 h-6"/></div>
                             )}
                           </div>
                           <div className="flex-1">
-                            <h4 className={`font-bold text-slate-900 text-sm leading-tight mb-1 ${playfair.className}`}>{item.product.name}</h4>
+                            <h4 className={`font-bold text-slate-900 dark:text-slate-100 text-sm leading-tight mb-1 ${playfair.className}`}>{item.product.name}</h4>
                             {/* 👇 Asegurado font-sans para el precio del producto */}
-                            <p className="text-[#004080] font-sans font-bold text-sm mb-2">{formatPYG(item.product.pricePerDay)}</p>
+                            <p className="text-[#004080] dark:text-[#3b9dff] font-sans font-bold text-sm mb-2">{formatPYG(item.product.pricePerDay)}</p>
                             <div className="flex items-center space-x-3">
-                              <div className="flex items-center border border-slate-200 rounded-lg">
-                                <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)} aria-label={`Una unidad menos de ${item.product.name}`} className="px-2 py-1 text-slate-500 hover:bg-slate-50 cursor-pointer"><Minus className="w-3 h-3" /></button>
+                              <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-lg">
+                                <button onClick={() => updateQuantity(item.product.id, item.quantity - 1)} aria-label={`Una unidad menos de ${item.product.name}`} className="px-2 py-1 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"><Minus className="w-3 h-3" /></button>
                                 {/* 👇 Asegurado font-sans para la cantidad */}
-                                <span className="px-2 font-sans text-sm font-bold text-slate-700 w-8 text-center">{item.quantity}</span>
-                                <button onClick={() => updateQuantity(item.product.id, item.quantity + 1)} disabled={item.quantity >= limitFor(item.product)} aria-label={`Una unidad más de ${item.product.name}`} className="px-2 py-1 text-slate-500 hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"><Plus className="w-3 h-3" /></button>
+                                <span className="px-2 font-sans text-sm font-bold text-slate-700 dark:text-slate-300 w-8 text-center">{item.quantity}</span>
+                                <button onClick={() => updateQuantity(item.product.id, item.quantity + 1)} disabled={item.quantity >= limitFor(item.product)} aria-label={`Una unidad más de ${item.product.name}`} className="px-2 py-1 text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"><Plus className="w-3 h-3" /></button>
                               </div>
                               <button onClick={() => removeFromCart(item.product.id)} aria-label={`Quitar ${item.product.name} de la cotización`} className="text-xs text-red-500 hover:text-red-700 font-medium underline cursor-pointer">Quitar</button>
                             </div>
@@ -360,21 +360,21 @@ export default function CartProvider({ children }: { children: React.ReactNode }
               </div>
 
               {cart.length > 0 && (
-                <div className="border-t border-slate-200 p-6 bg-slate-50 flex flex-col gap-4 max-h-[70vh] overflow-y-auto">
+                <div className="border-t border-slate-200 dark:border-slate-800 p-6 bg-slate-50 dark:bg-slate-950 flex flex-col gap-4 max-h-[70vh] overflow-y-auto">
 
                   <div className="flex flex-col gap-2">
-                    <p className={`${playfair.className} text-sm font-medium text-slate-800`}>¿Para qué fechas lo necesitás? <span className="font-sans font-normal text-slate-400">(opcional)</span></p>
+                    <p className={`${playfair.className} text-sm font-medium text-slate-800 dark:text-slate-200`}>¿Para qué fechas lo necesitás? <span className="font-sans font-normal text-slate-400 dark:text-slate-500">(opcional)</span></p>
                     <div className="grid grid-cols-2 gap-3">
-                      <label className="flex flex-col gap-1 text-xs font-sans text-slate-500">
+                      <label className="flex flex-col gap-1 text-xs font-sans text-slate-500 dark:text-slate-400">
                         Fecha del evento
-                        <input type="date" min={todayStr} value={eventDate} onChange={(e) => handleEventDateChange(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-sm text-slate-800 focus:ring-2 focus:ring-blue-900 focus:outline-none" />
+                        <input type="date" min={todayStr} value={eventDate} onChange={(e) => handleEventDateChange(e.target.value)} className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-900 focus:outline-none" />
                       </label>
-                      <label className="flex flex-col gap-1 text-xs font-sans text-slate-500">
+                      <label className="flex flex-col gap-1 text-xs font-sans text-slate-500 dark:text-slate-400">
                         Fecha de devolución
-                        <input type="date" min={eventDate || todayStr} value={returnDate} onChange={(e) => setReturnDate(e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-sm text-slate-800 focus:ring-2 focus:ring-blue-900 focus:outline-none" />
+                        <input type="date" min={eventDate || todayStr} value={returnDate} onChange={(e) => setReturnDate(e.target.value)} className="w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-blue-900 focus:outline-none" />
                       </label>
                     </div>
-                    <p aria-live="polite" className={`text-xs font-sans ${hasConflicts ? "text-red-600 font-medium" : datesValid && activeAvailability ? "text-emerald-600 font-medium" : "text-slate-400"}`}>
+                    <p aria-live="polite" className={`text-xs font-sans ${hasConflicts ? "text-red-600 font-medium" : datesValid && activeAvailability ? "text-emerald-600 font-medium" : "text-slate-400 dark:text-slate-500"}`}>
                       {!eventDate && !returnDate && "Con las fechas te mostramos al instante qué hay disponible."}
                       {(eventDate || returnDate) && !datesValid && (eventDate && eventDate < todayStr ? "Elegí una fecha desde hoy." : "Completá las dos fechas para comprobar la disponibilidad.")}
                       {datesValid && availabilityError && !activeAvailability && "No pudimos comprobar la disponibilidad ahora; la confirmamos por WhatsApp."}
@@ -390,28 +390,28 @@ export default function CartProvider({ children }: { children: React.ReactNode }
                     </p>
                   )}
 
-                  <div className="flex flex-col gap-2 text-sm text-slate-600 mt-2 border-t border-slate-200 pt-4">
+                  <div className="flex flex-col gap-2 text-sm text-slate-600 dark:text-slate-400 mt-2 border-t border-slate-200 dark:border-slate-800 pt-4">
                     <div className="flex justify-between items-center">
                       <span className={`${playfair.className} font-medium`}>Subtotal</span>
                       {/* 👇 Asegurado font-sans para los números */}
-                      <span className="font-sans font-bold text-slate-900">{formatPYG(subTotalAmount)}</span>
+                      <span className="font-sans font-bold text-slate-900 dark:text-slate-100">{formatPYG(subTotalAmount)}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className={`${playfair.className} font-medium`}>Envío ({selectedCityName})</span>
                       {/* 👇 Asegurado font-sans para los números */}
-                      <span className="font-sans font-bold text-slate-900">
+                      <span className="font-sans font-bold text-slate-900 dark:text-slate-100">
                         {shippingCost > 0 ? formatPYG(shippingCost) : (selectedCityName !== "No seleccionada" ? 'A coordinar' : '-')}
                       </span>
                     </div>
                   </div>
 
                   <div className="flex justify-between items-center mb-2 mt-2">
-                    <span className={`text-slate-800 font-bold text-lg ${playfair.className}`}>Total Estimado</span>
+                    <span className={`text-slate-800 dark:text-slate-200 font-bold text-lg ${playfair.className}`}>Total Estimado</span>
                     <motion.span 
                       key={totalAmount}
                       initial={{ scale: 1.1, color: "#004080" }}
                       animate={{ scale: 1, color: "#0f172a" }}
-                      className="font-sans text-2xl font-bold text-slate-900"
+                      className="font-sans text-2xl font-bold text-slate-900 dark:text-slate-100"
                     >
                       {formatPYG(totalAmount)}
                     </motion.span>

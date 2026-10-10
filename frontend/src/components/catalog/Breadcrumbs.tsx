@@ -26,19 +26,19 @@ export default function Breadcrumbs({ items }: { items: Crumb[] }) {
   return (
     <nav aria-label="Ruta de navegación" className="mb-6">
       <JsonLd data={jsonLd} />
-      <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-slate-500">
+      <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
         {items.map((item, i) => {
           const isLast = i === items.length - 1;
           return (
             <li key={item.href} className="flex items-center gap-1.5 min-w-0">
               {isLast ? (
-                <span aria-current="page" className="font-medium text-slate-800 truncate max-w-[60vw] sm:max-w-none">{item.name}</span>
+                <span aria-current="page" className="font-medium text-slate-800 dark:text-slate-200 truncate max-w-[60vw] sm:max-w-none">{item.name}</span>
               ) : (
                 <>
-                  <Link href={item.href} className="hover:text-[#004080] hover:underline underline-offset-2 transition-colors">
+                  <Link href={item.href} className="hover:text-[#004080] dark:hover:text-[#3b9dff] hover:underline underline-offset-2 transition-colors">
                     {item.name}
                   </Link>
-                  <CaretRightIcon weight="light" className="w-3.5 h-3.5 text-slate-400 shrink-0" aria-hidden="true" />
+                  <CaretRightIcon weight="light" className="w-3.5 h-3.5 text-slate-400 dark:text-slate-600 shrink-0" aria-hidden="true" />
                 </>
               )}
             </li>

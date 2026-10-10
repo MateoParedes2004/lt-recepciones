@@ -65,7 +65,7 @@ export default function ProductDetail({ product, category }: { product: Product;
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 py-12">
+    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 py-12">
       <JsonLd data={jsonLd} />
       <TrackView type="product_view" id={product.id} />
 
@@ -73,7 +73,7 @@ export default function ProductDetail({ product, category }: { product: Product;
 
         <Breadcrumbs items={crumbs} />
 
-        <div className="bg-white rounded-4xl shadow-xl border border-slate-100 overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 rounded-4xl shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
           <div className="flex flex-col md:flex-row">
 
             {/* Columna Izquierda: Imagen (Con Animación) */}
@@ -92,12 +92,12 @@ export default function ProductDetail({ product, category }: { product: Product;
                   <ProductPlaceholder size="detail" />
                 )}
                 {category ? (
-                  <Link href={categoryPath(category)} className="absolute top-0 left-0 bg-white/90 backdrop-blur-sm px-4 py-1.5 rounded-full shadow-sm border border-slate-200 hover:border-[#004080] transition-colors">
-                    <span className="text-xs font-bold text-blue-900 uppercase tracking-wider">{category.name}</span>
+                  <Link href={categoryPath(category)} className="absolute top-0 left-0 bg-white/90 dark:bg-slate-950/90 backdrop-blur-sm px-4 py-1.5 rounded-full shadow-sm border border-slate-200 dark:border-slate-700 hover:border-[#004080] dark:hover:border-[#3b9dff] transition-colors">
+                    <span className="text-xs font-bold text-blue-900 dark:text-[#3b9dff] uppercase tracking-wider">{category.name}</span>
                   </Link>
                 ) : (
-                  <div className="absolute top-0 left-0 bg-white/90 backdrop-blur-sm px-4 py-1.5 rounded-full shadow-sm border border-slate-200">
-                    <span className="text-xs font-bold text-blue-900 uppercase tracking-wider">
+                  <div className="absolute top-0 left-0 bg-white/90 dark:bg-slate-950/90 backdrop-blur-sm px-4 py-1.5 rounded-full shadow-sm border border-slate-200 dark:border-slate-700">
+                    <span className="text-xs font-bold text-blue-900 dark:text-[#3b9dff] uppercase tracking-wider">
                       {categoryName || "Equipamiento"}
                     </span>
                   </div>
@@ -109,38 +109,38 @@ export default function ProductDetail({ product, category }: { product: Product;
             <div className="w-full md:w-1/2 p-8 md:p-12">
               <ProductInfoAnimator>
 
-                <h1 className="text-3xl md:text-5xl font-serif font-bold text-slate-900 mb-4 tracking-tight leading-tight">
+                <h1 className="text-3xl md:text-5xl font-serif font-bold text-slate-900 dark:text-slate-100 mb-4 tracking-tight leading-tight">
                   {product.name}
                 </h1>
 
-                <div className="text-3xl font-bold text-blue-600 mb-6">
-                  {formatPYG(product.pricePerDay)} <span className="text-base font-normal text-slate-500">/ día</span>
+                <div className="text-3xl font-bold text-blue-600 dark:text-[#3b9dff] mb-6">
+                  {formatPYG(product.pricePerDay)} <span className="text-base font-normal text-slate-500 dark:text-slate-400">/ día</span>
                 </div>
 
-                <div className="prose prose-slate mb-8 text-slate-600 leading-relaxed">
+                <div className="prose prose-slate dark:prose-invert mb-8 text-slate-600 dark:text-slate-300 leading-relaxed">
                   <p>{description}</p>
                 </div>
 
-                <div className="space-y-4 mb-10 border-t border-slate-100 pt-8">
+                <div className="space-y-4 mb-10 border-t border-slate-100 dark:border-slate-800 pt-8">
                   <div className="flex items-center">
                     {product.totalStock > 0 ? (
                       <>
                         <CheckCircle className="w-5 h-5 text-emerald-500 mr-2" />
-                        <span className="font-medium text-slate-700">Stock disponible para alquilar</span>
+                        <span className="font-medium text-slate-700 dark:text-slate-300">Stock disponible para alquilar</span>
                       </>
                     ) : (
                       <>
                         <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
-                        <span className="font-medium text-slate-700">Sin stock momentáneamente</span>
+                        <span className="font-medium text-slate-700 dark:text-slate-300">Sin stock momentáneamente</span>
                       </>
                     )}
                   </div>
                 </div>
 
-                <div className="mt-auto pt-6 border-t border-slate-100">
-                  <p className="text-sm font-medium text-slate-700 mb-2">Selecciona la cantidad:</p>
+                <div className="mt-auto pt-6 border-t border-slate-100 dark:border-slate-800">
+                  <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Selecciona la cantidad:</p>
                     <ProductActions product={product} />
-                  <p className="text-xs text-center text-slate-400 mt-5">
+                  <p className="text-xs text-center text-slate-400 dark:text-slate-500 mt-5">
                     Pagos y confirmación de fechas se coordinan directamente vía WhatsApp.
                   </p>
                 </div>
@@ -154,11 +154,11 @@ export default function ProductDetail({ product, category }: { product: Product;
         {/* TAMBIÉN TE PUEDE INTERESAR */}
         {related.length > 0 && category && (
           <section className="mt-14 md:mt-20" aria-labelledby="relacionados">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-5 md:mb-6 pb-3 border-b border-slate-200 gap-2">
-              <h2 id="relacionados" className="text-2xl md:text-3xl font-serif font-bold text-slate-900 tracking-wide">
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-5 md:mb-6 pb-3 border-b border-slate-200 dark:border-slate-800 gap-2">
+              <h2 id="relacionados" className="text-2xl md:text-3xl font-serif font-bold text-slate-900 dark:text-slate-100 tracking-wide">
                 También te puede interesar
               </h2>
-              <Link href={categoryPath(category)} className="shrink-0 text-sm font-bold text-[#004080] hover:text-[#00294f] hover:underline underline-offset-2">
+              <Link href={categoryPath(category)} className="shrink-0 text-sm font-bold text-[#004080] dark:text-[#3b9dff] hover:text-[#00294f] dark:hover:text-white hover:underline underline-offset-2">
                 Ver todo en {category.name} →
               </Link>
             </div>

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Playfair_Display, Lato } from "next/font/google";
 import "./globals.css";
 import Header from "../components/Header";
@@ -72,15 +73,30 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#004080",
-  // El sitio está diseñado solo para modo claro (paleta navy sobre blanco).
-  // Sin esto, los celulares con "tema oscuro" activado (Chrome/Samsung
-  // Internet en Android) reinventan una versión oscura a su manera,
-  // invirtiendo colores sección por sección de forma inconsistente — se ve
-  // bien en las secciones que ya eran oscuras por diseño (Hero, galería, pie)
-  // y mal en las que son blancas, dando un resultado parchado. "only light"
-  // le avisa al navegador que no lo intente: el sitio se ve igual para todos.
-  colorScheme: "only light",
+  // El sitio tiene su propio modo oscuro diseñado a mano (clases "dark:" en
+  // los componentes públicos) — "light dark" le dice al navegador que confíe
+  // en nuestro CSS en vez de inventar una versión oscura con un filtro
+  // automático. Funciona en Chrome, Firefox y Safari. Samsung Internet, en su
+  // modo forzado por defecto, ignora esta señal (bug reconocido por Samsung,
+  // sin arreglo posible desde el sitio) y sigue aplicando su propio filtro.
+  // El valor final (claro u oscuro) lo decide el script THEME_INIT_SCRIPT de
+  // más abajo, que corre antes de pintar la página.
+  colorScheme: "light dark",
 };
+
+// Corre ANTES de que React pinte nada (next/script "beforeInteractive"), para
+// que no se vea un parpadeo claro→oscuro. Si el visitante ya eligió un modo
+// con el botón del Header (ThemeToggle.tsx) lo respeta; si nunca lo tocó,
+// arranca según la preferencia del sistema, como antes.
+const THEME_INIT_SCRIPT = `
+(function () {
+  try {
+    var stored = localStorage.getItem("lt_theme");
+    var dark = stored === "dark" || (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    if (dark) document.documentElement.classList.add("dark");
+  } catch (e) {}
+})();
+`;
 
 // Quién es el negocio, para Google (ficha de empresa local) y para las IA que
 // resumen resultados. Va en todas las páginas; el @id permite que las demás
@@ -161,11 +177,21 @@ export default async function RootLayout({
   const categories = (await getCategoriesOrEmpty()).map(({ id, name }) => ({ id, name }));
 
   return (
-    <html lang="es-PY" className="scroll-smooth" {...({ "data-scroll-behavior": "smooth" } as Record<string, string>)}>
+    <html
+      lang="es-PY"
+      className="scroll-smooth"
+      // El script de abajo agrega la clase "dark" antes del primer pintado;
+      // sin esto React se queja de que el HTML no coincide con lo que generó.
+      suppressHydrationWarning
+      {...({ "data-scroll-behavior": "smooth" } as Record<string, string>)}
+    >
       <body
         id="inicio"
         className={`${playfair.variable} ${lato.variable} antialiased flex flex-col min-h-screen scroll-pt-28`}
       >
+        <Script id="lt-theme-init" strategy="beforeInteractive">
+          {THEME_INIT_SCRIPT}
+        </Script>
         <CartProvider>
           <AnalyticsTracker />
           <Header initialCategories={categories} />

@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Menu, X, Instagram, Facebook, ChevronDown, Package, Home, Info, Phone, Camera } from 'lucide-react';
 import { Great_Vibes, Playfair_Display } from 'next/font/google';
 import AnchorLink from './AnchorLink';
+import ThemeToggle from './ThemeToggle';
 import { getApiUrl } from '../lib/api';
 import { categoryPath } from '../lib/site';
 import type { Category } from '../types';
@@ -59,7 +60,7 @@ export default function Header({ initialCategories = [] }: { initialCategories?:
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
+      <header className="sticky top-0 z-40 w-full bg-white/90 dark:bg-slate-950/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             
@@ -80,7 +81,7 @@ export default function Header({ initialCategories = [] }: { initialCategories?:
                   <span className="text-white font-bold text-xl">LT</span>
                 </div>
               )}
-              <span className={`text-3xl md:text-5xl text-black ${cursiveFont.className} mt-3`}>
+              <span className={`text-3xl md:text-5xl text-black dark:text-white ${cursiveFont.className} mt-3`}>
                 Recepciones
               </span>
             </Link>
@@ -99,7 +100,7 @@ export default function Header({ initialCategories = [] }: { initialCategories?:
                     onClick={() => setIsCatalogOpen(!isCatalogOpen)}
                     aria-expanded={isCatalogOpen}
                     aria-haspopup="true"
-                    className={`flex items-center text-slate-900 hover:text-blue-700 font-medium tracking-wide transition-all duration-300 transform hover:scale-105 cursor-pointer py-2 ${serifFont.className}`}
+                    className={`flex items-center text-slate-900 dark:text-slate-100 hover:text-blue-700 dark:hover:text-[#3b9dff] font-medium tracking-wide transition-all duration-300 transform hover:scale-105 cursor-pointer py-2 ${serifFont.className}`}
                   >
                     Catálogos 
                     <ChevronDown className={`ml-1 w-4 h-4 transition-transform duration-300 ${isCatalogOpen ? 'rotate-180' : ''}`} />
@@ -107,7 +108,7 @@ export default function Header({ initialCategories = [] }: { initialCategories?:
                   
                   {/* MENÚ DESPLEGABLE (CATÁLOGOS PC) */}
                   <div 
-                    className={`absolute top-full w-64 bg-white border border-slate-100 rounded-xl shadow-xl py-2 flex flex-col transform transition-all duration-300 ease-out origin-top ${
+                    className={`absolute top-full w-64 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-xl py-2 flex flex-col transform transition-all duration-300 ease-out origin-top ${
                       isCatalogOpen 
                         ? 'opacity-100 translate-y-0 visible pointer-events-auto' 
                         : 'opacity-0 -translate-y-4 invisible pointer-events-none'
@@ -116,16 +117,16 @@ export default function Header({ initialCategories = [] }: { initialCategories?:
                     <Link 
                       href="/catalogos" 
                       onClick={() => setIsCatalogOpen(false)} 
-                      className={`px-5 py-3 text-base font-bold tracking-wide text-slate-900 hover:text-blue-700 hover:bg-slate-50 transition-colors duration-200 block border-b border-slate-50 ${serifFont.className}`}
+                      className={`px-5 py-3 text-base font-bold tracking-wide text-slate-900 dark:text-slate-100 hover:text-blue-700 dark:hover:text-[#3b9dff] hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors duration-200 block border-b border-slate-50 dark:border-slate-800 ${serifFont.className}`}
                     >
                       Ver todo el catálogo
                     </Link>
                     <div className="max-h-64 overflow-y-auto">
                       {catStatus === 'loading' && (
-                        <p className={`px-5 py-3 text-sm text-slate-500 ${serifFont.className}`}>Cargando categorías…</p>
+                        <p className={`px-5 py-3 text-sm text-slate-500 dark:text-slate-400 ${serifFont.className}`}>Cargando categorías…</p>
                       )}
                       {catStatus === 'error' && (
-                        <button onClick={fetchCategories} className={`block w-full text-left px-5 py-3 text-sm text-red-600 hover:bg-slate-50 cursor-pointer ${serifFont.className}`}>
+                        <button onClick={fetchCategories} className={`block w-full text-left px-5 py-3 text-sm text-red-600 dark:text-red-400 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer ${serifFont.className}`}>
                           No se pudieron cargar las categorías. Tocá para reintentar.
                         </button>
                       )}
@@ -134,7 +135,7 @@ export default function Header({ initialCategories = [] }: { initialCategories?:
                           key={cat.id}
                           href={categoryPath(cat)}
                           onClick={() => setIsCatalogOpen(false)}
-                          className={`block px-5 py-2.5 text-base tracking-wide text-slate-900 hover:text-blue-700 hover:bg-slate-50 transition-colors duration-200 ${serifFont.className}`}
+                          className={`block px-5 py-2.5 text-base tracking-wide text-slate-900 dark:text-slate-100 hover:text-blue-700 dark:hover:text-[#3b9dff] hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors duration-200 ${serifFont.className}`}
                         >
                           {cat.name}
                         </Link>
@@ -144,44 +145,50 @@ export default function Header({ initialCategories = [] }: { initialCategories?:
                 </div>
 
                 {/* Enlaces Principales (También les puse la fuente elegante) */}
-                <AnchorLink href="/#nuestro-trabajo" className={`text-slate-900 hover:text-blue-700 font-medium tracking-wide transition-all duration-300 transform hover:scale-105 ${serifFont.className}`}>
+                <AnchorLink href="/#nuestro-trabajo" className={`text-slate-900 dark:text-slate-100 hover:text-blue-700 dark:hover:text-[#3b9dff] font-medium tracking-wide transition-all duration-300 transform hover:scale-105 ${serifFont.className}`}>
                   Nosotros
                 </AnchorLink>
 
-                <AnchorLink href="/#galeria" className={`text-slate-900 hover:text-blue-700 font-medium tracking-wide transition-all duration-300 transform hover:scale-105 ${serifFont.className}`}>
+                <AnchorLink href="/#galeria" className={`text-slate-900 dark:text-slate-100 hover:text-blue-700 dark:hover:text-[#3b9dff] font-medium tracking-wide transition-all duration-300 transform hover:scale-105 ${serifFont.className}`}>
                   Galería
                 </AnchorLink>
 
-                <AnchorLink href="/#contacto" className={`text-slate-900 hover:text-blue-700 font-medium tracking-wide transition-all duration-300 transform hover:scale-105 ${serifFont.className}`}>
+                <AnchorLink href="/#contacto" className={`text-slate-900 dark:text-slate-100 hover:text-blue-700 dark:hover:text-[#3b9dff] font-medium tracking-wide transition-all duration-300 transform hover:scale-105 ${serifFont.className}`}>
                   Contáctenos
                 </AnchorLink>
 
               </nav>
 
-              <div className="h-6 w-px bg-slate-200"></div>
+              <div className="h-6 w-px bg-slate-200 dark:bg-slate-700"></div>
 
               {/* REDES SOCIALES */}
               <div className="flex items-center space-x-4">
                 <a href="https://www.instagram.com/ltrecepciones?igsh=Z2xoNWVrOXQ0amg2" target="_blank" rel="noopener noreferrer" 
-                   className="text-black hover:text-blue-700 transition-all duration-300 transform hover:scale-110" 
+                   className="text-black dark:text-white hover:text-blue-700 dark:hover:text-[#3b9dff] transition-all duration-300 transform hover:scale-110" 
                    title="Síguenos en Instagram" aria-label="Instagram de LT Recepciones">
                   <Instagram className="w-5 h-5" />
                 </a>
-                <a href="https://www.facebook.com/share/14VSpY6d3hm/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" 
-                   className="text-black hover:text-blue-700 transition-all duration-300 transform hover:scale-110" 
+                <a href="https://www.facebook.com/share/14VSpY6d3hm/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer"
+                   className="text-black dark:text-white hover:text-blue-700 dark:hover:text-[#3b9dff] transition-all duration-300 transform hover:scale-110"
                    title="Síguenos en Facebook" aria-label="Facebook de LT Recepciones">
                   <Facebook className="w-5 h-5" />
                 </a>
               </div>
+
+              <div className="h-6 w-px bg-slate-200 dark:bg-slate-700"></div>
+
+              {/* MODO CLARO / OSCURO: para verlo a mano sin depender del celular */}
+              <ThemeToggle className="p-2.5 text-slate-900 dark:text-slate-100 hover:text-blue-900 dark:hover:text-[#3b9dff] hover:bg-blue-50 dark:hover:bg-slate-800 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors cursor-pointer" />
             </div>
 
             {/* MÓVIL */}
-            <div className="md:hidden flex items-center">
-              <button 
-                onClick={() => setIsMenuOpen(true)} 
+            <div className="md:hidden flex items-center gap-2">
+              <ThemeToggle className="p-2.5 text-slate-900 dark:text-slate-100 hover:text-blue-900 dark:hover:text-[#3b9dff] hover:bg-blue-50 dark:hover:bg-slate-800 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors cursor-pointer" />
+              <button
+                onClick={() => setIsMenuOpen(true)}
                 aria-label="Abrir menú"
                 aria-expanded={isMenuOpen}
-                className="p-2.5 text-slate-900 hover:text-blue-900 hover:bg-blue-50 bg-slate-50 border border-slate-200 rounded-xl transition-colors cursor-pointer"
+                className="p-2.5 text-slate-900 dark:text-slate-100 hover:text-blue-900 dark:hover:text-[#3b9dff] hover:bg-blue-50 dark:hover:bg-slate-800 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl transition-colors cursor-pointer"
               >
                 <Menu className="w-6 h-6" />
               </button>
@@ -196,9 +203,9 @@ export default function Header({ initialCategories = [] }: { initialCategories?:
         onClick={() => setIsMenuOpen(false)}
       ></div>
 
-      <div className={`md:hidden fixed top-0 right-0 h-dvh w-[80vw] max-w-[320px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-out flex flex-col ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+      <div className={`md:hidden fixed top-0 right-0 h-dvh w-[80vw] max-w-[320px] bg-white dark:bg-slate-950 shadow-2xl z-50 transform transition-transform duration-300 ease-out flex flex-col ${isMenuOpen ? 'translate-x-0' : 'translate-x-full'}`}>
         
-        <div className="flex items-center justify-between p-5 border-b border-slate-100">
+        <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-800">
           <Link href="/" onClick={() => setIsMenuOpen(false)} aria-label="LT Recepciones, ir al inicio" className="flex items-center">
             {!logoError ? (
               <Image
@@ -209,14 +216,14 @@ export default function Header({ initialCategories = [] }: { initialCategories?:
                 className="h-11 w-auto mr-1 object-contain"
               />
             ) : (
-              <span className="font-light text-xl tracking-tight text-slate-900">LT</span>
+              <span className="font-light text-xl tracking-tight text-slate-900 dark:text-slate-100">LT</span>
             )}
-            <span className={`ml-1 text-2xl text-black mt-2 ${cursiveFont.className}`}>Recepciones</span>
+            <span className={`ml-1 text-2xl text-black dark:text-white mt-2 ${cursiveFont.className}`}>Recepciones</span>
           </Link>
           <button 
             onClick={() => setIsMenuOpen(false)} 
             aria-label="Cerrar menú"
-            className="p-2 text-[#004080] hover:text-red-500 hover:bg-red-50 rounded-full transition-colors cursor-pointer"
+            className="p-2 text-[#004080] dark:text-[#3b9dff] hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
           >
             <X className="w-6 h-6" />
           </button>
@@ -227,42 +234,42 @@ export default function Header({ initialCategories = [] }: { initialCategories?:
           {/* OPCIONES DEL MENÚ MÓVIL CON FUENTE DE LUJO */}
           <nav className="space-y-2">
             <Link href="/" onClick={() => setIsMenuOpen(false)} 
-              className={`flex items-center px-4 py-3 text-lg tracking-wide font-medium text-slate-900 hover:text-blue-900 hover:bg-blue-50 rounded-xl transition-colors ${serifFont.className}`}
+              className={`flex items-center px-4 py-3 text-lg tracking-wide font-medium text-slate-900 dark:text-slate-100 hover:text-blue-900 dark:hover:text-[#3b9dff] hover:bg-blue-50 dark:hover:bg-slate-800 rounded-xl transition-colors ${serifFont.className}`}
             >
-              <Home className="w-5 h-5 mr-3 text-[#004080]" /> Inicio
+              <Home className="w-5 h-5 mr-3 text-[#004080] dark:text-[#3b9dff]" /> Inicio
             </Link>
             <AnchorLink href="/#nuestro-trabajo" onNavigate={() => setIsMenuOpen(false)}
-              className={`flex items-center px-4 py-3 text-lg tracking-wide font-medium text-slate-900 hover:text-blue-900 hover:bg-blue-50 rounded-xl transition-colors ${serifFont.className}`}
+              className={`flex items-center px-4 py-3 text-lg tracking-wide font-medium text-slate-900 dark:text-slate-100 hover:text-blue-900 dark:hover:text-[#3b9dff] hover:bg-blue-50 dark:hover:bg-slate-800 rounded-xl transition-colors ${serifFont.className}`}
             >
-              <Info className="w-5 h-5 mr-3 text-[#004080]" /> Nosotros
+              <Info className="w-5 h-5 mr-3 text-[#004080] dark:text-[#3b9dff]" /> Nosotros
             </AnchorLink>
             <AnchorLink href="/#galeria" onNavigate={() => setIsMenuOpen(false)}
-              className={`flex items-center px-4 py-3 text-lg tracking-wide font-medium text-slate-900 hover:text-blue-900 hover:bg-blue-50 rounded-xl transition-colors ${serifFont.className}`}
+              className={`flex items-center px-4 py-3 text-lg tracking-wide font-medium text-slate-900 dark:text-slate-100 hover:text-blue-900 dark:hover:text-[#3b9dff] hover:bg-blue-50 dark:hover:bg-slate-800 rounded-xl transition-colors ${serifFont.className}`}
             >
-              <Camera className="w-5 h-5 mr-3 text-[#004080]" /> Galería
+              <Camera className="w-5 h-5 mr-3 text-[#004080] dark:text-[#3b9dff]" /> Galería
             </AnchorLink>
             <AnchorLink href="/#contacto" onNavigate={() => setIsMenuOpen(false)}
-              className={`flex items-center px-4 py-3 text-lg tracking-wide font-medium text-slate-900 hover:text-blue-900 hover:bg-blue-50 rounded-xl transition-colors ${serifFont.className}`}
+              className={`flex items-center px-4 py-3 text-lg tracking-wide font-medium text-slate-900 dark:text-slate-100 hover:text-blue-900 dark:hover:text-[#3b9dff] hover:bg-blue-50 dark:hover:bg-slate-800 rounded-xl transition-colors ${serifFont.className}`}
             >
-              <Phone className="w-5 h-5 mr-3 text-[#004080]" /> Contacto
+              <Phone className="w-5 h-5 mr-3 text-[#004080] dark:text-[#3b9dff]" /> Contacto
             </AnchorLink>
           </nav>
 
-          <div className="w-full h-px bg-slate-100"></div>
+          <div className="w-full h-px bg-slate-100 dark:bg-slate-800"></div>
 
           {/* OPCIONES DE CATÁLOGOS MÓVIL */}
           <div>
-            <Link href="/catalogos" onClick={() => setIsMenuOpen(false)} 
-              className={`flex items-center px-4 py-2 text-lg font-bold tracking-wide text-slate-900 mb-2 hover:text-blue-700 transition-colors ${serifFont.className}`}
+            <Link href="/catalogos" onClick={() => setIsMenuOpen(false)}
+              className={`flex items-center px-4 py-2 text-lg font-bold tracking-wide text-slate-900 dark:text-slate-100 mb-2 hover:text-blue-700 dark:hover:text-[#3b9dff] transition-colors ${serifFont.className}`}
             >
-              <Package className="w-5 h-5 mr-3 text-[#004080]" /> Catálogo Completo
+              <Package className="w-5 h-5 mr-3 text-[#004080] dark:text-[#3b9dff]" /> Catálogo Completo
             </Link>
-            <div className="ml-9 pl-4 space-y-1 border-l-2 border-slate-100">
+            <div className="ml-9 pl-4 space-y-1 border-l-2 border-slate-100 dark:border-slate-800">
               {catStatus === 'loading' && (
-                <p className={`py-2 text-sm text-slate-500 ${serifFont.className}`}>Cargando categorías…</p>
+                <p className={`py-2 text-sm text-slate-500 dark:text-slate-400 ${serifFont.className}`}>Cargando categorías…</p>
               )}
               {catStatus === 'error' && (
-                <button onClick={fetchCategories} className={`py-2 text-left text-sm text-red-600 cursor-pointer ${serifFont.className}`}>
+                <button onClick={fetchCategories} className={`py-2 text-left text-sm text-red-600 dark:text-red-400 cursor-pointer ${serifFont.className}`}>
                   No se pudieron cargar las categorías. Tocá para reintentar.
                 </button>
               )}
@@ -271,7 +278,7 @@ export default function Header({ initialCategories = [] }: { initialCategories?:
                   key={cat.id}
                   href={categoryPath(cat)}
                   onClick={() => setIsMenuOpen(false)}
-                  className={`block py-2 text-base tracking-wide text-slate-700 hover:text-blue-700 transition-colors ${serifFont.className}`}
+                  className={`block py-2 text-base tracking-wide text-slate-700 dark:text-slate-300 hover:text-blue-700 dark:hover:text-[#3b9dff] transition-colors ${serifFont.className}`}
                 >
                   {cat.name}
                 </Link>
@@ -280,11 +287,11 @@ export default function Header({ initialCategories = [] }: { initialCategories?:
           </div>
         </div>
 
-        <div className="p-5 border-t border-slate-100 bg-slate-50 flex items-center justify-center space-x-6">
-          <a href="https://www.instagram.com/ltrecepciones?igsh=Z2xoNWVrOXQ0amg2" target="_blank" rel="noopener noreferrer" aria-label="Instagram de LT Recepciones" className="w-10 h-10 bg-white shadow-sm border border-slate-200 rounded-full flex items-center justify-center text-[#004080] hover:text-white hover:bg-[#004080] transition-all cursor-pointer">
+        <div className="p-5 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 flex items-center justify-center space-x-6">
+          <a href="https://www.instagram.com/ltrecepciones?igsh=Z2xoNWVrOXQ0amg2" target="_blank" rel="noopener noreferrer" aria-label="Instagram de LT Recepciones" className="w-10 h-10 bg-white dark:bg-slate-950 shadow-sm border border-slate-200 dark:border-slate-700 rounded-full flex items-center justify-center text-[#004080] dark:text-[#3b9dff] hover:text-white hover:bg-[#004080] transition-all cursor-pointer">
             <Instagram className="w-5 h-5" />
           </a>
-          <a href="https://www.facebook.com/share/14VSpY6d3hm/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" aria-label="Facebook de LT Recepciones" className="w-10 h-10 bg-white shadow-sm border border-slate-200 rounded-full flex items-center justify-center text-[#004080] hover:text-white hover:bg-[#004080] transition-all cursor-pointer">
+          <a href="https://www.facebook.com/share/14VSpY6d3hm/?mibextid=wwXIfr" target="_blank" rel="noopener noreferrer" aria-label="Facebook de LT Recepciones" className="w-10 h-10 bg-white dark:bg-slate-950 shadow-sm border border-slate-200 dark:border-slate-700 rounded-full flex items-center justify-center text-[#004080] dark:text-[#3b9dff] hover:text-white hover:bg-[#004080] transition-all cursor-pointer">
             <Facebook className="w-5 h-5" />
           </a>
         </div>

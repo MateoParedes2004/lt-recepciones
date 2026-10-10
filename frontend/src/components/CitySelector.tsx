@@ -85,12 +85,12 @@ export default function CitySelector({ onCitySelect }: CitySelectorProps) {
         city.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    if (isLoading) return <div className="text-sm text-slate-500 animate-pulse py-2">Cargando zonas de entrega...</div>;
+    if (isLoading) return <div className="text-sm text-slate-500 dark:text-slate-400 animate-pulse py-2">Cargando zonas de entrega...</div>;
     if (error) return <div className="text-sm text-red-500 py-2">{error}</div>;
 
     return (
         <div className="flex flex-col gap-2 relative w-full" ref={dropdownRef}>
-            <label className="font-semibold text-slate-700 text-sm">
+            <label className="font-semibold text-slate-700 dark:text-slate-300 text-sm">
                 Zona de entrega
             </label>
             
@@ -98,24 +98,24 @@ export default function CitySelector({ onCitySelect }: CitySelectorProps) {
             <button
                 type="button"
                 onClick={() => setIsOpen(!isOpen)}
-                className={`w-full p-3 border-2 rounded-xl bg-white flex justify-between items-center transition-all duration-300 outline-none
-                    ${isOpen ? 'border-[#004080] shadow-[0_0_8px_rgba(0,64,128,0.3)]' : 'border-slate-200 hover:border-blue-300'}
+                className={`w-full p-3 border-2 rounded-xl bg-white dark:bg-slate-900 flex justify-between items-center transition-all duration-300 outline-none
+                    ${isOpen ? 'border-[#004080] dark:border-[#3b9dff] shadow-[0_0_8px_rgba(0,64,128,0.3)]' : 'border-slate-200 dark:border-slate-700 hover:border-blue-300 dark:hover:border-[#3b9dff]/50'}
                 `}
                 aria-haspopup="listbox"
                 aria-expanded={isOpen}
             >
                 <div className="flex items-center gap-2 truncate">
-                    <MapPin className={`w-5 h-5 shrink-0 ${selectedCity ? 'text-[#004080]' : 'text-slate-400'}`} />
-                    <span className={`truncate font-medium ${selectedCity ? `text-slate-900 ${playfair.className}` : 'text-slate-500'}`}>
+                    <MapPin className={`w-5 h-5 shrink-0 ${selectedCity ? 'text-[#004080] dark:text-[#3b9dff]' : 'text-slate-400 dark:text-slate-500'}`} />
+                    <span className={`truncate font-medium ${selectedCity ? `text-slate-900 dark:text-slate-100 ${playfair.className}` : 'text-slate-500 dark:text-slate-400'}`}>
                         {selectedCity ? selectedCity.name : 'Selecciona tu ciudad...'}
                     </span>
                 </div>
-                <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : 'rotate-0'}`} />
+                <ChevronDown className={`w-5 h-5 text-slate-400 dark:text-slate-500 transition-transform duration-300 ${isOpen ? 'rotate-180' : 'rotate-0'}`} />
             </button>
 
             {/* MENÚ DESPLEGABLE PERSONALIZADO */}
             <div 
-                className={`absolute top-full left-0 w-full mt-2 bg-white border border-slate-100 rounded-xl shadow-xl flex flex-col transform transition-all duration-300 ease-out origin-top z-50 overflow-hidden ${
+                className={`absolute top-full left-0 w-full mt-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-xl shadow-xl flex flex-col transform transition-all duration-300 ease-out origin-top z-50 overflow-hidden ${
                     isOpen 
                         ? 'opacity-100 translate-y-0 visible pointer-events-auto' 
                         : 'opacity-0 -translate-y-4 invisible pointer-events-none'
@@ -123,9 +123,9 @@ export default function CitySelector({ onCitySelect }: CitySelectorProps) {
                 role="listbox"
             >
                 {/* 🔍 BARRA DE BÚSQUEDA */}
-                <div className="p-3 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10">
+                <div className="p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 sticky top-0 z-10">
                     <div className="relative">
-                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                        <Search className="w-4 h-4 text-slate-400 dark:text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                         <input
                             type="text"
                             placeholder="Buscar ciudad..."
@@ -133,7 +133,7 @@ export default function CitySelector({ onCitySelect }: CitySelectorProps) {
                             onChange={(e) => setSearchTerm(e.target.value)}
                             // Evitamos que al hacer clic en el input se cierre el dropdown
                             onClick={(e) => e.stopPropagation()} 
-                            className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-700 placeholder-slate-400 outline-none focus:border-[#004080] focus:ring-1 focus:ring-[#004080] transition-all"
+                            className="w-full pl-9 pr-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-slate-700 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-[#004080] focus:ring-1 focus:ring-[#004080] transition-all"
                         />
                     </div>
                 </div>
@@ -152,14 +152,14 @@ export default function CitySelector({ onCitySelect }: CitySelectorProps) {
                                 // 👇 Agregamos estilos para las ciudades inactivas (opacidad baja, no pointer)
                                 className={`w-full text-left px-5 py-3 text-base tracking-wide flex justify-between items-center transition-colors duration-200 
                                     ${!city.isActive 
-                                        ? 'opacity-60 bg-slate-50 cursor-not-allowed' 
+                                        ? 'opacity-60 bg-slate-50 dark:bg-slate-800 cursor-not-allowed' 
                                         : selectedCity?.id === city.id 
-                                            ? 'bg-blue-50 text-[#004080] font-bold' 
-                                            : 'text-slate-700 hover:text-[#004080] hover:bg-slate-50 font-medium'
+                                            ? 'bg-blue-50 dark:bg-[#3b9dff]/15 text-[#004080] dark:text-[#3b9dff] font-bold' 
+                                            : 'text-slate-700 dark:text-slate-300 hover:text-[#004080] dark:hover:text-[#3b9dff] hover:bg-slate-50 dark:hover:bg-slate-800 font-medium'
                                     } ${playfair.className}`}
                             >
                                 {/* 👇 Tachamos el texto si está inactiva */}
-                                <span className={!city.isActive ? 'line-through text-slate-400' : ''}>
+                                <span className={!city.isActive ? 'line-through text-slate-400 dark:text-slate-500' : ''}>
                                     {city.name}
                                 </span>
 
@@ -169,18 +169,18 @@ export default function CitySelector({ onCitySelect }: CitySelectorProps) {
                                         Proximamente
                                     </span>
                                 ) : city.price > 0 ? (
-                                    <span className="text-xs font-sans font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">
+                                    <span className="text-xs font-sans font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md">
                                         + Gs. {Math.round(Number(city.price)).toLocaleString("es-PY")}
                                     </span>
                                 ) : (
-                                    <span className="text-[10px] font-sans uppercase tracking-wider text-[#004080] font-bold bg-[#004080]/10 px-2 py-1 rounded-md border border-[#004080]/20">
+                                    <span className="text-[10px] font-sans uppercase tracking-wider text-[#004080] dark:text-[#3b9dff] font-bold bg-[#004080]/10 dark:bg-[#3b9dff]/10 px-2 py-1 rounded-md border border-[#004080]/20 dark:border-[#3b9dff]/20">
                                         A coordinar
                                     </span>
                                 )}
                             </button>
                         ))
                     ) : (
-                        <div className="p-4 text-center text-sm text-slate-500 font-medium">
+                        <div className="p-4 text-center text-sm text-slate-500 dark:text-slate-400 font-medium">
                             No encontramos &quot;{searchTerm}&quot;
                         </div>
                     )}

@@ -1,5 +1,15 @@
 @import "tailwindcss";
 
+/* El modo oscuro ya NO se activa solo por el sistema operativo: ahora lo
+   decide la clase "dark" en <html>, que pone/quita el botón del Header (ver
+   ThemeToggle.tsx) o, si el visitante nunca tocó el botón, un script inline
+   en layout.tsx que respeta la preferencia del sistema como punto de
+   partida. Esto reemplaza al @media (prefers-color-scheme) de antes: así
+   cualquiera puede ver ambos modos "a mano", sin depender de la
+   configuración del celular (algunos navegadores, como Samsung Internet,
+   fuerzan su propio oscuro e ignoran nuestro CSS de todos modos). */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   /* Integramos las fuentes en Tailwind para poder usar clases si queremos */
   --font-sans: var(--font-lato), ui-sans-serif, system-ui, sans-serif;
@@ -10,19 +20,28 @@
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 100px;
-  /* Refuerzo en CSS de lo que ya declara el <meta name="color-scheme"> en
-     layout.tsx (viewport.colorScheme): el sitio es solo modo claro, para
-     que el navegador no intente generar una versión oscura por su cuenta. */
-  color-scheme: only light;
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
 }
 
 /* 👇 FUERZA BRUTA: APLICAMOS LAS FUENTES DIRECTAMENTE A LAS ETIQUETAS */
 body {
   background-color: #f8fafc;
   color: #1e293b;
-  
+
   /* ESTO OBLIGA A USAR LATO EN TODA LA PÁGINA */
-  font-family: var(--font-lato), sans-serif; 
+  font-family: var(--font-lato), sans-serif;
+}
+
+/* Fondo base en modo oscuro. El panel admin (/admin, /iniciar-sesion) queda
+   fuera de este rediseño a propósito — sigue solo en claro, como ya estaba —
+   pero sus propias pantallas ya pintan su fondo de punta a punta, así que
+   este valor de respaldo nunca llega a verse ahí. */
+.dark body {
+  background-color: #020617;
+  color: #e2e8f0;
 }
 
 /* 👇 OBLIGAMOS A TODOS LOS TÍTULOS A USAR PLAYFAIR DISPLAY */

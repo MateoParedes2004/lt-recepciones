@@ -8,8 +8,8 @@ export default function ProductPlaceholder({ size = "card" }: { size?: "card" | 
   const isDetail = size === "detail";
   return (
     <div className={`flex flex-col items-center justify-center text-center ${isDetail ? "gap-5" : "gap-2"}`}>
-      <TableIcon weight="light" className={isDetail ? "w-28 h-28 text-[#004080]/25" : "w-12 h-12 text-[#004080]/25"} aria-hidden="true" />
-      <span className={`font-serif tracking-wide text-slate-400 ${isDetail ? "text-lg" : "text-xs"}`}>LT Recepciones</span>
+      <TableIcon weight="light" className={isDetail ? "w-28 h-28 text-[#004080]/25 dark:text-[#3b9dff]/30" : "w-12 h-12 text-[#004080]/25 dark:text-[#3b9dff]/30"} aria-hidden="true" />
+      <span className={`font-serif tracking-wide text-slate-400 dark:text-slate-500 ${isDetail ? "text-lg" : "text-xs"}`}>LT Recepciones</span>
     </div>
   );
 }

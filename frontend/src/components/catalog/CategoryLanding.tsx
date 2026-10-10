@@ -50,7 +50,7 @@ export default function CategoryLanding({ category, allCategories }: { category:
   };
 
   return (
-    <main className="min-h-screen bg-slate-50 pt-8 pb-24">
+    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pt-8 pb-24">
       <JsonLd data={jsonLd} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -64,11 +64,11 @@ export default function CategoryLanding({ category, allCategories }: { category:
 
         {/* CABECERA DEL RUBRO */}
         <header className="mb-8 md:mb-10 max-w-3xl">
-          <h1 className="text-[27px] md:text-[40px] leading-tight font-serif font-extrabold text-slate-900 tracking-tight">
+          <h1 className="text-[27px] md:text-[40px] leading-tight font-serif font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
             Alquiler de {category.name}
-            <span className="block text-lg md:text-2xl font-bold text-[#004080] mt-1">para eventos en Asunción</span>
+            <span className="block text-lg md:text-2xl font-bold text-[#004080] dark:text-[#3b9dff] mt-1">para eventos en Asunción</span>
           </h1>
-          <p className="text-[14px] md:text-base text-slate-600 mt-3 leading-relaxed">
+          <p className="text-[14px] md:text-base text-slate-600 dark:text-slate-400 mt-3 leading-relaxed">
             {category.description?.trim() || categoryIntro(category)}
           </p>
         </header>
@@ -76,7 +76,7 @@ export default function CategoryLanding({ category, allCategories }: { category:
         {/* PRODUCTOS */}
         {products.length > 0 ? (
           <section aria-label={`Productos de ${category.name}`}>
-            <p className="text-sm text-slate-500 mb-4">
+            <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
               {products.length} {products.length === 1 ? "producto" : "productos"}
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
@@ -86,9 +86,9 @@ export default function CategoryLanding({ category, allCategories }: { category:
             </div>
           </section>
         ) : (
-          <div className="text-center py-16 bg-white rounded-3xl border border-slate-100 shadow-sm">
-            <h2 className="text-xl font-serif font-bold text-slate-900">Estamos cargando este rubro</h2>
-            <p className="text-slate-500 mt-2 text-sm">Consultanos por WhatsApp qué necesitás para tu evento.</p>
+          <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+            <h2 className="text-xl font-serif font-bold text-slate-900 dark:text-slate-100">Estamos cargando este rubro</h2>
+            <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm">Consultanos por WhatsApp qué necesitás para tu evento.</p>
           </div>
         )}
 
@@ -114,13 +114,13 @@ export default function CategoryLanding({ category, allCategories }: { category:
         {/* OTROS RUBROS */}
         {others.length > 0 && (
           <nav aria-label="Otros rubros" className="mt-12 md:mt-16">
-            <h2 className="text-xl md:text-2xl font-serif font-bold text-slate-900 mb-4">Otros rubros para tu evento</h2>
+            <h2 className="text-xl md:text-2xl font-serif font-bold text-slate-900 dark:text-slate-100 mb-4">Otros rubros para tu evento</h2>
             <ul className="flex flex-wrap gap-2">
               {others.map((c) => (
                 <li key={c.id}>
                   <Link
                     href={categoryPath(c)}
-                    className="inline-flex h-9 items-center px-4 rounded-full text-[13px] font-bold whitespace-nowrap border bg-white text-slate-700 border-slate-200 hover:border-[#004080] hover:text-[#004080] transition-colors"
+                    className="inline-flex h-9 items-center px-4 rounded-full text-[13px] font-bold whitespace-nowrap border bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-[#004080] dark:hover:border-[#3b9dff] hover:text-[#004080] dark:hover:text-[#3b9dff] transition-colors"
                   >
                     Alquiler de {c.name}
                   </Link>

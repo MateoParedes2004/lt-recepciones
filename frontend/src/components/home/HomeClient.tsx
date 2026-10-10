@@ -78,8 +78,8 @@ function CategoryCard({ category }: { category: Category }) {
       </div>
 
       <div className="mt-3 md:mt-4 flex items-center justify-between px-1 gap-2">
-        <h3 className="font-serif font-bold text-slate-900 text-xs sm:text-sm md:text-base leading-tight">{category.name}</h3>
-        <ArrowRight className="w-4 h-4 text-[#004080] shrink-0 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+        <h3 className="font-serif font-bold text-slate-900 dark:text-slate-100 text-xs sm:text-sm md:text-base leading-tight">{category.name}</h3>
+        <ArrowRight className="w-4 h-4 text-[#004080] dark:text-[#3b9dff] shrink-0 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
       </div>
     </Link>
   );
@@ -129,7 +129,7 @@ export default function HomeClient({ categories, galeriaImages, cityNames, faq }
   }, []);
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <ScrollToHash />
 
       {/* 1. HERO SECTION MEJORADO */}
@@ -213,7 +213,7 @@ export default function HomeClient({ categories, galeriaImages, cityNames, faq }
 
       {/* 2. VIDRIERA DE CATEGORÍAS */}
       {categories.length > 0 && (
-        <section className="py-16 md:py-24 bg-slate-50 overflow-hidden">
+        <section className="py-16 md:py-24 bg-slate-50 dark:bg-slate-950 overflow-hidden">
           <div className="max-w-7xl mx-auto px-6 lg:px-8">
             <motion.div
               initial={{ opacity: 0, y: 50 }}
@@ -222,8 +222,8 @@ export default function HomeClient({ categories, galeriaImages, cityNames, faq }
               viewport={{ once: true, margin: "-100px" }}
               className="text-center max-w-2xl mx-auto mb-10 md:mb-16"
             >
-              <h2 className="text-3xl md:text-5xl font-serif font-bold text-slate-900 mb-4 tracking-tight">Categorías disponibles</h2>
-              <p className="text-slate-500 text-base sm:text-lg">Explora por rubro y encontrá exactamente lo que tu evento necesita.</p>
+              <h2 className="text-3xl md:text-5xl font-serif font-bold text-slate-900 dark:text-slate-100 mb-4 tracking-tight">Categorías disponibles</h2>
+              <p className="text-slate-500 dark:text-slate-400 text-base sm:text-lg">Explora por rubro y encontrá exactamente lo que tu evento necesita.</p>
             </motion.div>
 
             <div className="flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory gap-4 pb-6 -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-3 lg:grid-cols-6 md:gap-6 md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -319,7 +319,7 @@ export default function HomeClient({ categories, galeriaImages, cityNames, faq }
       )}
 
       {/* 3. SECCIÓN DE BENEFICIOS */}
-      <section className="py-16 md:py-24 bg-white overflow-hidden" id="nuestro-trabajo">
+      <section className="py-16 md:py-24 bg-white dark:bg-slate-900 overflow-hidden" id="nuestro-trabajo">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
 
           <motion.div
@@ -329,8 +329,8 @@ export default function HomeClient({ categories, galeriaImages, cityNames, faq }
             viewport={{ once: true, margin: "-100px" }}
             className="text-center max-w-3xl mx-auto mb-10 md:mb-16"
           >
-            <h2 className="text-3xl sm:text-4xl font-serif font-bold text-slate-900 mb-4 tracking-tight">El estándar de excelencia en tu evento</h2>
-            <p className="text-slate-500 text-base sm:text-lg">Nos obsesionan los detalles. Nos aseguramos de que cada silla, mesa y copa llegue en estado impecable a tu celebración.</p>
+            <h2 className="text-3xl sm:text-4xl font-serif font-bold text-slate-900 dark:text-slate-100 mb-4 tracking-tight">El estándar de excelencia en tu evento</h2>
+            <p className="text-slate-500 dark:text-slate-400 text-base sm:text-lg">Nos obsesionan los detalles. Nos aseguramos de que cada silla, mesa y copa llegue en estado impecable a tu celebración.</p>
           </motion.div>
 
           <div className="flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory gap-6 pb-6 -mx-6 px-6 md:mx-0 md:px-0 md:grid md:grid-cols-3 md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
@@ -345,11 +345,11 @@ export default function HomeClient({ categories, galeriaImages, cityNames, faq }
                 whileInView={{ opacity: 1 }}
                 transition={{ duration: 0.5, delay: i * 0.2 }}
                 viewport={{ once: true, margin: "-50px" }}
-                className="snap-center shrink-0 w-[85%] md:w-auto bg-slate-50 rounded-4xl p-8 md:p-10 border border-slate-100 hover:-translate-y-2 transition-transform duration-300"
+                className="snap-center shrink-0 w-[85%] md:w-auto bg-slate-50 dark:bg-slate-800 rounded-4xl p-8 md:p-10 border border-slate-100 dark:border-slate-700 hover:-translate-y-2 transition-transform duration-300"
               >
-                <div className="w-12 h-12 md:w-14 md:h-14 bg-[#e8f0f8] text-[#004080] rounded-2xl flex items-center justify-center mb-6 shadow-sm"><item.icon className="w-6 h-6 md:w-7 md:h-7" /></div>
-                <h3 className="text-xl md:text-2xl font-serif font-bold text-slate-900 mb-3">{item.title}</h3>
-                <p className="text-slate-600 text-sm md:text-base leading-relaxed">{item.desc}</p>
+                <div className="w-12 h-12 md:w-14 md:h-14 bg-[#e8f0f8] dark:bg-[#3b9dff]/15 text-[#004080] dark:text-[#3b9dff] rounded-2xl flex items-center justify-center mb-6 shadow-sm"><item.icon className="w-6 h-6 md:w-7 md:h-7" /></div>
+                <h3 className="text-xl md:text-2xl font-serif font-bold text-slate-900 dark:text-slate-100 mb-3">{item.title}</h3>
+                <p className="text-slate-600 dark:text-slate-300 text-sm md:text-base leading-relaxed">{item.desc}</p>
               </motion.div>
             ))}
           </div>
@@ -358,7 +358,7 @@ export default function HomeClient({ categories, galeriaImages, cityNames, faq }
 
       {/* ZONAS DE ENTREGA (ciudades cargadas en el panel) */}
       {cityNames.length > 0 && (
-        <section className="py-16 md:py-20 bg-slate-50" id="zonas" aria-labelledby="zonas-titulo">
+        <section className="py-16 md:py-20 bg-slate-50 dark:bg-slate-950" id="zonas" aria-labelledby="zonas-titulo">
           <div className="max-w-7xl mx-auto px-6 lg:px-8">
             <motion.div
               initial={{ opacity: 0, y: 40 }}
@@ -367,16 +367,16 @@ export default function HomeClient({ categories, galeriaImages, cityNames, faq }
               viewport={{ once: true, margin: "-100px" }}
               className="text-center max-w-3xl mx-auto"
             >
-              <h2 id="zonas-titulo" className="text-3xl sm:text-4xl font-serif font-bold text-slate-900 mb-4 tracking-tight">
+              <h2 id="zonas-titulo" className="text-3xl sm:text-4xl font-serif font-bold text-slate-900 dark:text-slate-100 mb-4 tracking-tight">
                 Entregamos en Asunción y Gran Asunción
               </h2>
-              <p className="text-slate-500 text-base sm:text-lg">
+              <p className="text-slate-500 dark:text-slate-400 text-base sm:text-lg">
                 Llevamos y retiramos todo en el lugar de tu evento. El costo de envío lo ves en tu cotización al elegir la ciudad.
               </p>
               <ul className="mt-8 flex flex-wrap justify-center gap-2.5">
                 {cityNames.map((name) => (
-                  <li key={name} className="inline-flex items-center gap-1.5 h-10 px-4 rounded-full bg-white border border-slate-200 text-sm font-bold text-slate-700 shadow-sm">
-                    <MapPinIcon weight="light" className="w-4 h-4 text-[#004080]" aria-hidden="true" />
+                  <li key={name} className="inline-flex items-center gap-1.5 h-10 px-4 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-700 dark:text-slate-200 shadow-sm">
+                    <MapPinIcon weight="light" className="w-4 h-4 text-[#004080] dark:text-[#3b9dff]" aria-hidden="true" />
                     {name}
                   </li>
                 ))}
@@ -388,7 +388,7 @@ export default function HomeClient({ categories, galeriaImages, cityNames, faq }
 
       {/* PREGUNTAS FRECUENTES (el mismo texto va a Google como FAQPage, ver lib/faq.ts) */}
       {faq.length > 0 && (
-        <section className="py-16 md:py-24 bg-white" id="preguntas-frecuentes" aria-labelledby="faq-titulo">
+        <section className="py-16 md:py-24 bg-white dark:bg-slate-900" id="preguntas-frecuentes" aria-labelledby="faq-titulo">
           <div className="max-w-3xl mx-auto px-6 lg:px-8">
             <motion.div
               initial={{ opacity: 0, y: 40 }}
@@ -396,19 +396,19 @@ export default function HomeClient({ categories, galeriaImages, cityNames, faq }
               transition={{ duration: 0.6 }}
               viewport={{ once: true, margin: "-100px" }}
             >
-              <h2 id="faq-titulo" className="text-3xl sm:text-4xl font-serif font-bold text-slate-900 mb-8 md:mb-10 tracking-tight text-center">
+              <h2 id="faq-titulo" className="text-3xl sm:text-4xl font-serif font-bold text-slate-900 dark:text-slate-100 mb-8 md:mb-10 tracking-tight text-center">
                 Preguntas frecuentes
               </h2>
               <div className="flex flex-col gap-3">
                 {faq.map((item) => (
-                  <details key={item.question} className="group rounded-2xl border border-slate-200 bg-slate-50 open:bg-white open:shadow-md open:border-[#004080]/25 transition-colors">
+                  <details key={item.question} className="group rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 open:bg-white dark:open:bg-slate-900 open:shadow-md open:border-[#004080]/25 dark:open:border-[#3b9dff]/30 transition-colors">
                     <summary className="flex items-center justify-between gap-4 cursor-pointer list-none px-5 py-4 md:px-6 md:py-5 [&::-webkit-details-marker]:hidden">
-                      <h3 className="text-base md:text-lg font-serif font-bold text-slate-900">{item.question}</h3>
-                      <span className="w-8 h-8 rounded-full bg-[#e8f0f8] text-[#004080] flex items-center justify-center shrink-0 transition-transform duration-300 group-open:rotate-45" aria-hidden="true">
+                      <h3 className="text-base md:text-lg font-serif font-bold text-slate-900 dark:text-slate-100">{item.question}</h3>
+                      <span className="w-8 h-8 rounded-full bg-[#e8f0f8] dark:bg-[#3b9dff]/15 text-[#004080] dark:text-[#3b9dff] flex items-center justify-center shrink-0 transition-transform duration-300 group-open:rotate-45" aria-hidden="true">
                         <PlusIcon weight="light" className="w-4 h-4" />
                       </span>
                     </summary>
-                    <p className="px-5 pb-5 md:px-6 md:pb-6 -mt-1 text-slate-600 text-[15px] leading-relaxed">{item.answer}</p>
+                    <p className="px-5 pb-5 md:px-6 md:pb-6 -mt-1 text-slate-600 dark:text-slate-300 text-[15px] leading-relaxed">{item.answer}</p>
                   </details>
                 ))}
               </div>
@@ -418,14 +418,14 @@ export default function HomeClient({ categories, galeriaImages, cityNames, faq }
       )}
 
       {/* 4. SECCIÓN DE CONTACTO Y MAPA */}
-      <section className="py-16 md:py-24 bg-white" id="contacto">
+      <section className="py-16 md:py-24 bg-white dark:bg-slate-900" id="contacto">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 40 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             viewport={{ once: true, margin: "-100px" }}
-            className="relative rounded-4xl overflow-hidden shadow-xl border border-slate-200 bg-slate-100 lg:min-h-150 lg:flex lg:items-center lg:p-12"
+            className="relative rounded-4xl overflow-hidden shadow-xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800 lg:min-h-150 lg:flex lg:items-center lg:p-12"
           >
             {/* MAPA: en celular va arriba; en escritorio ocupa todo el fondo */}
             <div className="relative h-64 lg:absolute lg:inset-0 lg:h-auto">
@@ -450,41 +450,41 @@ export default function HomeClient({ categories, galeriaImages, cityNames, faq }
             </div>
 
             {/* TARJETA DE CONTACTO */}
-            <div className="relative z-10 bg-white rounded-3xl shadow-2xl -mt-9 mx-3.5 mb-3.5 p-6 sm:p-8 lg:m-0 lg:w-[min(440px,46%)] lg:p-9 flex flex-col">
-              <h2 className="text-[28px] md:text-4xl font-serif font-extrabold text-slate-900 tracking-tight leading-tight">Estamos para ayudarte</h2>
-              <p className="text-slate-600 text-[15px] leading-relaxed mt-3">
+            <div className="relative z-10 bg-white dark:bg-slate-900 rounded-3xl shadow-2xl -mt-9 mx-3.5 mb-3.5 p-6 sm:p-8 lg:m-0 lg:w-[min(440px,46%)] lg:p-9 flex flex-col">
+              <h2 className="text-[28px] md:text-4xl font-serif font-extrabold text-slate-900 dark:text-slate-100 tracking-tight leading-tight">Estamos para ayudarte</h2>
+              <p className="text-slate-600 dark:text-slate-300 text-[15px] leading-relaxed mt-3">
                 ¿Tenés dudas sobre las cantidades o necesitás asesoramiento para tu evento? Escribinos o visitanos, nos encantará formar parte de tu celebración.
               </p>
 
               <div className="mt-6 flex flex-col">
-                <div className="flex items-start gap-4 py-4 border-t border-slate-100 first:border-t-0">
-                  <span className="w-11 h-11 rounded-xl bg-[#e8f0f8] text-[#004080] flex items-center justify-center shrink-0">
+                <div className="flex items-start gap-4 py-4 border-t border-slate-100 dark:border-slate-700 first:border-t-0">
+                  <span className="w-11 h-11 rounded-xl bg-[#e8f0f8] dark:bg-[#3b9dff]/15 text-[#004080] dark:text-[#3b9dff] flex items-center justify-center shrink-0">
                     <MapPinIcon weight="light" className="w-6 h-6" />
                   </span>
                   <div>
-                    <span className="block text-xs font-bold uppercase tracking-wider text-slate-500">Ubicación</span>
-                    <span className="block text-base font-bold text-slate-900">Asunción, Paraguay</span>
-                    <span className="block text-sm text-slate-500">Atención en nuestras oficinas previa cita.</span>
+                    <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Ubicación</span>
+                    <span className="block text-base font-bold text-slate-900 dark:text-slate-100">Asunción, Paraguay</span>
+                    <span className="block text-sm text-slate-500 dark:text-slate-400">Atención en nuestras oficinas previa cita.</span>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-4 py-4 border-t border-slate-100">
-                  <span className="w-11 h-11 rounded-xl bg-[#e8f0f8] text-[#004080] flex items-center justify-center shrink-0">
+                <div className="flex items-start gap-4 py-4 border-t border-slate-100 dark:border-slate-700">
+                  <span className="w-11 h-11 rounded-xl bg-[#e8f0f8] dark:bg-[#3b9dff]/15 text-[#004080] dark:text-[#3b9dff] flex items-center justify-center shrink-0">
                     <PhoneIcon weight="light" className="w-6 h-6" />
                   </span>
                   <div>
-                    <span className="block text-xs font-bold uppercase tracking-wider text-slate-500">WhatsApp</span>
-                    <a href="tel:+595985867749" className="block text-base font-bold text-slate-900 hover:text-[#004080] transition-colors">+595 985 867 749</a>
+                    <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">WhatsApp</span>
+                    <a href="tel:+595985867749" className="block text-base font-bold text-slate-900 dark:text-slate-100 hover:text-[#004080] dark:hover:text-[#3b9dff] transition-colors">+595 985 867 749</a>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-4 py-4 border-t border-slate-100">
-                  <span className="w-11 h-11 rounded-xl bg-[#e8f0f8] text-[#004080] flex items-center justify-center shrink-0">
+                <div className="flex items-start gap-4 py-4 border-t border-slate-100 dark:border-slate-700">
+                  <span className="w-11 h-11 rounded-xl bg-[#e8f0f8] dark:bg-[#3b9dff]/15 text-[#004080] dark:text-[#3b9dff] flex items-center justify-center shrink-0">
                     <ClockIcon weight="light" className="w-6 h-6" />
                   </span>
                   <div>
-                    <span className="block text-xs font-bold uppercase tracking-wider text-slate-500">Horario</span>
-                    <span className="block text-base font-bold text-slate-900">Lunes a Domingo</span>
+                    <span className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Horario</span>
+                    <span className="block text-base font-bold text-slate-900 dark:text-slate-100">Lunes a Domingo</span>
                   </div>
                 </div>
               </div>
@@ -503,7 +503,7 @@ export default function HomeClient({ categories, galeriaImages, cityNames, faq }
                   href="https://www.google.com/maps/dir/?api=1&destination=-25.302442669518815,-57.60189306166173"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2.5 h-13 px-6 rounded-xl text-[15px] font-extrabold text-[#004080] border-[1.5px] border-[#004080] hover:bg-[#e8f0f8] transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                  className="flex items-center justify-center gap-2.5 h-13 px-6 rounded-xl text-[15px] font-extrabold text-[#004080] dark:text-[#3b9dff] border-[1.5px] border-[#004080] dark:border-[#3b9dff] hover:bg-[#e8f0f8] dark:hover:bg-slate-800 transition-colors cursor-pointer whitespace-nowrap shrink-0"
                 >
                   <NavigationArrowIcon weight="light" className="w-5 h-5" /> Cómo llegar
                 </a>

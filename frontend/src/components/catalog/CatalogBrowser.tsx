@@ -25,7 +25,7 @@ function Highlight({ text, q }: { text: string; q: string }) {
   return (
     <>
       {text.slice(0, i)}
-      <strong className="font-extrabold text-slate-900">{text.slice(i, i + q.length)}</strong>
+      <strong className="font-extrabold text-slate-900 dark:text-slate-100">{text.slice(i, i + q.length)}</strong>
       {text.slice(i + q.length)}
     </>
   );
@@ -197,7 +197,7 @@ export default function CatalogBrowser({ categories }: { categories: Category[] 
     "shrink-0 h-9 px-4 rounded-full text-[13px] font-bold whitespace-nowrap border transition-colors cursor-pointer";
   const chipOn =
     "text-white border-transparent bg-[linear-gradient(135deg,#0d4a8a,#00294f)] shadow-sm";
-  const chipOff = "bg-white text-slate-700 border-slate-200 hover:border-[#004080] hover:text-[#004080]";
+  const chipOff = "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-[#004080] dark:hover:border-[#3b9dff] hover:text-[#004080] dark:hover:text-[#3b9dff]";
 
   return (
     <>
@@ -205,10 +205,10 @@ export default function CatalogBrowser({ categories }: { categories: Category[] 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-5">
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
           <div>
-            <h1 className="text-[27px] md:text-[40px] leading-tight font-serif font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-[27px] md:text-[40px] leading-tight font-serif font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
               Nuestros Catálogos
             </h1>
-            <p className="text-[13.5px] md:text-base text-slate-600 mt-1">
+            <p className="text-[13.5px] md:text-base text-slate-600 dark:text-slate-400 mt-1">
               Alquiler de sillas, mesas, vajilla y más para eventos en Asunción. Elegí, cotizá y enviá tu pedido por WhatsApp.
             </p>
           </div>
@@ -216,7 +216,7 @@ export default function CatalogBrowser({ categories }: { categories: Category[] 
           <div ref={searchRef} className="relative w-full md:w-110">
             <MagnifyingGlassIcon
               weight="light"
-              className="w-5 h-5 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+              className="w-5 h-5 text-slate-500 dark:text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
             />
             <input
               type="search"
@@ -234,7 +234,7 @@ export default function CatalogBrowser({ categories }: { categories: Category[] 
               aria-label="Buscar productos"
               autoComplete="off"
               enterKeyHint="search"
-              className="w-full h-12 rounded-2xl bg-white border border-slate-200 pl-12 pr-11 text-[15px] text-slate-900 placeholder:text-slate-400 outline-none focus:border-[#004080] focus:ring-2 focus:ring-[#004080]/15 [&::-webkit-search-cancel-button]:hidden"
+              className="w-full h-12 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 pl-12 pr-11 text-[15px] text-slate-900 dark:text-slate-100 placeholder:text-slate-400 outline-none focus:border-[#004080] dark:focus:border-[#3b9dff] focus:ring-2 focus:ring-[#004080]/15 dark:focus:ring-[#3b9dff]/15 [&::-webkit-search-cancel-button]:hidden"
             />
             {query && (
               <button
@@ -245,7 +245,7 @@ export default function CatalogBrowser({ categories }: { categories: Category[] 
                   setOpen(false);
                 }}
                 aria-label="Borrar búsqueda"
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-slate-500 hover:bg-slate-100 cursor-pointer"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
               >
                 <XIcon weight="light" className="w-4 h-4" />
               </button>
@@ -255,26 +255,26 @@ export default function CatalogBrowser({ categories }: { categories: Category[] 
             {open && liveQ && (
               <div
                 aria-label="Resultados de búsqueda"
-                className="absolute z-50 top-full mt-2 left-0 right-0 md:left-auto md:right-0 md:w-215 bg-white rounded-2xl border border-slate-200 shadow-2xl p-4 md:p-6 md:grid md:grid-cols-[13rem_1fr] md:gap-8"
+                className="absolute z-50 top-full mt-2 left-0 right-0 md:left-auto md:right-0 md:w-215 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-2xl p-4 md:p-6 md:grid md:grid-cols-[13rem_1fr] md:gap-8"
               >
                 {suggestions.products.length === 0 ? (
-                  <p className="md:col-span-2 text-sm text-slate-500 py-2">
+                  <p className="md:col-span-2 text-sm text-slate-500 dark:text-slate-400 py-2">
                     No encontramos productos para “{query.trim()}”. Probá con otra palabra.
                   </p>
                 ) : (
                   <>
                     <div className="hidden md:flex flex-col">
-                      <h3 className="font-serif font-bold text-slate-900 text-lg mb-3">Resultados de búsqueda</h3>
+                      <h3 className="font-serif font-bold text-slate-900 dark:text-slate-100 text-lg mb-3">Resultados de búsqueda</h3>
                       <ul className="space-y-1">
                         {suggestions.cats.map((name) => (
                           <li key={`c-${name}`}>
                             <button
                               type="button"
                               onClick={() => commit(name)}
-                              className="w-full flex items-center gap-3 px-2 py-2 rounded-lg text-left text-sm text-slate-700 hover:bg-[#e8f0f8] hover:text-[#004080] cursor-pointer"
+                              className="w-full flex items-center gap-3 px-2 py-2 rounded-lg text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-[#e8f0f8] dark:hover:bg-slate-800 hover:text-[#004080] dark:hover:text-[#3b9dff] cursor-pointer"
                             >
-                              <MagnifyingGlassIcon weight="light" className="w-4 h-4 text-[#004080] shrink-0" />
-                              <span><Highlight text={name} q={liveQ} /> <span className="text-slate-400">· rubro</span></span>
+                              <MagnifyingGlassIcon weight="light" className="w-4 h-4 text-[#004080] dark:text-[#3b9dff] shrink-0" />
+                              <span><Highlight text={name} q={liveQ} /> <span className="text-slate-400 dark:text-slate-500">· rubro</span></span>
                             </button>
                           </li>
                         ))}
@@ -283,9 +283,9 @@ export default function CatalogBrowser({ categories }: { categories: Category[] 
                             <button
                               type="button"
                               onClick={() => commit(name)}
-                              className="w-full flex items-center gap-3 px-2 py-2 rounded-lg text-left text-sm text-slate-700 hover:bg-[#e8f0f8] hover:text-[#004080] cursor-pointer"
+                              className="w-full flex items-center gap-3 px-2 py-2 rounded-lg text-left text-sm text-slate-700 dark:text-slate-300 hover:bg-[#e8f0f8] dark:hover:bg-slate-800 hover:text-[#004080] dark:hover:text-[#3b9dff] cursor-pointer"
                             >
-                              <MagnifyingGlassIcon weight="light" className="w-4 h-4 text-[#004080] shrink-0" />
+                              <MagnifyingGlassIcon weight="light" className="w-4 h-4 text-[#004080] dark:text-[#3b9dff] shrink-0" />
                               <span><Highlight text={name} q={liveQ} /></span>
                             </button>
                           </li>
@@ -294,20 +294,20 @@ export default function CatalogBrowser({ categories }: { categories: Category[] 
                       <button
                         type="button"
                         onClick={() => commit(query.trim())}
-                        className="mt-auto pt-6 text-left text-sm font-bold text-[#004080] underline underline-offset-2 hover:text-[#00294f] cursor-pointer"
+                        className="mt-auto pt-6 text-left text-sm font-bold text-[#004080] dark:text-[#3b9dff] underline underline-offset-2 hover:text-[#00294f] dark:hover:text-white cursor-pointer"
                       >
                         Mostrar todo “{query.trim()}” →
                       </button>
                     </div>
 
                     <div>
-                      <h3 className="font-serif font-bold text-slate-900 text-base md:text-lg mb-3">Productos encontrados</h3>
+                      <h3 className="font-serif font-bold text-slate-900 dark:text-slate-100 text-base md:text-lg mb-3">Productos encontrados</h3>
                       <ul className="grid grid-cols-1 md:grid-cols-4 gap-2 md:gap-3">
                         {suggestions.products.map(({ product, category }) => (
                           <li key={product.id}>
                             <Link
                               href={productPath(product)}
-                              className="flex md:flex-col items-center md:items-stretch gap-3 md:gap-0 rounded-xl border border-slate-100 hover:border-[#004080] hover:shadow-lg transition-all overflow-hidden bg-white h-full"
+                              className="flex md:flex-col items-center md:items-stretch gap-3 md:gap-0 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-[#004080] dark:hover:border-[#3b9dff] hover:shadow-lg transition-all overflow-hidden bg-white dark:bg-slate-900 h-full"
                             >
                               <div className="relative w-16 h-16 md:w-full md:h-28 shrink-0 bg-slate-100 flex items-center justify-center">
                                 {product.imageUrl ? (
@@ -319,15 +319,15 @@ export default function CatalogBrowser({ categories }: { categories: Category[] 
                                     className="object-contain p-1.5 mix-blend-multiply"
                                   />
                                 ) : (
-                                  <ChairIcon weight="light" className="w-7 h-7 text-slate-300" />
+                                  <ChairIcon weight="light" className="w-7 h-7 text-slate-300 dark:text-slate-600" />
                                 )}
                               </div>
                               <div className="md:p-3 min-w-0 flex-1">
-                                <p className="text-[11px] uppercase tracking-wider text-slate-400 truncate">{category}</p>
-                                <p className="text-sm font-semibold text-slate-800 line-clamp-2 leading-snug">
+                                <p className="text-[11px] uppercase tracking-wider text-slate-400 dark:text-slate-500 truncate">{category}</p>
+                                <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 line-clamp-2 leading-snug">
                                   <Highlight text={product.name} q={liveQ} />
                                 </p>
-                                <p className="font-serif font-bold text-[#004080] text-base mt-1">{formatPYG(product.pricePerDay)}</p>
+                                <p className="font-serif font-bold text-[#004080] dark:text-[#3b9dff] text-base mt-1">{formatPYG(product.pricePerDay)}</p>
                               </div>
                             </Link>
                           </li>
@@ -351,7 +351,7 @@ export default function CatalogBrowser({ categories }: { categories: Category[] 
 
       {/* BARRA DE RUBROS (queda fija bajo el menú) */}
       {categories.length > 0 && (
-        <div className="sticky top-20 z-30 bg-white/92 backdrop-blur-md border-y border-slate-200 shadow-sm mb-8 md:mb-10">
+        <div className="sticky top-20 z-30 bg-white/92 dark:bg-slate-950/92 backdrop-blur-md border-y border-slate-200 dark:border-slate-800 shadow-sm mb-8 md:mb-10">
           <div
             ref={railRef}
             className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
@@ -385,17 +385,17 @@ export default function CatalogBrowser({ categories }: { categories: Category[] 
       {/* LISTA DE CATEGORÍAS Y PRODUCTOS */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {categories.length === 0 ? (
-          <div className="text-center py-16 bg-white rounded-3xl border border-slate-100 shadow-sm">
-            <div className="inline-flex p-4 bg-blue-50 rounded-full mb-4 text-blue-600">
+          <div className="text-center py-16 bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+            <div className="inline-flex p-4 bg-blue-50 dark:bg-[#3b9dff]/15 rounded-full mb-4 text-blue-600 dark:text-[#3b9dff]">
               <ChairIcon weight="light" className="w-8 h-8" />
             </div>
-            <h3 className="text-xl font-serif font-bold text-slate-900">Inventario en preparación</h3>
-            <p className="text-slate-500 mt-2 text-sm">Pronto subiremos nuestros mejores productos aquí.</p>
+            <h3 className="text-xl font-serif font-bold text-slate-900 dark:text-slate-100">Inventario en preparación</h3>
+            <p className="text-slate-500 dark:text-slate-400 mt-2 text-sm">Pronto subiremos nuestros mejores productos aquí.</p>
           </div>
         ) : (
           <>
             {q && (
-              <p className="text-sm text-slate-500 mb-6" role="status">
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-6" role="status">
                 {totalMatches === 0
                   ? <>No encontramos productos para “{applied.trim()}”. Probá con otra palabra.</>
                   : <>{totalMatches} {totalMatches === 1 ? "resultado" : "resultados"} para “{applied.trim()}”</>}
@@ -405,17 +405,17 @@ export default function CatalogBrowser({ categories }: { categories: Category[] 
             {visible.map((category: Category) => (
               <section key={category.id} className="mb-12 md:mb-16 scroll-mt-36" id={sectionId(category.name)}>
 
-                <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-5 md:mb-6 pb-3 border-b border-slate-200 gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-5 md:mb-6 pb-3 border-b border-slate-200 dark:border-slate-800 gap-2">
                   <div>
-                    <h2 className="text-2xl md:text-3xl font-serif font-bold text-slate-900 tracking-wide">{category.name}</h2>
+                    <h2 className="text-2xl md:text-3xl font-serif font-bold text-slate-900 dark:text-slate-100 tracking-wide">{category.name}</h2>
                     {category.description && (
-                      <p className="text-slate-500 text-xs md:text-sm mt-1 max-w-2xl">{category.description}</p>
+                      <p className="text-slate-500 dark:text-slate-400 text-xs md:text-sm mt-1 max-w-2xl">{category.description}</p>
                     )}
                   </div>
                   {(category.products?.length ?? 0) > 0 && (
                     <Link
                       href={categoryPath(category)}
-                      className="shrink-0 inline-flex items-center gap-1.5 text-sm font-bold text-[#004080] hover:text-[#00294f] hover:underline underline-offset-2"
+                      className="shrink-0 inline-flex items-center gap-1.5 text-sm font-bold text-[#004080] dark:text-[#3b9dff] hover:text-[#00294f] dark:hover:text-white hover:underline underline-offset-2"
                     >
                       Más sobre {category.name} <ArrowRightIcon weight="light" className="w-4 h-4" />
                     </Link>
@@ -430,8 +430,8 @@ export default function CatalogBrowser({ categories }: { categories: Category[] 
                       <ProductCard key={product.id} product={product} />
                     ))
                   ) : (
-                    <div className="col-span-full py-8 md:py-10 bg-white rounded-2xl border border-dashed border-slate-200 flex items-center justify-center">
-                      <p className="text-slate-400 text-xs text-center">
+                    <div className="col-span-full py-8 md:py-10 bg-white dark:bg-slate-900 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 flex items-center justify-center">
+                      <p className="text-slate-400 dark:text-slate-500 text-xs text-center">
                         Aún no hay productos disponibles en esta categoría.
                       </p>
                     </div>
