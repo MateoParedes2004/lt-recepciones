@@ -118,13 +118,13 @@ export default function CitiesTab({ cities, fetchData, isLoadingData }: { cities
                 <div className="bg-[#e8f0f8]/50 p-5 rounded-2xl border border-[#004080]/15 flex flex-wrap items-center gap-4 shadow-sm shrink-0">
                     <div className="flex-1 min-w-50">
                         <label className="block text-xs font-bold text-[#004080] mb-1 uppercase tracking-wider">Nombre de la Ciudad</label>
-                        <input type="text" placeholder="Ej. Luque" value={newCityName} onChange={(e) => setNewCityName(e.target.value)} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg focus:border-[#004080] focus:ring-1 focus:ring-[#004080] outline-none transition-all" />
+                        <input type="text" placeholder="Ej. Luque" value={newCityName} onChange={(e) => setNewCityName(e.target.value)} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-lg focus:border-[#004080] focus:ring-1 focus:ring-[#004080] outline-none transition-all text-slate-900" />
                     </div>
                     <div className="w-48">
                         <label className="block text-xs font-bold text-[#004080] mb-1 uppercase tracking-wider">Costo de Envío</label>
                         <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 focus-within:border-[#004080] focus-within:ring-1 focus-within:ring-[#004080] transition-all">
                             <span className="text-sm font-medium text-slate-400">Gs.</span>
-                            <input type="number" placeholder="0" value={newCityPrice} onChange={(e) => setNewCityPrice(Number(e.target.value))} className="w-full py-2 bg-transparent outline-none" />
+                            <input type="number" placeholder="0" value={newCityPrice} onChange={(e) => setNewCityPrice(Number(e.target.value))} className="w-full py-2 bg-transparent outline-none text-slate-900" />
                         </div>
                     </div>
                     <div className="mt-5">
@@ -146,9 +146,9 @@ export default function CitiesTab({ cities, fetchData, isLoadingData }: { cities
                         {/* Buscador Independiente Activas */}
                         <div className="relative w-48">
                             <Search className="w-4 h-4 text-emerald-600/50 absolute left-3 top-1/2 -translate-y-1/2" />
-                            <input 
+                            <input
                                 type="text" placeholder="Buscar..." value={activeSearch} onChange={(e) => setActiveSearch(e.target.value)}
-                                className="w-full pl-9 pr-3 py-1.5 text-sm bg-white border border-emerald-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                                className="w-full pl-9 pr-3 py-1.5 text-sm bg-white border border-emerald-200 rounded-lg focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 text-slate-900"
                             />
                         </div>
                     </div>
@@ -173,7 +173,7 @@ export default function CitiesTab({ cities, fetchData, isLoadingData }: { cities
                                                 {editingId === city.id ? (
                                                     <div className="flex items-center gap-1 mt-1">
                                                         <span className="text-xs text-slate-400">Gs.</span>
-                                                        <input type="number" value={editPrice} onChange={(e) => setEditPrice(Number(e.target.value))} className="w-24 px-2 py-0.5 text-sm border border-slate-300 rounded focus:border-[#004080] outline-none" />
+                                                        <input type="number" value={editPrice} onChange={(e) => setEditPrice(Number(e.target.value))} className="w-24 px-2 py-0.5 text-sm border border-slate-300 rounded focus:border-[#004080] outline-none text-slate-900" />
                                                     </div>
                                                 ) : (
                                                     <div className="text-sm text-[#004080] font-medium">{city.price > 0 ? `Gs. ${city.price.toLocaleString('es-PY')}` : 'A coordinar'}</div>
@@ -212,9 +212,9 @@ export default function CitiesTab({ cities, fetchData, isLoadingData }: { cities
                         {/* Buscador Independiente Inactivas (Rojo) */}
                         <div className="relative w-48">
                             <Search className="w-4 h-4 text-red-500/50 absolute left-3 top-1/2 -translate-y-1/2" />
-                            <input 
+                            <input
                                 type="text" placeholder="Buscar..." value={inactiveSearch} onChange={(e) => setInactiveSearch(e.target.value)}
-                                className="w-full pl-9 pr-3 py-1.5 text-sm bg-white border border-red-200 rounded-lg focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                                className="w-full pl-9 pr-3 py-1.5 text-sm bg-white border border-red-200 rounded-lg focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 text-slate-900"
                             />
                         </div>
                     </div>

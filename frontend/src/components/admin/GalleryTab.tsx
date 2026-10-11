@@ -117,13 +117,13 @@ export default function GalleryTab({ gallery, fetchData, isLoadingData }: { gall
             type="text"
             placeholder="Título (Ej: Boda María)"
             aria-label="Título de las fotos"
-            className="px-4 py-2 rounded-xl border-none bg-white shadow-sm text-sm focus:ring-2 focus:ring-[#004080] outline-none w-full md:w-44"
+            className="px-4 py-2 rounded-xl border-none bg-white shadow-sm text-sm focus:ring-2 focus:ring-[#004080] outline-none w-full md:w-44 text-slate-900"
             value={uploadTitle}
             onChange={(e) => setUploadTitle(e.target.value)}
           />
           <select
             aria-label="Tipo de evento de las fotos"
-            className="px-4 py-2 rounded-xl border-none bg-white shadow-sm text-sm focus:ring-2 focus:ring-[#004080] outline-none w-full md:w-40 cursor-pointer"
+            className="px-4 py-2 rounded-xl border-none bg-white shadow-sm text-sm focus:ring-2 focus:ring-[#004080] outline-none w-full md:w-40 cursor-pointer text-slate-900"
             value={uploadEventType}
             onChange={(e) => setUploadEventType(e.target.value)}
           >
@@ -218,13 +218,13 @@ function GalleryCard({ img, isEditing, isSaving, onEdit, onCancelEdit, onSaveEdi
             placeholder="Título"
             aria-label="Título de la foto"
             autoFocus
-            className="w-full px-2.5 py-1.5 rounded-lg border-none text-xs outline-none focus:ring-2 focus:ring-[#3b9dff]"
+            className="w-full px-2.5 py-1.5 rounded-lg border-none text-xs outline-none focus:ring-2 focus:ring-[#3b9dff] text-slate-900"
             value={draftTitle}
             onChange={(e) => setDraftTitle(e.target.value)}
           />
           <select
             aria-label="Tipo de evento de la foto"
-            className="w-full px-2.5 py-1.5 rounded-lg border-none text-xs outline-none focus:ring-2 focus:ring-[#3b9dff] cursor-pointer"
+            className="w-full px-2.5 py-1.5 rounded-lg border-none text-xs outline-none focus:ring-2 focus:ring-[#3b9dff] cursor-pointer text-slate-900"
             value={draftEventType}
             onChange={(e) => setDraftEventType(e.target.value)}
           >

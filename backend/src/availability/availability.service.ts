@@ -98,6 +98,31 @@ export class AvailabilityService {
     await tx.$queryRaw`SELECT "id" FROM "Product" WHERE "id" IN (${Prisma.join(ids)}) ORDER BY "id" FOR UPDATE`;
   }
 
+  /**
+   * Condición común para encontrar alquileres ACTIVO cuyo rango de fechas
+   * puede solaparse con [from, to]. Si "hoy" ya está dentro o más allá del
+   * inicio del rango, todo alquiler ACTIVO que empiece antes del final del
+   * rango sigue ocupando (o está atrasado y ocupa hasta hoy): no se puede
+   * filtrar por returnDate en ese caso.
+   */
+  private activeRentalWhere(
+    today: number,
+    from: number,
+    to: number,
+    excludeRentalId?: number,
+  ) {
+    const returnFilter =
+      today >= from ? undefined : { gte: fromDayIndex(from) };
+    return {
+      status: 'ACTIVO' as const,
+      ...(excludeRentalId !== undefined
+        ? { id: { not: excludeRentalId } }
+        : {}),
+      eventDate: { lte: fromDayIndex(to) },
+      ...(returnFilter ? { returnDate: returnFilter } : {}),
+    };
+  }
+
   /** Intervalos de ocupación de los alquileres ACTIVO que tocan [from, to], por producto. */
   private async loadIntervals(
     db: Db,
@@ -107,23 +132,10 @@ export class AvailabilityService {
     excludeRentalId?: number,
   ): Promise<Map<number, UsageInterval[]>> {
     const today = paraguayTodayIndex();
-    // Si "hoy" ya está dentro o más allá del inicio del rango, todo alquiler
-    // ACTIVO que empiece antes del final del rango sigue ocupando (o está
-    // atrasado y ocupa hasta hoy): no se puede filtrar por returnDate.
-    const returnFilter =
-      today >= from ? undefined : { gte: fromDayIndex(from) };
-
     const rows = await db.rentalItem.findMany({
       where: {
         productId: { in: productIds },
-        rental: {
-          status: 'ACTIVO',
-          ...(excludeRentalId !== undefined
-            ? { id: { not: excludeRentalId } }
-            : {}),
-          eventDate: { lte: fromDayIndex(to) },
-          ...(returnFilter ? { returnDate: returnFilter } : {}),
-        },
+        rental: this.activeRentalWhere(today, from, to, excludeRentalId),
       },
       select: {
         productId: true,
@@ -143,6 +155,47 @@ export class AvailabilityService {
       byProduct.set(row.productId, list);
     }
     return byProduct;
+  }
+
+  /**
+   * Alquileres ACTIVO que ocupan unidades de un producto durante [from, to],
+   * con el cliente y la cantidad: para mostrarle al admin EXACTAMENTE quién
+   * tiene reservadas las unidades que le están faltando, no solo el número.
+   */
+  async productHolders(
+    db: Db,
+    productId: number,
+    from: number,
+    to: number,
+    excludeRentalId?: number,
+  ): Promise<
+    Array<{
+      rentalId: number;
+      clientName: string;
+      quantity: number;
+      eventDate: Date;
+      returnDate: Date;
+    }>
+  > {
+    const today = paraguayTodayIndex();
+    const rows = await db.rentalItem.findMany({
+      where: {
+        productId,
+        rental: this.activeRentalWhere(today, from, to, excludeRentalId),
+      },
+      select: {
+        quantity: true,
+        rental: { select: { id: true, clientName: true, eventDate: true, returnDate: true } },
+      },
+      orderBy: { rental: { eventDate: 'asc' } },
+    });
+    return rows.map((r) => ({
+      rentalId: r.rental.id,
+      clientName: r.rental.clientName,
+      quantity: r.quantity,
+      eventDate: r.rental.eventDate,
+      returnDate: r.rental.returnDate,
+    }));
   }
 
   /**

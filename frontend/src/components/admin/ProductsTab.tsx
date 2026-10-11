@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Plus, Edit, Trash2, Search, X, Image as ImageIcon, Filter, ChevronDown, Archive, RotateCcw, TriangleAlert } from "lucide-react";
 import { apiFetch, getImageUrl, readApiError } from "../../lib/api";
 import { useToast } from "./ToastProvider";
@@ -136,7 +137,7 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
               aria-label="Buscar producto" 
               value={searchProduct} 
               onChange={(e) => setSearchProduct(e.target.value)} 
-              className="pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#004080] focus:outline-none w-full shadow-sm" 
+              className="pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#004080] focus:outline-none w-full shadow-sm text-slate-900"
             />
           </div>
 
@@ -248,7 +249,7 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
 
       )}
 
-      {isModalOpen && (
+      {isModalOpen && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
@@ -257,9 +258,9 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
             </div>
             <div className="p-6 overflow-y-auto custom-scrollbar">
               <form id="productForm" onSubmit={handleSaveProduct} className="space-y-4">
-                <div><label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label><input type="text" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#004080] outline-none" /></div>
+                <div><label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label><input type="text" required value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#004080] outline-none text-slate-900" /></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Precio</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">Gs.</span><input type="number" required value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#004080] outline-none" /></div></div>
+                  <div><label className="block text-sm font-medium text-slate-700 mb-1">Precio</label><div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">Gs.</span><input type="number" required value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#004080] outline-none text-slate-900" /></div></div>
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">Stock Total (inventario físico)</label>
                     <input type="number" required min={0} value={formData.totalStock} onChange={(e) => setFormData({...formData, totalStock: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl font-bold text-[#004080] outline-none" />
@@ -275,14 +276,15 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
                     })()}
                   </div>
                 </div>
-                <div><label className="block text-sm font-medium text-slate-700 mb-1">Categoría</label><select required value={formData.categoryId} onChange={(e) => setFormData({...formData, categoryId: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#004080] outline-none bg-white cursor-pointer"><option value="" disabled>Seleccionar...</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
-                <div><label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label><textarea required rows={2} value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl outline-none resize-none" /></div>
+                <div><label className="block text-sm font-medium text-slate-700 mb-1">Categoría</label><select required value={formData.categoryId} onChange={(e) => setFormData({...formData, categoryId: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#004080] outline-none bg-white cursor-pointer text-slate-900"><option value="" disabled>Seleccionar...</option>{categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+                <div><label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label><textarea required rows={2} value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} className="w-full px-4 py-2 border border-slate-200 rounded-xl outline-none resize-none text-slate-900" /></div>
                 <div><label className="block text-sm font-medium text-slate-700 mb-1">Foto</label><input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageChange} className="w-full text-sm text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:bg-[#e8f0f8] file:text-[#004080] hover:file:bg-[#d3e3f2] cursor-pointer" />{imagePreview && <div className="mt-3 relative w-full h-32 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 flex justify-center items-center"><img src={imagePreview} alt="Vista previa" className="max-h-full object-contain mix-blend-multiply" /></div>}</div>
               </form>
             </div>
             <div className="px-6 py-4 border-t border-slate-100 flex justify-end space-x-3 bg-slate-50/50"><button type="button" onClick={closeModal} className="px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-200 rounded-xl cursor-pointer">Cancelar</button><button type="submit" form="productForm" disabled={isSaving} className="px-5 py-2.5 bg-[#004080] text-white font-medium rounded-xl hover:bg-[#00294f] shadow-md disabled:bg-[#004080]/50 cursor-pointer">{isSaving ? "Guardando..." : "Guardar Producto"}</button></div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

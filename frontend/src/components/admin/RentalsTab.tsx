@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, Search, X, CheckCircle, CalendarDays, PlusCircle, MapPin, Pencil, Ban, RotateCcw, TriangleAlert, List, LayoutGrid } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Plus, Trash2, Search, X, CheckCircle, CalendarDays, PlusCircle, MapPin, Pencil, Ban, RotateCcw, TriangleAlert, List, LayoutGrid, ChevronDown, ChevronUp, Users } from "lucide-react";
 import { apiFetch, readApiError } from "../../lib/api";
 import { useToast } from "./ToastProvider";
 import type { Product, Rental, City, RentalPhase } from "../../types";
 import RentalsCalendar from "./RentalsCalendar";
+import ProductCombobox, { type ComboboxOption } from "./ProductCombobox";
 
 const formatPYG = (amount: number) => `Gs. ${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 
@@ -23,6 +25,9 @@ interface RentalFormItem { productId: string; quantity: number | string }
 interface RentalForm { clientName: string; clientPhone: string; cityId: string; eventDate: string; returnDate: string; items: RentalFormItem[] }
 
 const EMPTY_FORM: RentalForm = { clientName: "", clientPhone: "", cityId: "", eventDate: "", returnDate: "", items: [{ productId: "", quantity: 1 }] };
+
+// Quién tiene reservadas las unidades de un producto en el rango consultado (detalle de un conflicto de stock).
+interface StockHolder { rentalId: number; clientName: string; quantity: number; eventDate: string; returnDate: string; phase: RentalPhase; daysOverdue: number }
 
 // Filtros por etapa. El orden es el de las pastillas en pantalla.
 type PhaseFilter = "TODOS" | RentalPhase;
@@ -66,6 +71,12 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
   const [rentalForm, setRentalForm] = useState<RentalForm>(EMPTY_FORM);
   // Unidades libres por producto durante TODAS las fechas elegidas en el formulario (null = todavía sin fechas).
   const [availability, setAvailability] = useState<Record<number, number> | null>(null);
+  // Detalle de "quién lo tiene reservado" para un conflicto de stock: un solo
+  // producto abierto a la vez. Guarda con qué fechas se pidió, así si el
+  // admin las cambia después de abrirlo, el panel se considera cerrado en vez
+  // de seguir mostrando una respuesta que ya no corresponde a esas fechas.
+  const [holdersFor, setHoldersFor] = useState<{ productId: number; eventDate: string; returnDate: string } | null>(null);
+  const [holders, setHolders] = useState<StockHolder[] | "loading" | "error" | null>(null);
 
   const editingRental = editingId !== null ? rentals.find((r) => r.id === editingId) ?? null : null;
   // Uno devuelto o anulado ya no ocupa stock: solo se corrigen sus datos de contacto.
@@ -161,10 +172,33 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
     return m;
   }, [rentalForm.items]);
 
+  // Al chocar con el stock, muestra (o esconde) exactamente qué otros alquileres
+  // tienen reservadas las unidades de ese producto en esas fechas.
+  const toggleHolders = async (productId: number) => {
+    if (holdersFor?.productId === productId && holdersFor.eventDate === eventDate && holdersFor.returnDate === returnDate) {
+      setHoldersFor(null);
+      return;
+    }
+    setHoldersFor({ productId, eventDate, returnDate });
+    setHolders("loading");
+    try {
+      const exclude = editingId !== null ? `&excludeRentalId=${editingId}` : "";
+      const res = await apiFetch(`/rentals/availability/holders?productId=${productId}&from=${eventDate}&to=${returnDate}${exclude}`);
+      if (!res.ok) { setHolders("error"); return; }
+      setHolders(await res.json());
+    } catch { setHolders("error"); }
+  };
+
   const handleSaveRental = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!scheduleLocked) {
+      // El buscador de productos ya no es un <select required>: sin esto, un
+      // renglón sin producto elegido pasaría la validación nativa del form.
+      if (rentalForm.items.some((item) => !item.productId)) {
+        toast.error("Elegí un producto para cada renglón (o quitalo con la papelera).");
+        return;
+      }
       if (new Date(rentalForm.returnDate) < new Date(rentalForm.eventDate)) {
         toast.error("La fecha de devolución no puede ser anterior a la fecha del evento.");
         return;
@@ -236,7 +270,7 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
       <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between gap-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input type="text" placeholder="Buscar cliente..." aria-label="Buscar cliente" value={searchRental} onChange={(e) => setSearchRental(e.target.value)} className="pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#004080] focus:outline-none w-full sm:w-64" />
+          <input type="text" placeholder="Buscar cliente..." aria-label="Buscar cliente" value={searchRental} onChange={(e) => setSearchRental(e.target.value)} className="pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#004080] focus:outline-none w-full sm:w-64 text-slate-900" />
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center bg-slate-100 rounded-xl p-1" role="group" aria-label="Tipo de vista">
@@ -376,7 +410,7 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
       </div>
       )}
 
-      {isRentalModalOpen && (
+      {isRentalModalOpen && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[95vh]">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/80">
@@ -394,17 +428,17 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
                   <h4 className="text-sm font-bold text-slate-800 uppercase tracking-wider mb-3">1. Datos del Cliente y Fechas</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Nombre Completo</label><input type="text" required value={rentalForm.clientName} onChange={(e) => setRentalForm({...rentalForm, clientName: e.target.value})} className="w-full px-4 py-2 border rounded-xl" placeholder="Ej. Juan Pérez" /></div>
-                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Teléfono</label><input type="text" value={rentalForm.clientPhone} onChange={(e) => setRentalForm({...rentalForm, clientPhone: e.target.value})} className="w-full px-4 py-2 border rounded-xl" placeholder="09XX XXX XXX" /></div>
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Nombre Completo</label><input type="text" required value={rentalForm.clientName} onChange={(e) => setRentalForm({...rentalForm, clientName: e.target.value})} className="w-full px-4 py-2 border rounded-xl text-slate-900" placeholder="Ej. Juan Pérez" /></div>
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Teléfono</label><input type="text" value={rentalForm.clientPhone} onChange={(e) => setRentalForm({...rentalForm, clientPhone: e.target.value})} className="w-full px-4 py-2 border rounded-xl text-slate-900" placeholder="09XX XXX XXX" /></div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Ciudad de Entrega</label>
-                      <select value={rentalForm.cityId} onChange={(e) => setRentalForm({...rentalForm, cityId: e.target.value})} className="w-full px-4 py-2 border rounded-xl bg-white">
+                      <select value={rentalForm.cityId} onChange={(e) => setRentalForm({...rentalForm, cityId: e.target.value})} className="w-full px-4 py-2 border rounded-xl bg-white text-slate-900">
                         <option value="">Sin especificar</option>
                         {cities.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
                       </select>
                     </div>
-                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Fecha del Evento (Uso)</label><input type="date" required disabled={scheduleLocked} value={rentalForm.eventDate} onChange={(e) => setRentalForm({...rentalForm, eventDate: e.target.value})} className="w-full px-4 py-2 border rounded-xl disabled:bg-slate-100 disabled:text-slate-500" /></div>
-                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Fecha de Devolución</label><input type="date" required disabled={scheduleLocked} min={rentalForm.eventDate || undefined} value={rentalForm.returnDate} onChange={(e) => setRentalForm({...rentalForm, returnDate: e.target.value})} className="w-full px-4 py-2 border rounded-xl disabled:bg-slate-100 disabled:text-slate-500" /></div>
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Fecha del Evento (Uso)</label><input type="date" required disabled={scheduleLocked} value={rentalForm.eventDate} onChange={(e) => setRentalForm({...rentalForm, eventDate: e.target.value})} className="w-full px-4 py-2 border rounded-xl text-slate-900 disabled:bg-slate-100 disabled:text-slate-500" /></div>
+                    <div><label className="block text-sm font-medium text-slate-700 mb-1">Fecha de Devolución</label><input type="date" required disabled={scheduleLocked} min={rentalForm.eventDate || undefined} value={rentalForm.returnDate} onChange={(e) => setRentalForm({...rentalForm, returnDate: e.target.value})} className="w-full px-4 py-2 border rounded-xl text-slate-900 disabled:bg-slate-100 disabled:text-slate-500" /></div>
                   </div>
                 </div>
 
@@ -425,35 +459,72 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
                       const free = productId !== null && availability ? availability[productId] : undefined;
                       const requested = productId !== null ? requestedByProduct.get(productId) ?? 0 : 0;
                       const over = free !== undefined && requested > free;
+                      const comboOptions: ComboboxOption[] = productOptions.map((p) => {
+                        const optFree = availability ? availability[p.id] : undefined;
+                        const unavailable = availability ? (optFree ?? 0) <= 0 : p.totalStock === 0;
+                        return {
+                          id: p.id,
+                          searchText: p.name,
+                          label: `${p.name}${p.archived ? " (dado de baja)" : ""}`,
+                          meta: `${formatPYG(p.pricePerDay)} · ${availability ? `Libres: ${optFree ?? 0}` : `Stock total: ${p.totalStock}`}`,
+                          disabled: unavailable && String(p.id) !== item.productId,
+                        };
+                      });
                       return (
                         <div key={index} className={`bg-white p-3 border rounded-xl shadow-sm ${over ? "border-red-300" : "border-slate-200"}`}>
                           <div className="flex items-center gap-3">
                             <div className="flex-1">
-                              <select required disabled={scheduleLocked} value={item.productId} onChange={(e) => updateRentalItem(index, 'productId', e.target.value)} className="w-full px-3 py-2 border rounded-lg bg-white text-sm disabled:bg-slate-100">
-                                <option value="" disabled>Seleccionar producto...</option>
-                                {productOptions.map(p => {
-                                  const optFree = availability ? availability[p.id] : undefined;
-                                  const unavailable = availability ? (optFree ?? 0) <= 0 : p.totalStock === 0;
-                                  return (
-                                    <option key={p.id} value={p.id} disabled={unavailable && String(p.id) !== item.productId}>
-                                      {p.name}{p.archived ? " (dado de baja)" : ""} - {formatPYG(p.pricePerDay)} ({availability ? `Libres: ${optFree ?? 0}` : `Stock total: ${p.totalStock}`})
-                                    </option>
-                                  );
-                                })}
-                              </select>
+                              <ProductCombobox
+                                value={item.productId}
+                                onChange={(id) => updateRentalItem(index, 'productId', id)}
+                                disabled={scheduleLocked}
+                                options={comboOptions}
+                              />
                             </div>
                             <div className="w-24">
-                              <input type="number" required min="1" disabled={scheduleLocked} placeholder="Cant." value={item.quantity} onChange={(e) => updateRentalItem(index, 'quantity', e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-center font-bold disabled:bg-slate-100" />
+                              <input type="number" required min="1" disabled={scheduleLocked} placeholder="Cant." value={item.quantity} onChange={(e) => updateRentalItem(index, 'quantity', e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-center font-bold text-slate-900 disabled:bg-slate-100 disabled:text-slate-500" />
                             </div>
                             {rentalForm.items.length > 1 && !scheduleLocked && (
                               <button type="button" onClick={() => removeRentalItem(index)} aria-label="Quitar este producto" title="Quitar este producto" className="p-2 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"><Trash2 className="w-5 h-5"/></button>
                             )}
                           </div>
-                          {over && (
-                            <p role="alert" className="text-xs font-medium text-red-600 mt-2">
-                              En esas fechas solo hay {free} libres y estás pidiendo {requested}.
-                            </p>
-                          )}
+                          {over && productId !== null && (() => {
+                            const holdersOpen = holdersFor?.productId === productId && holdersFor.eventDate === eventDate && holdersFor.returnDate === returnDate;
+                            return (
+                            <div className="mt-2">
+                              <p role="alert" className="text-xs font-medium text-red-600">
+                                En esas fechas solo hay {free} libres y estás pidiendo {requested}.
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => toggleHolders(productId)}
+                                className="mt-1 flex items-center gap-1 text-xs font-bold text-red-700 hover:text-red-900 cursor-pointer"
+                              >
+                                <Users className="w-3.5 h-3.5" />
+                                {holdersOpen ? "Ocultar" : "¿Quién lo tiene reservado?"}
+                                {holdersOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                              </button>
+                              {holdersOpen && (
+                                <div className="mt-2 bg-red-50 border border-red-200 rounded-lg p-2 space-y-1.5">
+                                  {holders === "loading" && <p className="text-xs text-slate-500">Buscando...</p>}
+                                  {holders === "error" && <p className="text-xs text-slate-500">No se pudo cargar. Probá de nuevo.</p>}
+                                  {Array.isArray(holders) && holders.length === 0 && (
+                                    <p className="text-xs text-slate-500">No hay otros alquileres ACTIVO de este producto en esas fechas (puede que el total ya no alcance igual, o que la mercadería esté sin devolver).</p>
+                                  )}
+                                  {Array.isArray(holders) && holders.map((h) => (
+                                    <div key={h.rentalId} className="flex items-center justify-between gap-2 text-xs">
+                                      <span className="truncate">
+                                        <span className="font-bold text-slate-800">{h.clientName}</span>
+                                        <span className="text-slate-500"> · {formatFechaCalendario(h.eventDate)} a {formatFechaCalendario(h.returnDate)}</span>
+                                      </span>
+                                      <span className="shrink-0 font-bold text-red-700 bg-red-100 px-1.5 py-0.5 rounded">{h.quantity}x</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            );
+                          })()}
                         </div>
                       );
                     })}
@@ -469,7 +540,8 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

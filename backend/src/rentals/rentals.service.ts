@@ -156,6 +156,14 @@ export class RentalsService {
     return { products: await this.availability.availabilityForRange(from, to, excludeRentalId) };
   }
 
+  /** Quién tiene reservadas las unidades de un producto en un rango: para explicar un conflicto de stock, no solo el número. */
+  async productHolders(productId: number, fromRaw: string, toRaw: string, excludeRentalId?: number) {
+    const { from, to } = this.availability.parseRange(fromRaw, toRaw);
+    const today = paraguayTodayIndex();
+    const holders = await this.availability.productHolders(this.prisma, productId, from, to, excludeRentalId);
+    return holders.map((h) => ({ ...h, ...derivePhase({ status: 'ACTIVO', eventDate: h.eventDate, returnDate: h.returnDate }, today) }));
+  }
+
   // ---------------------------------------------------------------- editar
 
   async update(id: number, data: UpdateRentalDto) {

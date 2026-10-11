@@ -192,3 +192,43 @@ describe('withAvailability — lowStock (alerta de stock bajo)', () => {
     expect(result.lowStock).toBe(true);
   });
 });
+
+describe('productHolders (quién tiene reservadas las unidades, para explicar un conflicto)', () => {
+  // Simula lo que devolvería Prisma: cada fila es un RentalItem con su Rental incluido.
+  const holderRow = (rentalId: number, clientName: string, quantity: number, eventIso: string, returnIso: string) => ({
+    quantity,
+    rental: { id: rentalId, clientName, eventDate: new Date(`${eventIso}T00:00:00.000Z`), returnDate: new Date(`${returnIso}T00:00:00.000Z`) },
+  });
+
+  // productHolders recibe la "db" como parámetro (igual que freeUnits/lockProducts,
+  // pensado para llamarse dentro de una transacción); no usa this.prisma.
+  function mockDb(rows: ReturnType<typeof holderRow>[]) {
+    const findMany = jest.fn().mockResolvedValue(rows);
+    return { db: { rentalItem: { findMany } } as any, findMany };
+  }
+
+  it('sin alquileres que ocupen el producto, devuelve una lista vacía', async () => {
+    const service = new AvailabilityService({} as any);
+    const { db } = mockDb([]);
+    const holders = await service.productHolders(db, 1, 100, 110);
+    expect(holders).toEqual([]);
+  });
+
+  it('expone el cliente y la cantidad de cada alquiler que ocupa el producto', async () => {
+    const service = new AvailabilityService({} as any);
+    const { db } = mockDb([holderRow(5, 'Juan Pérez', 9, '2026-11-01', '2026-11-03')]);
+    const holders = await service.productHolders(db, 1, 100, 110);
+    expect(holders).toEqual([
+      { rentalId: 5, clientName: 'Juan Pérez', quantity: 9, eventDate: new Date('2026-11-01T00:00:00.000Z'), returnDate: new Date('2026-11-03T00:00:00.000Z') },
+    ]);
+  });
+
+  it('pasa productId, el rango y excludeRentalId al armar la consulta (no se filtra por otro producto ni se incluye el propio alquiler)', async () => {
+    const service = new AvailabilityService({} as any);
+    const { db, findMany } = mockDb([]);
+    await service.productHolders(db, 7, 100, 110, 42);
+    const where = findMany.mock.calls[0][0].where;
+    expect(where.productId).toBe(7);
+    expect(where.rental.id).toEqual({ not: 42 });
+  });
+});

@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateRentalDto } from './dto/create-rental.dto';
 import { UpdateRentalDto } from './dto/update-rental.dto';
 import { RentalAvailabilityQueryDto } from './dto/availability-query.dto';
+import { ProductHoldersQueryDto } from './dto/product-holders-query.dto';
 
 // Todo el módulo de alquileres es de uso exclusivo del panel admin
 // (el checkout público no pasa por el backend, redirige a WhatsApp).
@@ -30,6 +31,14 @@ export class RentalsController {
   @Get('availability')
   availability(@Query() query: RentalAvailabilityQueryDto) {
     return this.rentalsService.availabilityForRange(query.from, query.to, query.excludeRentalId);
+  }
+
+  // Detalle de quién tiene reservadas las unidades de un producto en un
+  // rango: lo pide el panel cuando hay un conflicto de stock, para mostrar
+  // de qué alquileres exactos viene la falta en vez de solo un número.
+  @Get('availability/holders')
+  availabilityHolders(@Query() query: ProductHoldersQueryDto) {
+    return this.rentalsService.productHolders(query.productId, query.from, query.to, query.excludeRentalId);
   }
 
   @Put(':id')
