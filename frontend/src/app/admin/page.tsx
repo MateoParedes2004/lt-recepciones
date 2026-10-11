@@ -11,7 +11,7 @@ import RentalsTab from "../../components/admin/RentalsTab";
 import GalleryTab from "../../components/admin/GalleryTab";
 import CitiesTab from "../../components/admin/CitiesTab";
 import { apiFetch } from "../../lib/api";
-import type { Product, Category, Rental, GalleryImage, City } from "../../types";
+import type { Product, Category, Rental, GalleryImage, City, CheckoutIntent } from "../../types";
 
 // StatisticsTab carga recharts (pesado): se difiere para que ese bundle solo
 // se descargue si el admin realmente abre la pestaña de Estadísticas.
@@ -36,6 +36,7 @@ export default function AdminDashboard() {
   const [rentals, setRentals] = useState<Rental[]>([]);
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
   const [cities, setCities] = useState<City[]>([]);
+  const [pendingOrders, setPendingOrders] = useState<CheckoutIntent[]>([]);
   // Recursos que no se pudieron cargar (red caída, servidor caído, etc.):
   // sin esto, una falla se veía igual que "todavía no hay datos cargados".
   const [failedResources, setFailedResources] = useState<string[]>([]);
@@ -48,6 +49,7 @@ export default function AdminDashboard() {
       { label: "alquileres", path: "/rentals", apply: (d) => setRentals(d as Rental[]) },
       { label: "galería", path: "/gallery/admin", apply: (d) => setGallery(d as GalleryImage[]) },
       { label: "ciudades", path: "/cities", apply: (d) => setCities(d as City[]) },
+      { label: "pedidos por WhatsApp", path: "/analytics/checkout-intents", apply: (d) => setPendingOrders(d as CheckoutIntent[]) },
     ];
     // Cada recurso se carga por separado: si uno falla, los demás igual se
     // muestran (antes un solo error tiraba abajo la carga completa).
@@ -148,7 +150,7 @@ export default function AdminDashboard() {
       <div className="inline-flex space-x-2 mb-6 bg-slate-200/50 p-1 rounded-2xl overflow-x-auto max-w-full">
         <button onClick={() => setActiveTab("products")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "products" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Package className="w-4 h-4 mr-2" /> Productos</button>
         <button onClick={() => setActiveTab("categories")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "categories" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Tags className="w-4 h-4 mr-2" /> Categorías</button>
-        <button onClick={() => setActiveTab("rentals")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "rentals" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><CalendarDays className="w-4 h-4 mr-2" /> Alquileres{overdueRentalsCount > 0 && <span aria-label={`${overdueRentalsCount} alquileres atrasados`} title="Alquileres atrasados" className="ml-2 min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">{overdueRentalsCount}</span>}</button>
+        <button onClick={() => setActiveTab("rentals")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "rentals" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><CalendarDays className="w-4 h-4 mr-2" /> Alquileres{pendingOrders.length > 0 && <span aria-label={`${pendingOrders.length} pedidos por WhatsApp sin confirmar`} title="Pedidos por WhatsApp sin confirmar" className="ml-2 min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-[#004080] text-white text-xs font-bold">{pendingOrders.length}</span>}{overdueRentalsCount > 0 && <span aria-label={`${overdueRentalsCount} alquileres atrasados`} title="Alquileres atrasados" className="ml-1 min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">{overdueRentalsCount}</span>}</button>
         <button onClick={() => setActiveTab("gallery")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "gallery" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Camera className="w-4 h-4 mr-2" /> Galería</button>
         <button onClick={() => setActiveTab("statistics")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "statistics" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><BarChart3 className="w-4 h-4 mr-2" /> Estadísticas</button>
         {/*  NUEVO BOTÓN PARA CIUDADES */}
@@ -158,7 +160,7 @@ export default function AdminDashboard() {
       {/* 4. RENDERIZADO DINÁMICO DE PESTAÑAS */}
       {activeTab === "products" && <ProductsTab products={products} categories={categories} fetchData={fetchData} isLoadingData={isLoadingData} />}
       {activeTab === "categories" && <CategoriesTab categories={categories} fetchData={fetchData} />}
-      {activeTab === "rentals" && <RentalsTab rentals={rentals} products={products} cities={cities} fetchData={fetchData} isLoadingData={isLoadingData} />}
+      {activeTab === "rentals" && <RentalsTab rentals={rentals} products={products} cities={cities} pendingOrders={pendingOrders} fetchData={fetchData} isLoadingData={isLoadingData} />}
       {activeTab === "gallery" && <GalleryTab gallery={gallery} fetchData={fetchData} isLoadingData={isLoadingData} />}
       {activeTab === "statistics" && <StatisticsTab />}
       {/* RENDERIZAMOS LA PESTAÑA DE CIUDADES */}

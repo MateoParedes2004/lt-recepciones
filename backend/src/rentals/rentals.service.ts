@@ -108,7 +108,7 @@ export class RentalsService {
 
         const totalPrice = data.items.reduce((sum, item) => sum + Number(byId.get(item.productId)!.pricePerDay) * item.quantity, 0);
 
-        return tx.rental.create({
+        const created = await tx.rental.create({
           data: {
             clientName: data.clientName,
             clientPhone: data.clientPhone || '',
@@ -126,6 +126,18 @@ export class RentalsService {
           },
           include: RENTAL_INCLUDE,
         });
+
+        // Viene de confirmar un pedido por WhatsApp: lo marca CONFIRMADO y lo
+        // enlaza con este alquiler. La guarda PENDIENTE evita enlazarlo dos
+        // veces si alguien ya lo había confirmado (o descartado) mientras tanto.
+        if (data.checkoutIntentId !== undefined) {
+          await tx.checkoutIntent.updateMany({
+            where: { id: data.checkoutIntentId, status: 'PENDIENTE' },
+            data: { status: 'CONFIRMADO', rentalId: created.id },
+          });
+        }
+
+        return created;
       },
       { timeout: 15000 },
     );

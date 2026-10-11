@@ -81,6 +81,9 @@ model Rental {
   // Relación: Un alquiler tiene muchos productos adentro (ítems)
   items       RentalItem[]
 
+  // Pedido por WhatsApp que se confirmó como este alquiler (si vino de ahí).
+  checkoutIntent CheckoutIntent?
+
   @@index([eventDate])
   @@index([status])
   @@index([cityId])
@@ -184,13 +187,24 @@ model CheckoutIntent {
   totalAmount Float
   itemCount   Int
   cityName    String?
-  // Fecha del evento que eligió en el carrito (opcional; fecha de calendario
-  // pura, medianoche UTC como Rental.eventDate).
+  // Id de la ciudad elegida en el carrito, sin clave foránea a propósito
+  // (igual que CheckoutIntentItem.productId): es solo una referencia para
+  // precargar el alquiler si se confirma; no debe bloquear borrar la ciudad.
+  cityId      Int?
+  // Fechas que eligió en el carrito (opcionales; fecha de calendario pura,
+  // medianoche UTC como Rental.eventDate/returnDate).
   eventDate   DateTime?
+  returnDate  DateTime?
+  // PENDIENTE (recién llegado) | CONFIRMADO (se cargó el alquiler real,
+  // ver rentalId) | DESCARTADO (el admin lo marcó como que no prosperó).
+  status      String   @default("PENDIENTE")
+  rentalId    Int?     @unique
+  rental      Rental?  @relation(fields: [rentalId], references: [id], onDelete: SetNull)
   createdAt   DateTime @default(now())
   items       CheckoutIntentItem[]
 
   @@index([createdAt])
+  @@index([status])
 }
 
 // Qué productos llevaba cada pedido por WhatsApp ("los más pedidos").

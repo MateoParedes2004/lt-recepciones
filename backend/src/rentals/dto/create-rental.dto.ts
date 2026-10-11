@@ -57,4 +57,11 @@ export class CreateRentalDto {
   @ValidateNested({ each: true })
   @Type(() => RentalItemDto)
   items: RentalItemDto[];
+
+  // Si este alquiler viene de confirmar un pedido por WhatsApp (ver
+  // "Pedidos por confirmar" en el panel), el id de ese CheckoutIntent para
+  // marcarlo CONFIRMADO y enlazarlo con el alquiler recién creado.
+  @IsOptional()
+  @IsInt()
+  checkoutIntentId?: number;
 }

@@ -2,6 +2,8 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
+  Param,
   Query,
   Body,
   UseGuards,
@@ -54,6 +56,19 @@ export class AnalyticsController {
   @Post('checkout-intent')
   async registrarCheckoutIntent(@Body() body: CreateCheckoutIntentDto) {
     return this.analyticsService.registrarCheckoutIntent(body);
+  }
+
+  // Pedidos por WhatsApp sin confirmar todavía — panel, "Alquileres → Pedidos por confirmar".
+  @UseGuards(JwtAuthGuard)
+  @Get('checkout-intents')
+  async getPendingCheckoutIntents() {
+    return this.analyticsService.getPendingCheckoutIntents();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('checkout-intents/:id/discard')
+  async discardCheckoutIntent(@Param('id', ParseIntPipe) id: number) {
+    return this.analyticsService.discardCheckoutIntent(id);
   }
 
   // Rango real de años con datos, para poblar el selector de año sin hardcodear

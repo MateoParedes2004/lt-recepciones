@@ -85,3 +85,25 @@ export interface CartItem {
   product: Product;
   quantity: number;
 }
+
+export interface CheckoutIntentItem {
+  id: number;
+  productId: number;
+  productName: string;
+  quantity: number;
+}
+
+// Pedido por WhatsApp (se registra cuando el cliente aprieta "Enviar pedido"
+// en el carrito). "Pendiente" = todavía sin revisar; el panel lo muestra en
+// Alquileres para convertirlo en un alquiler real o descartarlo.
+export interface CheckoutIntent {
+  id: number;
+  totalAmount: number;
+  itemCount: number;
+  cityName?: string | null;
+  cityId?: number | null;
+  eventDate?: string | null;
+  returnDate?: string | null;
+  createdAt: string;
+  items: CheckoutIntentItem[];
+}

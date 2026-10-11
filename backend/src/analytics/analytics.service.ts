@@ -1,6 +1,7 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailService } from '../email/email.service';
 import { CreateCheckoutIntentDto } from './dto/create-checkout-intent.dto';
 import { PublicEventType } from './dto/track-event.dto';
 import {
@@ -55,7 +56,10 @@ const NOMBRE_RUBRO_MANTELES = 'Manteles';
 
 @Injectable()
 export class AnalyticsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private emailService: EmailService,
+  ) {}
 
   /** Suma 1 al contador de hoy de ese tipo/clave (lo crea si no existe). */
   private async bumpMetric(type: string, key = '') {
@@ -183,36 +187,64 @@ export class AnalyticsService {
         })
       : [];
 
-    let eventDate: Date | undefined;
-    if (dto.eventDate) {
-      const [y, m, d] = dto.eventDate.split('-').map(Number);
+    const parseCalendarDate = (raw?: string): Date | undefined => {
+      if (!raw) return undefined;
+      const [y, m, d] = raw.split('-').map(Number);
       const parsed = new Date(Date.UTC(y, m - 1, d));
-      if (
-        parsed.getUTCFullYear() === y &&
-        parsed.getUTCMonth() === m - 1 &&
-        parsed.getUTCDate() === d
-      ) {
-        eventDate = parsed;
-      }
-    }
+      return parsed.getUTCFullYear() === y && parsed.getUTCMonth() === m - 1 && parsed.getUTCDate() === d ? parsed : undefined;
+    };
+    const eventDate = parseCalendarDate(dto.eventDate);
+    const returnDate = parseCalendarDate(dto.returnDate);
+    const orderItems = products.map((p) => ({ productId: p.id, productName: p.name, quantity: requested.get(p.id) ?? 1 }));
 
     const intent = await this.prisma.checkoutIntent.create({
       data: {
         totalAmount: dto.totalAmount,
         itemCount: dto.itemCount,
         cityName: dto.cityName,
+        cityId: dto.cityId,
         eventDate,
-        items: {
-          create: products.map((p) => ({
-            productId: p.id,
-            productName: p.name,
-            quantity: requested.get(p.id) ?? 1,
-          })),
-        },
+        returnDate,
+        items: { create: orderItems },
       },
       select: { id: true },
     });
+
+    // No bloquea ni demora la respuesta al carrito: si falla, el pedido ya
+    // quedó guardado y va a aparecer igual en "Pedidos por confirmar".
+    void this.emailService.notifyNewOrder({
+      id: intent.id,
+      totalAmount: dto.totalAmount,
+      cityName: dto.cityName ?? null,
+      eventDate: eventDate ?? null,
+      returnDate: returnDate ?? null,
+      items: orderItems,
+    });
+
     return { success: true, intent };
+  }
+
+  // Pedidos por WhatsApp todavía sin confirmar (ni convertidos en alquiler, ni descartados).
+  async getPendingCheckoutIntents() {
+    return this.prisma.checkoutIntent.findMany({
+      where: { status: 'PENDIENTE' },
+      include: { items: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  // El admin decide que ese pedido no prosperó: deja de aparecer en la lista de pendientes.
+  async discardCheckoutIntent(id: number) {
+    const result = await this.prisma.checkoutIntent.updateMany({
+      where: { id, status: 'PENDIENTE' },
+      data: { status: 'DESCARTADO' },
+    });
+    if (result.count === 0) {
+      const exists = await this.prisma.checkoutIntent.findUnique({ where: { id }, select: { id: true } });
+      if (!exists) throw new NotFoundException(`El pedido con ID ${id} no existe.`);
+      // Ya estaba confirmado o descartado: no hay nada más que hacer.
+    }
+    return { success: true };
   }
 
   // 4. RESUMEN FIJO DEL TRÁFICO (arriba del panel, sin importar el filtro)

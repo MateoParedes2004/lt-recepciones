@@ -40,6 +40,13 @@ export class CreateCheckoutIntentDto {
   @MaxLength(100)
   cityName?: string;
 
+  // Id de la ciudad elegida (si todavía existe al momento del pedido), para
+  // poder precargarla exacta al confirmar el alquiler sin adivinar por nombre.
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  cityId?: number;
+
   // Qué productos llevaba el pedido (opcional: versiones viejas del sitio no lo mandan).
   @IsOptional()
   @IsArray()
@@ -48,10 +55,16 @@ export class CreateCheckoutIntentDto {
   @Type(() => CheckoutIntentItemDto)
   items?: CheckoutIntentItemDto[];
 
-  // Fecha del evento elegida en el carrito (AAAA-MM-DD), si la cargó.
+  // Fechas elegidas en el carrito (AAAA-MM-DD), si las cargó.
   @IsOptional()
   @Matches(/^\d{4}-\d{2}-\d{2}$/, {
     message: 'eventDate debe tener formato AAAA-MM-DD',
   })
   eventDate?: string;
+
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, {
+    message: 'returnDate debe tener formato AAAA-MM-DD',
+  })
+  returnDate?: string;
 }

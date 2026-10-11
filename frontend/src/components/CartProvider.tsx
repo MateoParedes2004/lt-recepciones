@@ -37,6 +37,7 @@ export default function CartProvider({ children }: { children: React.ReactNode }
   const [isMounted, setIsMounted] = useState(false);
   
   const [selectedCityName, setSelectedCityName] = useState<string>("No seleccionada");
+  const [selectedCityId, setSelectedCityId] = useState<number | null>(null);
   const [shippingCost, setShippingCost] = useState<number>(0);
   const [cityError, setCityError] = useState(false);
 
@@ -202,6 +203,7 @@ export default function CartProvider({ children }: { children: React.ReactNode }
 
   const handleCitySelect = (cityId: number, cityName: string, cityPrice: number) => {
     setSelectedCityName(cityName);
+    setSelectedCityId(cityId);
     setShippingCost(cityPrice);
     setCityError(false);
   };
@@ -244,9 +246,10 @@ export default function CartProvider({ children }: { children: React.ReactNode }
         totalAmount: totalAmount,
         itemCount: cart.reduce((acc, item) => acc + item.quantity, 0),
         cityName: selectedCityName,
+        ...(selectedCityId !== null ? { cityId: selectedCityId } : {}),
         // Qué productos pidió: así el panel sabe cuáles son los más pedidos.
         items: cart.map((item) => ({ productId: item.product.id, quantity: item.quantity })),
-        ...(datesValid ? { eventDate } : {}),
+        ...(datesValid ? { eventDate, returnDate } : {}),
       }),
       keepalive: true,
     }).catch(() => {});

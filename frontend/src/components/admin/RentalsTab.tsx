@@ -5,11 +5,13 @@ import { createPortal } from "react-dom";
 import { Plus, Trash2, Search, X, CheckCircle, CalendarDays, PlusCircle, MapPin, Pencil, Ban, RotateCcw, TriangleAlert, List, LayoutGrid, ChevronDown, ChevronUp, Users } from "lucide-react";
 import { apiFetch, readApiError } from "../../lib/api";
 import { useToast } from "./ToastProvider";
-import type { Product, Rental, City, RentalPhase } from "../../types";
+import type { Product, Rental, City, RentalPhase, CheckoutIntent } from "../../types";
 import RentalsCalendar from "./RentalsCalendar";
 import ProductCombobox, { type ComboboxOption } from "./ProductCombobox";
+import PendingOrdersPanel from "./PendingOrdersPanel";
 
 const formatPYG = (amount: number) => `Gs. ${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+const normalize = (text: string) => text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
 // eventDate/returnDate son fechas de calendario puras (se eligen en un
 // <input type="date"> y se guardan como medianoche UTC por convención, sin
@@ -59,7 +61,7 @@ function PhaseBadge({ rental }: { rental: Rental }) {
   }
 }
 
-export default function RentalsTab({ rentals, products, cities, fetchData, isLoadingData }: { rentals: Rental[], products: Product[], cities: City[], fetchData: () => void, isLoadingData: boolean }) {
+export default function RentalsTab({ rentals, products, cities, pendingOrders, fetchData, isLoadingData }: { rentals: Rental[], products: Product[], cities: City[], pendingOrders: CheckoutIntent[], fetchData: () => void, isLoadingData: boolean }) {
   const toast = useToast();
   const [searchRental, setSearchRental] = useState("");
   const [phaseFilter, setPhaseFilter] = useState<PhaseFilter>("TODOS");
@@ -68,6 +70,9 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
   const [isSavingRental, setIsSavingRental] = useState(false);
   // null = alquiler nuevo; un id = editando ese alquiler.
   const [editingId, setEditingId] = useState<number | null>(null);
+  // Si este alquiler se está armando desde "Convertir en alquiler" de un
+  // pedido por WhatsApp, el id de ese pedido (para enlazarlo al guardar).
+  const [convertingIntentId, setConvertingIntentId] = useState<number | null>(null);
   const [rentalForm, setRentalForm] = useState<RentalForm>(EMPTY_FORM);
   // Unidades libres por producto durante TODAS las fechas elegidas en el formulario (null = todavía sin fechas).
   const [availability, setAvailability] = useState<Record<number, number> | null>(null);
@@ -138,9 +143,10 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
     return () => controller.abort();
   }, [isRentalModalOpen, scheduleLocked, eventDate, returnDate, editingId]);
 
-  const openNewRental = () => { setEditingId(null); setRentalForm(EMPTY_FORM); setAvailability(null); setIsRentalModalOpen(true); };
+  const openNewRental = () => { setEditingId(null); setConvertingIntentId(null); setRentalForm(EMPTY_FORM); setAvailability(null); setIsRentalModalOpen(true); };
   const openEditRental = (r: Rental) => {
     setEditingId(r.id);
+    setConvertingIntentId(null);
     setAvailability(null);
     setRentalForm({
       clientName: r.clientName,
@@ -152,7 +158,40 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
     });
     setIsRentalModalOpen(true);
   };
-  const closeRentalModal = () => { setIsRentalModalOpen(false); setEditingId(null); setRentalForm(EMPTY_FORM); setAvailability(null); };
+  // "Convertir en alquiler" de un pedido por WhatsApp: precarga el formulario
+  // con lo que el cliente pidió en el carrito. El nombre y el teléfono quedan
+  // vacíos a propósito (eso recién se sabe en la conversación de WhatsApp).
+  const openPrefilledRental = (intent: CheckoutIntent) => {
+    setEditingId(null);
+    setConvertingIntentId(intent.id);
+    setAvailability(null);
+    const matchedCity =
+      (intent.cityId != null ? cities.find((c) => c.id === intent.cityId) : undefined) ??
+      (intent.cityName ? cities.find((c) => normalize(c.name) === normalize(intent.cityName!)) : undefined);
+    const items = intent.items
+      .filter((i) => products.some((p) => p.id === i.productId))
+      .map((i) => ({ productId: String(i.productId), quantity: i.quantity }));
+    setRentalForm({
+      clientName: "",
+      clientPhone: "",
+      cityId: matchedCity ? String(matchedCity.id) : "",
+      eventDate: intent.eventDate ? toInputDate(intent.eventDate) : "",
+      returnDate: intent.returnDate ? toInputDate(intent.returnDate) : "",
+      items: items.length > 0 ? items : [{ productId: "", quantity: 1 }],
+    });
+    setIsRentalModalOpen(true);
+  };
+  const closeRentalModal = () => { setIsRentalModalOpen(false); setEditingId(null); setConvertingIntentId(null); setRentalForm(EMPTY_FORM); setAvailability(null); };
+
+  // El admin decide (tras hablar por WhatsApp) que ese pedido no prosperó.
+  const discardIntent = async (intent: CheckoutIntent) => {
+    if (!window.confirm(`¿Descartar el pedido de ${formatPYG(intent.totalAmount)}? Esto no se puede deshacer, pero no borra nada del cliente.`)) return;
+    try {
+      const res = await apiFetch(`/analytics/checkout-intents/${intent.id}/discard`, { method: "PATCH" });
+      if (res.ok) { fetchData(); toast.success("Pedido descartado."); }
+      else toast.error(`No se pudo descartar: ${await readApiError(res)}`);
+    } catch { toast.error("Error de conexión. Revisá tu internet e intentá de nuevo."); }
+  };
 
   const addRentalItem = () => { setRentalForm({ ...rentalForm, items: [...rentalForm.items, { productId: "", quantity: 1 }] }); };
   const removeRentalItem = (index: number) => { const newItems = rentalForm.items.filter((_, i) => i !== index); setRentalForm({ ...rentalForm, items: newItems }); };
@@ -231,11 +270,14 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
         returnDate: new Date(rentalForm.returnDate).toISOString(),
         items: rentalForm.items.map((item) => ({ productId: parseInt(item.productId), quantity: parseInt(item.quantity.toString()) })),
       };
+      // Si viene de "Convertir en alquiler" de un pedido por WhatsApp, enlaza
+      // ese pedido con el alquiler recién creado (solo aplica al crear, no al editar).
+      const linkIntent = editingId === null && convertingIntentId !== null ? { checkoutIntentId: convertingIntentId } : {};
 
       const res = await apiFetch(editingId !== null ? `/rentals/${editingId}` : "/rentals", {
         method: editingId !== null ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...contact, ...schedule }),
+        body: JSON.stringify({ ...contact, ...schedule, ...linkIntent }),
       });
       if (res.ok) {
         closeRentalModal();
@@ -294,6 +336,9 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
           </button>
         </div>
       </div>
+
+      {/* Pedidos nuevos por WhatsApp sin confirmar todavía */}
+      <PendingOrdersPanel intents={pendingOrders} onConvert={openPrefilledRental} onDiscard={discardIntent} />
 
       {/* Aviso de atrasos: la mercadería debería haber vuelto y sigue ocupando stock */}
       {counts.ATRASADO > 0 && (
