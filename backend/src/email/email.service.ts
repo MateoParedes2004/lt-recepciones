@@ -16,6 +16,18 @@ const formatPYG = (amount: number) =>
     .toString()
     .replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
 
+// cityName viene del carrito público (sin login): hay que escaparlo antes de
+// meterlo en el HTML del mail, igual que cualquier otro texto no confiable
+// que termine en una página/documento que se renderiza.
+const escapeHtml = (text: string) =>
+  text.replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[
+        c
+      ]!,
+  );
+
 /**
  * Avisa por mail cuando llega un pedido nuevo por WhatsApp (ver
  * AnalyticsService.registrarCheckoutIntent). Usa Resend porque mandar desde
@@ -29,32 +41,47 @@ export class EmailService {
   private readonly logger = new Logger(EmailService.name);
   private readonly resend: Resend | null;
   private readonly adminEmail?: string;
-  private warnedMissingConfig = false;
 
   constructor() {
     const apiKey = process.env.RESEND_API_KEY;
     this.adminEmail = process.env.ADMIN_NOTIFY_EMAIL;
     this.resend = apiKey ? new Resend(apiKey) : null;
+
+    // Se avisa UNA VEZ al arrancar (no recién cuando llega el primer pedido):
+    // así una variable mal cargada en Render se nota enseguida en los logs,
+    // en vez de descubrirse semanas después porque nunca llegó ningún mail.
+    if (!this.resend && !this.adminEmail) {
+      this.logger.warn(
+        'RESEND_API_KEY y ADMIN_NOTIFY_EMAIL no configuradas: el aviso por mail de pedidos nuevos queda desactivado (el pedido igual se guarda y aparece en el panel).',
+      );
+    } else if (!this.resend) {
+      this.logger.warn(
+        'Falta RESEND_API_KEY: el aviso por mail de pedidos nuevos no va a mandarse aunque ADMIN_NOTIFY_EMAIL sí esté configurada.',
+      );
+    } else if (!this.adminEmail) {
+      this.logger.warn(
+        'Falta ADMIN_NOTIFY_EMAIL: el aviso por mail de pedidos nuevos no va a mandarse aunque RESEND_API_KEY sí esté configurada.',
+      );
+    } else {
+      this.logger.log(
+        `Aviso por mail de pedidos nuevos activado (se manda a ${this.adminEmail}).`,
+      );
+    }
   }
 
   async notifyNewOrder(order: NewOrderEmailData): Promise<void> {
-    if (!this.resend || !this.adminEmail) {
-      if (!this.warnedMissingConfig) {
-        this.warnedMissingConfig = true;
-        this.logger.warn(
-          'RESEND_API_KEY o ADMIN_NOTIFY_EMAIL no configurados: no se manda el aviso por mail de pedidos nuevos (el pedido igual se guarda y aparece en el panel).',
-        );
-      }
-      return;
-    }
+    if (!this.resend || !this.adminEmail) return;
 
     const itemsHtml = order.items
-      .map((i) => `<li>${i.quantity}x ${i.productName}</li>`)
+      .map((i) => `<li>${i.quantity}x ${escapeHtml(i.productName)}</li>`)
       .join('');
     const dateLine =
       order.eventDate && order.returnDate
         ? `${formatDayIndex(toDayIndex(order.eventDate))} al ${formatDayIndex(toDayIndex(order.returnDate))}`
         : 'Sin fecha indicada';
+    const cityLine = order.cityName
+      ? escapeHtml(order.cityName)
+      : 'Sin especificar';
 
     try {
       await this.resend.emails.send({
@@ -65,10 +92,10 @@ export class EmailService {
           <h2>Nuevo pedido por WhatsApp</h2>
           <p><strong>Total estimado:</strong> ${formatPYG(order.totalAmount)}</p>
           <p><strong>Fechas:</strong> ${dateLine}</p>
-          <p><strong>Ciudad:</strong> ${order.cityName ?? 'Sin especificar'}</p>
+          <p><strong>Ciudad:</strong> ${cityLine}</p>
           <p><strong>Productos:</strong></p>
           <ul>${itemsHtml}</ul>
-          <p>Respondé al cliente por WhatsApp como siempre. Cuando cierren el trato, confirmalo desde el panel en "Alquileres → Pedidos por confirmar" (ya va a estar precargado con estos datos).</p>
+          <p>Respondé al cliente por WhatsApp como siempre. Cuando cierren el trato, confirmalo desde el panel en Alquileres, en el cartel "Pedidos nuevos por WhatsApp" (ya va a estar precargado con estos datos).</p>
         `,
       });
     } catch (error) {

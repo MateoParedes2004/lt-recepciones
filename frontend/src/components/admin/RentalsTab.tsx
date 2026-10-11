@@ -168,9 +168,16 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
     const matchedCity =
       (intent.cityId != null ? cities.find((c) => c.id === intent.cityId) : undefined) ??
       (intent.cityName ? cities.find((c) => normalize(c.name) === normalize(intent.cityName!)) : undefined);
+    const dropped = intent.items.filter((i) => !products.some((p) => p.id === i.productId));
     const items = intent.items
       .filter((i) => products.some((p) => p.id === i.productId))
       .map((i) => ({ productId: String(i.productId), quantity: i.quantity }));
+    // El pedido pudo haber pedido un producto que después se dio de baja o se
+    // borró: en vez de precargar menos ítems de los que el cliente pidió sin
+    // decir nada, avisa cuáles quedaron afuera para que se agreguen a mano.
+    if (dropped.length > 0) {
+      toast.error(`Este pedido incluía ${dropped.map((i) => `${i.quantity}x ${i.productName}`).join(", ")}, que ya no está disponible. Agregalo a mano si corresponde.`);
+    }
     setRentalForm({
       clientName: "",
       clientPhone: "",

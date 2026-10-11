@@ -193,8 +193,16 @@ export class AnalyticsService {
       const parsed = new Date(Date.UTC(y, m - 1, d));
       return parsed.getUTCFullYear() === y && parsed.getUTCMonth() === m - 1 && parsed.getUTCDate() === d ? parsed : undefined;
     };
-    const eventDate = parseCalendarDate(dto.eventDate);
-    const returnDate = parseCalendarDate(dto.returnDate);
+    let eventDate = parseCalendarDate(dto.eventDate);
+    let returnDate = parseCalendarDate(dto.returnDate);
+    // Esto nunca pasa desde el carrito real (ya valida ahí antes de mandar),
+    // pero el endpoint es público: si alguien manda fechas invertidas a mano,
+    // se descartan las dos en vez de perder todo el pedido por eso — los
+    // productos y el total siguen siendo datos útiles para el panel.
+    if (eventDate && returnDate && returnDate < eventDate) {
+      eventDate = undefined;
+      returnDate = undefined;
+    }
     const orderItems = products.map((p) => ({ productId: p.id, productName: p.name, quantity: requested.get(p.id) ?? 1 }));
 
     const intent = await this.prisma.checkoutIntent.create({

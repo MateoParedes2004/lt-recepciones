@@ -89,6 +89,22 @@ export class RentalsService {
 
     const rental = await this.prisma.$transaction(
       async (tx) => {
+        // Si viene de confirmar un pedido por WhatsApp, lo reclama DE ENTRADA
+        // (antes de crear nada): si alguien más ya lo confirmó o descartó
+        // mientras tanto (dos pestañas abiertas sobre el mismo pedido, por
+        // ejemplo), esto corta acá con un error claro. Hacerlo al final —como
+        // estaba antes— no evita nada: el alquiler ya se habría creado igual,
+        // duplicando la reserva de stock en silencio la segunda vez.
+        if (data.checkoutIntentId !== undefined) {
+          const claimed = await tx.checkoutIntent.updateMany({
+            where: { id: data.checkoutIntentId, status: 'PENDIENTE' },
+            data: { status: 'CONFIRMADO' },
+          });
+          if (claimed.count === 0) {
+            throw new ConflictException('Este pedido ya fue confirmado o descartado (quizás desde otra pestaña). Actualizá la página.');
+          }
+        }
+
         // Bloqueamos los productos ANTES de mirar la disponibilidad: si otro
         // alquiler sobre los mismos productos se está creando ahora mismo, este
         // espera y ve su resultado. Así nunca se venden dos veces las mismas unidades.
@@ -127,13 +143,11 @@ export class RentalsService {
           include: RENTAL_INCLUDE,
         });
 
-        // Viene de confirmar un pedido por WhatsApp: lo marca CONFIRMADO y lo
-        // enlaza con este alquiler. La guarda PENDIENTE evita enlazarlo dos
-        // veces si alguien ya lo había confirmado (o descartado) mientras tanto.
+        // Ya reclamado arriba: ahora sí lo enlaza con el alquiler recién creado.
         if (data.checkoutIntentId !== undefined) {
-          await tx.checkoutIntent.updateMany({
-            where: { id: data.checkoutIntentId, status: 'PENDIENTE' },
-            data: { status: 'CONFIRMADO', rentalId: created.id },
+          await tx.checkoutIntent.update({
+            where: { id: data.checkoutIntentId },
+            data: { rentalId: created.id },
           });
         }
 
