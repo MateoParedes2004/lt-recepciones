@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service'; // Ajusta la ruta según tu estructura
 import { CreateCityDto } from './dto/create-city.dto';
 import { UpdateCityDto } from './dto/update-city.dto';
@@ -45,9 +45,22 @@ export class CitiesService {
   // 4. ELIMINAR UNA CIUDAD
     async deleteCity(id: number) {
     const city = await this.prisma.city.findUnique({ where: { id } });
-    
+
     if (!city) {
         throw new NotFoundException(`No se puede eliminar: La ciudad con ID ${id} no existe.`);
+    }
+
+    // La relación Rental.city es onDelete: SetNull — sin este chequeo, borrar
+    // una ciudad con historial dejaba en silencio sin ciudad a todos los
+    // alquileres (activos o pasados) que la tenían asignada, y de paso
+    // distorsionaba retroactivamente "Demanda por Ciudad" en las estadísticas.
+    // Desactivarla (isActive=false) ya la saca del selector sin perder nada:
+    // el borrado de verdad solo tiene sentido para una ciudad que nunca se usó.
+    const rentalCount = await this.prisma.rental.count({ where: { cityId: id } });
+    if (rentalCount > 0) {
+        throw new ConflictException(
+            `No se puede eliminar "${city.name}": tiene ${rentalCount} alquiler(es) asociado(s) (activos o pasados) que perderían de qué ciudad eran. Desactivala en vez de borrarla para sacarla del selector sin perder el historial.`,
+        );
     }
 
     return this.prisma.city.delete({

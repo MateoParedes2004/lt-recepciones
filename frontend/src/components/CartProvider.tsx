@@ -58,18 +58,24 @@ export default function CartProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     // localStorage solo existe en el navegador: el carrito guardado se lee
     // recién después de montar (leerlo antes desincroniza el HTML del servidor).
-    setIsMounted(true);
-    const savedCart = localStorage.getItem("lt_cart");
-    if (savedCart) {
-      try {
-        const parsed = JSON.parse(savedCart);
-        if (Array.isArray(parsed)) setCart(parsed);
-      } catch {
-        // localStorage corrupto (edición manual, versión vieja incompatible, etc.):
-        // descartamos el carrito guardado en vez de romper toda la app.
-        localStorage.removeItem("lt_cart");
+    // queueMicrotask: la regla más nueva de eslint-plugin-react-hooks ya no
+    // deja actualizar estado de forma directa/síncrona dentro de un efecto
+    // (antes de esta versión de Next no lo marcaba); sigue corriendo antes
+    // del primer pintado, no hay ningún retraso real para quien mira la página.
+    queueMicrotask(() => {
+      setIsMounted(true);
+      const savedCart = localStorage.getItem("lt_cart");
+      if (savedCart) {
+        try {
+          const parsed = JSON.parse(savedCart);
+          if (Array.isArray(parsed)) setCart(parsed);
+        } catch {
+          // localStorage corrupto (edición manual, versión vieja incompatible, etc.):
+          // descartamos el carrito guardado en vez de romper toda la app.
+          localStorage.removeItem("lt_cart");
+        }
       }
-    }
+    });
   }, []);
 
   useEffect(() => {

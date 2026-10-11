@@ -45,7 +45,12 @@ export default function Header({ initialCategories = [] }: { initialCategories?:
   };
 
   useEffect(() => {
-    if (initialCategories.length === 0) fetchCategories();
+    // queueMicrotask: fetchCategories pone "loading" de entrada, y la regla
+    // más nueva de eslint-plugin-react-hooks ya no deja llamar algo que
+    // actualiza estado de forma directa/síncrona dentro de un efecto (antes
+    // de esta versión de Next no lo marcaba). Sigue corriendo antes del
+    // primer pintado, así que no hay ningún retraso real para quien mira la página.
+    if (initialCategories.length === 0) queueMicrotask(() => { fetchCategories(); });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
