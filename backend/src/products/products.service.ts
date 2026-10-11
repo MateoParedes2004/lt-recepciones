@@ -3,10 +3,25 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
 import { AvailabilityService } from '../availability/availability.service';
 import { formatDayIndex } from '../common/timezone';
+import type { CreateProductDto } from './dto/create-product.dto';
+import type { UpdateProductDto } from './dto/update-product.dto';
+
+// Lo que arma el controlador antes de llamar al servicio: el DTO validado
+// (ya con los números convertidos por @Type(() => Number), no texto) más la
+// URL de la foto, que no es parte del formulario — sale de subirla a
+// Cloudinary aparte. Tiparlo así (en vez de "any") hace que TypeScript avise
+// si el controlador deja de mandar algo que el servicio necesita.
+interface CreateProductInput extends CreateProductDto {
+  imageUrl: string | null;
+}
+interface UpdateProductInput extends UpdateProductDto {
+  imageUrl?: string;
+}
 
 @Injectable()
 export class ProductsService {
@@ -16,16 +31,15 @@ export class ProductsService {
     private availability: AvailabilityService,
   ) {}
 
-  async createProduct(data: any) {
+  async createProduct(data: CreateProductInput) {
     return this.prisma.product.create({
       data: {
         name: data.name,
         description: data.description,
         imageUrl: data.imageUrl,
-        // CONVERSIÓN FORZADA: Aseguramos que los textos se vuelvan números
-        pricePerDay: parseFloat(data.pricePerDay),
-        categoryId: Number(data.categoryId),
-        totalStock: Number(data.totalStock),
+        pricePerDay: data.pricePerDay,
+        categoryId: data.categoryId,
+        totalStock: data.totalStock ?? 0,
       },
     });
   }
@@ -92,36 +106,29 @@ export class ProductsService {
   }
 
   // 👇 TAMBIÉN BLINDAMOS LA ACTUALIZACIÓN
-  async updateProduct(id: number, data: any) {
-    // Creamos un objeto limpio solo con los datos que queremos tocar
-    const dataToUpdate: any = {
+  async updateProduct(id: number, data: UpdateProductInput) {
+    // Creamos un objeto limpio solo con los datos que queremos tocar. Los
+    // campos vienen ya convertidos a número por el DTO (@Type(() => Number)),
+    // así que alcanza con revisar undefined — no hace falta volver a convertir.
+    // "Unchecked" porque categoryId se guarda como el escalar directo (igual
+    // que ya hacía este código), no como category: { connect: { id } }.
+    const dataToUpdate: Prisma.ProductUncheckedUpdateManyInput = {
       name: data.name,
       description: data.description,
       imageUrl: data.imageUrl,
     };
 
-    // Solo convertimos si el dato vino en el body (para no romper si editas
-    // solo el nombre). OJO: no se puede chequear con "if (data.pricePerDay)"
-    // porque 0 es un precio válido y da falsy en JS — eso dejaba el precio
-    // viejo sin avisar si el admin lo ponía en 0.
-    if (
-      data.pricePerDay !== undefined &&
-      data.pricePerDay !== null &&
-      data.pricePerDay !== ''
-    ) {
-      dataToUpdate.pricePerDay = parseFloat(data.pricePerDay);
-    }
-    if (data.categoryId) dataToUpdate.categoryId = Number(data.categoryId);
+    // OJO: no se puede chequear con "if (data.pricePerDay)" porque 0 es un
+    // precio válido y da falsy en JS — eso dejaba el precio viejo sin avisar
+    // si el admin lo ponía en 0.
+    if (data.pricePerDay !== undefined) dataToUpdate.pricePerDay = data.pricePerDay;
+    if (data.categoryId !== undefined) dataToUpdate.categoryId = data.categoryId;
 
     // "Stock Total" es el inventario FÍSICO. Cuántas unidades hay libres en
     // una fecha se calcula desde los alquileres (no se guarda), así que
     // editar este número nunca desincroniza nada; lo único a cuidar es no
     // bajarlo por debajo de lo que las reservas ya necesitan a la vez.
-    const stockProvided =
-      data.totalStock !== undefined &&
-      data.totalStock !== null &&
-      data.totalStock !== '';
-    const newTotal = stockProvided ? Number(data.totalStock) : undefined;
+    const newTotal = data.totalStock;
     if (newTotal !== undefined) dataToUpdate.totalStock = newTotal;
 
     // Si se sube una foto nueva, guardamos la URL de la anterior para

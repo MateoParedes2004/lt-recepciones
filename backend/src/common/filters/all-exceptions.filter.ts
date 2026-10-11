@@ -7,13 +7,15 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { prismaErrorCode } from '../prisma-error-code';
 
 // Errores conocidos de Prisma que son situaciones normales de uso (no fallas
 // del servidor) y por eso se traducen a un status y mensaje claros en vez de
-// un 500 genérico. Se reconocen por su `code` (P2xxx), sin importar la clase.
+// un 500 genérico. Se reconocen por su `code` (P2xxx) — prismaErrorCode lo
+// extrae sin importar bajo qué forma haya llegado el error (ver ese archivo).
 function mapPrismaError(exception: unknown): { status: number; message: string } | null {
-  const code = (exception as { code?: unknown } | null)?.code;
-  if (typeof code !== 'string') return null;
+  const code = prismaErrorCode(exception);
+  if (code === null) return null;
 
   switch (code) {
     case 'P2002': // violación de unicidad (ej. dos categorías con el mismo nombre)

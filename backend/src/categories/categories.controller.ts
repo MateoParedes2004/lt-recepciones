@@ -10,7 +10,8 @@ export class CategoriesController {
   constructor(private readonly categoriesService: CategoriesService) {}
 
   // El DTO (con whitelist y forbidNonWhitelisted globales) define exactamente
-  // qué campos acepta una categoría: name y description.
+  // qué campos acepta una categoría: name, description y sortOrder (la
+  // posición en el catálogo).
   @UseGuards(JwtAuthGuard)
   @Post()
   create(@Body() body: CreateCategoryDto) {

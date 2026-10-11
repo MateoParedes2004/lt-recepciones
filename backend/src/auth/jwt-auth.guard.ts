@@ -27,13 +27,25 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Falta el token de autenticación');
     }
 
+    let payload: AuthenticatedUser;
     try {
-      const payload = await this.jwtService.verifyAsync<AuthenticatedUser>(token);
-      (request as Request & { user: AuthenticatedUser }).user = payload;
+      payload = await this.jwtService.verifyAsync<AuthenticatedUser>(token);
     } catch {
       throw new UnauthorizedException('Token inválido o expirado');
     }
 
+    // Hoy todo usuario registrado es "ADMIN" (ver User.role en schema.prisma):
+    // esta revisión no cambia nada en la práctica, pero deja escrito que el
+    // panel es solo para administradores. Sin esto, el día que se sume un rol
+    // con menos permisos (ej. un empleado), cualquier token válido —sin
+    // importar su rol— seguiría entrando a todas las rutas protegidas por
+    // este mismo guard, a menos que alguien se acuerde de agregar esta
+    // revisión en cada lugar que la necesite.
+    if (payload.role !== 'ADMIN') {
+      throw new UnauthorizedException('Esta cuenta no tiene permiso para administrar el panel.');
+    }
+
+    (request as Request & { user: AuthenticatedUser }).user = payload;
     return true;
   }
 

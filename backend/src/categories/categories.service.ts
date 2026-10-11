@@ -1,5 +1,8 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { prismaErrorCode } from '../common/prisma-error-code';
+import { CreateCategoryDto } from './dto/create-category.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
 
 @Injectable()
 export class CategoriesService {
@@ -7,8 +10,8 @@ export class CategoriesService {
 
   // Un rubro nuevo sin posición va al final (el último número + 10, para dejar
   // lugar a insertar otro entre medio sin renumerar todo).
-  async create(data: any) {
-    const { sortOrder, ...rest } = data ?? {};
+  async create(data: CreateCategoryDto) {
+    const { sortOrder, ...rest } = data;
     const position = sortOrder ?? (await this.nextSortOrder());
     return this.prisma.category.create({ data: { ...rest, sortOrder: position } });
   }
@@ -51,32 +54,41 @@ export class CategoriesService {
     return category;
   }
 
-  update(id: number, data: any) {
+  update(id: number, data: UpdateCategoryDto) {
     // null no es una posición válida (la columna no admite nulos): si llega, se ignora.
-    const { sortOrder, ...rest } = data ?? {};
+    const { sortOrder, ...rest } = data;
     const patch = sortOrder === undefined || sortOrder === null ? rest : { ...rest, sortOrder };
     return this.prisma.category.update({ where: { id }, data: patch });
   }
 
   async remove(id: number) {
-    // Postgres no deja borrar una categoría que todavía tiene productos, pero
-    // el error llegaba como un 500 genérico. Lo revisamos antes para explicar
-    // qué pasa. Los productos archivados (dados de baja) también cuentan: no
-    // se ven en el panel pero siguen apuntando a la categoría.
-    const [activos, archivados] = await Promise.all([
-      this.prisma.product.count({ where: { categoryId: id, isArchived: false } }),
-      this.prisma.product.count({ where: { categoryId: id, isArchived: true } }),
-    ]);
-
-    if (activos > 0 || archivados > 0) {
-      const partes: string[] = [];
-      if (activos > 0) partes.push(`${activos} producto(s) activo(s) (movelos a otra categoría primero)`);
-      if (archivados > 0) {
-        partes.push(`${archivados} producto(s) dado(s) de baja que conservan su historial de alquileres (restauralos desde Productos → Dados de baja y movelos de categoría)`);
+    // Postgres ya impide de forma atómica borrar una categoría con productos
+    // (activos o archivados) apuntándole: se intenta el borrado directo y,
+    // si la clave foránea lo rechaza (P2003), recién ahí se cuenta cuántos
+    // productos hay para armar un mensaje claro — en vez de contar antes y
+    // borrar después en dos pasos separados, que dejaba una ventana (minúscula,
+    // pero real) donde un producto creado justo entre medio se colaba sin que
+    // el mensaje de error la hubiera visto.
+    try {
+      return await this.prisma.category.delete({ where: { id } });
+    } catch (error) {
+      if (prismaErrorCode(error) === 'P2003') {
+        const [activos, archivados] = await Promise.all([
+          this.prisma.product.count({ where: { categoryId: id, isArchived: false } }),
+          this.prisma.product.count({ where: { categoryId: id, isArchived: true } }),
+        ]);
+        const partes: string[] = [];
+        if (activos > 0) partes.push(`${activos} producto(s) activo(s) (movelos a otra categoría primero)`);
+        if (archivados > 0) {
+          partes.push(`${archivados} producto(s) dado(s) de baja que conservan su historial de alquileres (restauralos desde Productos → Dados de baja y movelos de categoría)`);
+        }
+        throw new ConflictException(
+          partes.length
+            ? `No se puede eliminar la categoría: todavía tiene ${partes.join(' y ')}.`
+            : 'No se puede eliminar la categoría: todavía tiene productos asociados.',
+        );
       }
-      throw new ConflictException(`No se puede eliminar la categoría: todavía tiene ${partes.join(' y ')}.`);
+      throw error;
     }
-
-    return this.prisma.category.delete({ where: { id } });
   }
 }

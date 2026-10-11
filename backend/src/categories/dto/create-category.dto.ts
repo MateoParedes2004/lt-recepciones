@@ -22,10 +22,13 @@ export class CreateCategoryDto {
   // Posición en el catálogo (menor número primero). Si no se manda, el backend
   // lo pone al final. Es un entero: el panel manda undefined si se deja vacío,
   // nunca "" (Number("") daría 0 y reordenaría el rubro sin querer).
+  // El tipo incluye "| null" porque @IsOptional() también deja pasar null sin
+  // validar (no solo undefined): el servicio ya lo contempla ("si llega, se
+  // ignora"), así que el tipo debe reflejar lo que en verdad puede llegar.
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(0)
   @Max(1000000)
-  sortOrder?: number;
+  sortOrder?: number | null;
 }

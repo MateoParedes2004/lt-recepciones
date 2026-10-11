@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Edit, Trash2, Search, X, Image as ImageIcon, Filter, ChevronDown, Archive, RotateCcw } from "lucide-react";
 import { apiFetch, getImageUrl, readApiError } from "../../lib/api";
 import { useToast } from "./ToastProvider";
@@ -19,6 +19,18 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const [formData, setFormData] = useState({ name: "", description: "", price: "", categoryId: "", totalStock: "" });
+
+  // La vista previa de una foto nueva (handleImageChange) es un blob: URL que
+  // el navegador guarda en memoria hasta que lo liberamos a mano — si no, cada
+  // foto elegida (y cada vez que se reabre el modal) se iba acumulando sin
+  // soltarse nunca. Este efecto libera la URL anterior apenas cambia a otra
+  // o al desmontar; si imagePreview es la URL de Cloudinary de una foto ya
+  // guardada (al editar), no hay nada que liberar y no hace nada.
+  useEffect(() => {
+    return () => {
+      if (imagePreview.startsWith("blob:")) URL.revokeObjectURL(imagePreview);
+    };
+  }, [imagePreview]);
 
   // Productos dados de baja (archivados): se cargan solo cuando se abre esa vista.
   const [showArchived, setShowArchived] = useState(false);
