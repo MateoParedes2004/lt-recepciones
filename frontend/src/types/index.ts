@@ -20,6 +20,8 @@ export interface Product {
   availableStock?: number;
   /** Unidades ocupadas HOY (total - libres hoy). */
   rentedCount?: number;
+  /** Si la demanda de las próximas semanas va a dejar pocas unidades libres (ver AvailabilityService.withAvailability). */
+  lowStock?: boolean;
   pricePerDay: number;
   categoryId: number;
   category?: Category;

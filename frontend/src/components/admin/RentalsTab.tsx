@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, Search, X, CheckCircle, CalendarDays, PlusCircle, MapPin, Pencil, Ban, RotateCcw, TriangleAlert } from "lucide-react";
+import { Plus, Trash2, Search, X, CheckCircle, CalendarDays, PlusCircle, MapPin, Pencil, Ban, RotateCcw, TriangleAlert, List, LayoutGrid } from "lucide-react";
 import { apiFetch, readApiError } from "../../lib/api";
 import { useToast } from "./ToastProvider";
 import type { Product, Rental, City, RentalPhase } from "../../types";
+import RentalsCalendar from "./RentalsCalendar";
 
 const formatPYG = (amount: number) => `Gs. ${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 
@@ -57,6 +58,7 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
   const toast = useToast();
   const [searchRental, setSearchRental] = useState("");
   const [phaseFilter, setPhaseFilter] = useState<PhaseFilter>("TODOS");
+  const [view, setView] = useState<"lista" | "calendario">("lista");
   const [isRentalModalOpen, setIsRentalModalOpen] = useState(false);
   const [isSavingRental, setIsSavingRental] = useState(false);
   // null = alquiler nuevo; un id = editando ese alquiler.
@@ -236,9 +238,27 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
           <input type="text" placeholder="Buscar cliente..." aria-label="Buscar cliente" value={searchRental} onChange={(e) => setSearchRental(e.target.value)} className="pl-10 pr-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#004080] focus:outline-none w-full sm:w-64" />
         </div>
-        <button onClick={openNewRental} className="flex items-center bg-[#004080] text-white px-5 py-2.5 rounded-xl hover:bg-[#00294f] transition-colors font-medium shadow-md cursor-pointer">
-          <Plus className="w-5 h-5 mr-2" /> Nuevo Alquiler
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center bg-slate-100 rounded-xl p-1" role="group" aria-label="Tipo de vista">
+            <button
+              onClick={() => setView("lista")}
+              aria-pressed={view === "lista"}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors cursor-pointer ${view === "lista" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            >
+              <List className="w-4 h-4" /> Lista
+            </button>
+            <button
+              onClick={() => setView("calendario")}
+              aria-pressed={view === "calendario"}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold transition-colors cursor-pointer ${view === "calendario" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            >
+              <LayoutGrid className="w-4 h-4" /> Calendario
+            </button>
+          </div>
+          <button onClick={openNewRental} className="flex items-center bg-[#004080] text-white px-5 py-2.5 rounded-xl hover:bg-[#00294f] transition-colors font-medium shadow-md cursor-pointer">
+            <Plus className="w-5 h-5 mr-2" /> Nuevo Alquiler
+          </button>
+        </div>
       </div>
 
       {/* Aviso de atrasos: la mercadería debería haber vuelto y sigue ocupando stock */}
@@ -274,6 +294,13 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
         ))}
       </div>
 
+      {view === "calendario" ? (
+        isLoadingData ? (
+          <p className="text-center py-8 text-slate-500">Cargando...</p>
+        ) : (
+          <RentalsCalendar rentals={visibleRentals} onSelectRental={openEditRental} />
+        )
+      ) : (
       <div className="overflow-x-auto mt-4">
         <table className="w-full text-left border-collapse">
           <thead>
@@ -347,6 +374,7 @@ export default function RentalsTab({ rentals, products, cities, fetchData, isLoa
           </tbody>
         </table>
       </div>
+      )}
 
       {isRentalModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">

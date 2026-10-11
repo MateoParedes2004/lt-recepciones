@@ -1,9 +1,19 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { formatDayIndex, fromDayIndex, paraguayTodayIndex, toDayIndex } from '../common/timezone';
+import {
+  formatDayIndex,
+  fromDayIndex,
+  paraguayTodayIndex,
+  toDayIndex,
+} from '../common/timezone';
 
 type Db = Prisma.TransactionClient;
+
+// Ver withAvailability: hasta cuántos días adelante se mira para avisar
+// "te vas a quedar sin stock" y qué tan ajustado cuenta como "bajo".
+const LOW_STOCK_HORIZON_DAYS = 60;
+const LOW_STOCK_THRESHOLD_RATIO = 0.2;
 
 /** Días de calendario (inclusive en ambos extremos) durante los que un alquiler ocupa unidades. */
 export interface UsageInterval {
@@ -27,7 +37,11 @@ export interface PeakUsage {
  * se obtiene el pico de uso simultáneo. Importa el PICO y no la suma: dos
  * alquileres de 6 sillas que no coinciden en ningún día usan 6, no 12.
  */
-export function peakUsage(intervals: UsageInterval[], from: number, to: number): PeakUsage {
+export function peakUsage(
+  intervals: UsageInterval[],
+  from: number,
+  to: number,
+): PeakUsage {
   const deltas = new Map<number, number>();
   for (const { start, end, quantity } of intervals) {
     const s = Math.max(start, from);
@@ -96,19 +110,26 @@ export class AvailabilityService {
     // Si "hoy" ya está dentro o más allá del inicio del rango, todo alquiler
     // ACTIVO que empiece antes del final del rango sigue ocupando (o está
     // atrasado y ocupa hasta hoy): no se puede filtrar por returnDate.
-    const returnFilter = today >= from ? undefined : { gte: fromDayIndex(from) };
+    const returnFilter =
+      today >= from ? undefined : { gte: fromDayIndex(from) };
 
     const rows = await db.rentalItem.findMany({
       where: {
         productId: { in: productIds },
         rental: {
           status: 'ACTIVO',
-          ...(excludeRentalId !== undefined ? { id: { not: excludeRentalId } } : {}),
+          ...(excludeRentalId !== undefined
+            ? { id: { not: excludeRentalId } }
+            : {}),
           eventDate: { lte: fromDayIndex(to) },
           ...(returnFilter ? { returnDate: returnFilter } : {}),
         },
       },
-      select: { productId: true, quantity: true, rental: { select: { eventDate: true, returnDate: true } } },
+      select: {
+        productId: true,
+        quantity: true,
+        rental: { select: { eventDate: true, returnDate: true } },
+      },
     });
 
     const byProduct = new Map<number, UsageInterval[]>();
@@ -134,12 +155,27 @@ export class AvailabilityService {
     from: number,
     to: number,
     excludeRentalId?: number,
-  ): Promise<Map<number, { free: number; peak: number; peakDay: number | null }>> {
-    const intervals = await this.loadIntervals(db, products.map((p) => p.id), from, to, excludeRentalId);
-    const result = new Map<number, { free: number; peak: number; peakDay: number | null }>();
+  ): Promise<
+    Map<number, { free: number; peak: number; peakDay: number | null }>
+  > {
+    const intervals = await this.loadIntervals(
+      db,
+      products.map((p) => p.id),
+      from,
+      to,
+      excludeRentalId,
+    );
+    const result = new Map<
+      number,
+      { free: number; peak: number; peakDay: number | null }
+    >();
     for (const p of products) {
       const { peak, day } = peakUsage(intervals.get(p.id) ?? [], from, to);
-      result.set(p.id, { free: Math.max(0, p.totalStock - peak), peak, peakDay: day });
+      result.set(p.id, {
+        free: Math.max(0, p.totalStock - peak),
+        peak,
+        peakDay: day,
+      });
     }
     return result;
   }
@@ -163,18 +199,31 @@ export class AvailabilityService {
     const to = effectiveEnd(returnDay, today);
 
     const relevant = products.filter((p) => wanted.has(p.id));
-    const availability = await this.freeUnits(db, relevant, from, to, excludeRentalId);
+    const availability = await this.freeUnits(
+      db,
+      relevant,
+      from,
+      to,
+      excludeRentalId,
+    );
 
     for (const product of relevant) {
       const quantity = wanted.get(product.id)!;
       const { free, peak, peakDay } = availability.get(product.id)!;
       if (quantity <= free) continue;
 
-      const period = from === returnDay ? formatDayIndex(from) : `${formatDayIndex(from)} al ${formatDayIndex(returnDay)}`;
-      const overdueNote = to > returnDay ? ' (el rango se extiende hasta hoy porque el alquiler ya está atrasado)' : '';
-      const detail = peak > 0 && peakDay !== null
-        ? `el ${formatDayIndex(peakDay)} ya hay ${peak} de ${product.totalStock} unidades reservadas por otros alquileres`
-        : `el inventario total es de ${product.totalStock} unidades`;
+      const period =
+        from === returnDay
+          ? formatDayIndex(from)
+          : `${formatDayIndex(from)} al ${formatDayIndex(returnDay)}`;
+      const overdueNote =
+        to > returnDay
+          ? ' (el rango se extiende hasta hoy porque el alquiler ya está atrasado)'
+          : '';
+      const detail =
+        peak > 0 && peakDay !== null
+          ? `el ${formatDayIndex(peakDay)} ya hay ${peak} de ${product.totalStock} unidades reservadas por otros alquileres`
+          : `el inventario total es de ${product.totalStock} unidades`;
       throw new BadRequestException(
         `No hay suficiente stock de "${product.name}" para ${period}${overdueNote}: se piden ${quantity} y solo hay ${free} libres (${detail}).`,
       );
@@ -191,35 +240,88 @@ export class AvailabilityService {
 
   /**
    * Agrega a cada producto lo que el panel necesita saber "hoy":
-   * availableStock (libres hoy) y rentedCount (ocupadas hoy).
+   * availableStock (libres hoy), rentedCount (ocupadas hoy) y lowStock
+   * (si va a quedar justo de unidades en las próximas semanas).
    */
-  async withAvailability<T extends ProductStock>(products: T[]): Promise<Array<T & { availableStock: number; rentedCount: number }>> {
+  async withAvailability<T extends ProductStock>(
+    products: T[],
+  ): Promise<
+    Array<
+      T & { availableStock: number; rentedCount: number; lowStock: boolean }
+    >
+  > {
     if (products.length === 0) return [];
     const today = paraguayTodayIndex();
-    const availability = await this.freeUnits(this.prisma, products, today, today);
+    const [todayAvailability, upcomingAvailability] = await Promise.all([
+      this.freeUnits(this.prisma, products, today, today),
+      // Mismo cálculo (pico de uso simultáneo) pero mirando las próximas
+      // semanas en vez de solo hoy: alerta temprano de "te vas a quedar sin
+      // stock", no solo "ya te quedaste sin stock".
+      this.freeUnits(
+        this.prisma,
+        products,
+        today,
+        today + LOW_STOCK_HORIZON_DAYS,
+      ),
+    ]);
     return products.map((p) => {
-      const { free } = availability.get(p.id)!;
-      return { ...p, availableStock: free, rentedCount: Math.max(0, p.totalStock - free) };
+      const { free } = todayAvailability.get(p.id)!;
+      const { free: upcomingFree, peak: upcomingPeak } =
+        upcomingAvailability.get(p.id)!;
+      return {
+        ...p,
+        availableStock: free,
+        rentedCount: Math.max(0, p.totalStock - free),
+        // Solo alerta si hay alquileres de verdad comprometiendo ese stock
+        // (upcomingPeak > 0): un producto que tiene pocas unidades en total
+        // pero nadie lo pidió todavía no está "bajo", está simplemente libre.
+        // El umbral es relativo al tamaño del producto (20%, mínimo 1 unidad):
+        // para un producto de 100 no alcanza con que queden 2 libres en algún
+        // momento, pero para uno de 5 sí.
+        lowStock:
+          upcomingPeak > 0 &&
+          upcomingFree <=
+            Math.max(1, Math.ceil(p.totalStock * LOW_STOCK_THRESHOLD_RATIO)),
+      };
     });
   }
 
   /** Unidades libres de todos los productos activos durante [from, to] (para el carrito y el panel). */
-  async availabilityForRange(from: number, to: number, excludeRentalId?: number) {
+  async availabilityForRange(
+    from: number,
+    to: number,
+    excludeRentalId?: number,
+  ) {
     const products = await this.prisma.product.findMany({
       where: { isArchived: false },
       select: { id: true, name: true, totalStock: true },
     });
-    const availability = await this.freeUnits(this.prisma, products, from, to, excludeRentalId);
-    return products.map((p) => ({ id: p.id, stock: p.totalStock, available: availability.get(p.id)!.free }));
+    const availability = await this.freeUnits(
+      this.prisma,
+      products,
+      from,
+      to,
+      excludeRentalId,
+    );
+    return products.map((p) => ({
+      id: p.id,
+      stock: p.totalStock,
+      available: availability.get(p.id)!.free,
+    }));
   }
 
   /** Valida y convierte un rango "desde/hasta" recibido por query string. */
   parseRange(fromRaw: string, toRaw: string): { from: number; to: number } {
     const from = toDayIndex(new Date(fromRaw));
     const to = toDayIndex(new Date(toRaw));
-    if (Number.isNaN(from) || Number.isNaN(to)) throw new BadRequestException('Fechas inválidas.');
-    if (to < from) throw new BadRequestException('La fecha "hasta" no puede ser anterior a la fecha "desde".');
-    if (to - from > 366) throw new BadRequestException('El rango no puede superar un año.');
+    if (Number.isNaN(from) || Number.isNaN(to))
+      throw new BadRequestException('Fechas inválidas.');
+    if (to < from)
+      throw new BadRequestException(
+        'La fecha "hasta" no puede ser anterior a la fecha "desde".',
+      );
+    if (to - from > 366)
+      throw new BadRequestException('El rango no puede superar un año.');
     return { from, to };
   }
 }
