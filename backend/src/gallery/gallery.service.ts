@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { v2 as cloudinary } from 'cloudinary';
 import { isRealImage } from '../common/verify-image';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { UpdateGalleryDto } from './dto/update-gallery.dto';
 
 @Injectable()
 export class GalleryService {
@@ -22,7 +23,7 @@ export class GalleryService {
   }
 
   // 👈 Ahora recibe un arreglo de archivos
-  async create(files: Array<Express.Multer.File>, title?: string) {
+  async create(files: Array<Express.Multer.File>, title?: string, eventType?: string) {
     if (!files || files.length === 0) throw new BadRequestException('Debes subir al menos una imagen');
     
     // El filtro de multer solo mira el Content-Type declarado (spoofable); acá
@@ -57,6 +58,7 @@ export class GalleryService {
           data: {
             imageUrl,
             title: title || 'Evento LT Recepciones',
+            eventType,
             isVisible: true,
           },
         });
@@ -74,6 +76,15 @@ export class GalleryService {
     }
 
     return uploadedImages;
+  }
+
+  // Corrige el título o el tipo de evento de una foto ya subida (no la
+  // reemplaza: para eso hay que borrarla y subir una nueva).
+  async update(id: number, data: UpdateGalleryDto) {
+    const image = await this.prisma.galleryImage.findUnique({ where: { id } });
+    if (!image) throw new NotFoundException(`La imagen con ID ${id} no existe.`);
+
+    return this.prisma.galleryImage.update({ where: { id }, data });
   }
 
   async toggleVisibility(id: number) {

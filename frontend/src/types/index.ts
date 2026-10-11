@@ -73,6 +73,9 @@ export interface GalleryImage {
   id: number;
   imageUrl: string;
   title?: string | null;
+  // Ver lib/gallery.ts para la lista válida. null = sin clasificar (fotos
+  // subidas antes de que existiera este campo).
+  eventType?: string | null;
   isVisible: boolean;
 }
 

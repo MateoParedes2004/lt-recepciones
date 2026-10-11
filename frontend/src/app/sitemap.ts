@@ -1,7 +1,8 @@
 import { MetadataRoute } from 'next'
-import { getCategories } from '../lib/catalog'
+import { getCategories, getGallery } from '../lib/catalog'
 import { absoluteUrl, categoryPath, productPath } from '../lib/site'
 import { getImageUrl } from '../lib/api'
+import { GALLERY_EVENT_TYPES, galleryTypePath } from '../lib/gallery'
 
 // Se regenera como mucho una vez por hora con lo que haya en el catálogo.
 export const revalidate = 3600
@@ -9,6 +10,7 @@ export const revalidate = 3600
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const categories = await getCategories()
   const products = categories.flatMap((c) => c.products ?? [])
+  const gallery = await getGallery()
 
   // La fecha de la última modificación real del catálogo (no "ahora": si
   // cambia en cada visita, Google deja de creerle a este dato).
@@ -21,7 +23,27 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const pages: MetadataRoute.Sitemap = [
     { url: absoluteUrl('/'), lastModified: lastCatalogChange, changeFrequency: 'weekly', priority: 1 },
     { url: absoluteUrl('/catalogos'), lastModified: lastCatalogChange, changeFrequency: 'weekly', priority: 0.9 },
+    {
+      url: absoluteUrl('/galeria'),
+      changeFrequency: 'weekly',
+      priority: 0.6,
+      ...(gallery.length ? { images: gallery.map((img) => img.imageUrl) } : {}),
+    },
   ]
+
+  // Solo los tipos que de verdad tienen alguna foto cargada: una página sin
+  // fotos no debe entrar en el índice todavía.
+  const galleryTypePages: MetadataRoute.Sitemap = GALLERY_EVENT_TYPES.filter((t) =>
+    gallery.some((img) => img.eventType === t),
+  ).map((t) => {
+    const photos = gallery.filter((img) => img.eventType === t)
+    return {
+      url: absoluteUrl(galleryTypePath(t)),
+      changeFrequency: 'weekly' as const,
+      priority: 0.6,
+      images: photos.map((img) => img.imageUrl),
+    }
+  })
 
   const categoryPages: MetadataRoute.Sitemap = categories
     .filter((c) => (c.products ?? []).length > 0)
@@ -42,5 +64,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...(p.imageUrl ? { images: [getImageUrl(p.imageUrl)] } : {}),
   }))
 
-  return [...pages, ...categoryPages, ...productPages]
+  return [...pages, ...categoryPages, ...productPages, ...galleryTypePages]
 }

@@ -268,6 +268,13 @@ export default function HomeClient({ categories, galeriaImages, cityNames, faq }
                 <span>Desliza para ver más</span>
                 <ArrowRight className="w-4 h-4 ml-2" />
               </div>
+
+              <Link
+                href="/galeria"
+                className="hidden md:inline-flex items-center shrink-0 text-sm font-bold text-[#3b9dff] hover:text-white bg-white/5 hover:bg-white/10 px-5 py-2.5 rounded-full border border-white/10 transition-colors group"
+              >
+                Ver toda la galería <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+              </Link>
             </motion.div>
 
             <div className="flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory gap-4 pb-6 -mx-6 px-6 md:mx-0 md:px-0 md:pb-0 md:grid md:grid-cols-2 lg:grid-cols-4 md:gap-6 md:overflow-visible [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">

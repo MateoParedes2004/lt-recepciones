@@ -151,9 +151,17 @@ model GalleryImage {
   id          Int      @id @default(autoincrement())
   imageUrl    String   // URL de la imagen en Cloudinary
   title       String?  // Título o descripción corta (Ej: "Boda en Asunción")
+  // Tipo de evento (ver gallery/event-types.ts para la lista válida), para
+  // poder mostrar/filtrar la galería pública por "Bodas", "Cumpleaños de 15",
+  // etc. Nullable a propósito: las fotos ya subidas antes de este campo
+  // quedan "sin clasificar" en vez de romper, y el panel las muestra aparte
+  // para que se puedan etiquetar a mano.
+  eventType   String?
   isVisible   Boolean  @default(true) // Permite ocultar fotos sin borrarlas
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([eventType])
 }
 
 model City {

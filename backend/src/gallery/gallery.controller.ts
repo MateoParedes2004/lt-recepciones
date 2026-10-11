@@ -16,6 +16,7 @@ import { FilesInterceptor } from '@nestjs/platform-express'; // 👈 Cambiado a 
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { multerImageOptions } from '../common/multer-image.config';
 import { CreateGalleryDto } from './dto/create-gallery.dto';
+import { UpdateGalleryDto } from './dto/update-gallery.dto';
 import { SkipThrottle } from '@nestjs/throttler';
 
 @Controller('gallery')
@@ -29,7 +30,16 @@ export class GalleryController {
     @UploadedFiles() files: Array<Express.Multer.File>,
     @Body() body: CreateGalleryDto,
   ) {
-    return this.galleryService.create(files, body.title);
+    return this.galleryService.create(files, body.title, body.eventType);
+  }
+
+  // Corrige título/tipo de evento de una foto ya subida. Va antes de
+  // ":id/toggle" en el archivo solo por orden de lectura; Nest no confunde
+  // las dos porque tienen distinta cantidad de segmentos en la ruta.
+  @UseGuards(JwtAuthGuard)
+  @Patch(':id')
+  update(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateGalleryDto) {
+    return this.galleryService.update(id, body);
   }
 
   // Público: solo devuelve las fotos visibles. Sin límite por IP (ver products.controller).
