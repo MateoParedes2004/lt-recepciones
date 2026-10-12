@@ -54,10 +54,16 @@ export class RentalsService {
     return { eventDate, returnDate };
   }
 
-  private async assertCityExists(cityId: number | null | undefined) {
-    if (cityId == null) return;
-    const city = await this.prisma.city.findUnique({ where: { id: cityId }, select: { id: true } });
+  /**
+   * Valida que la ciudad exista y devuelve su costo de envío ACTUAL (0 si no
+   * se especificó ciudad). Ese valor queda "congelado" en Rental.shippingPrice
+   * al crear o al volver a elegir ciudad — ver el comentario en el schema.
+   */
+  private async resolveShippingPrice(cityId: number | null | undefined): Promise<number> {
+    if (cityId == null) return 0;
+    const city = await this.prisma.city.findUnique({ where: { id: cityId }, select: { price: true } });
     if (!city) throw new BadRequestException('La ciudad de entrega seleccionada no existe.');
+    return city.price;
   }
 
   /** Suma las cantidades por producto: el mismo producto en dos líneas se valida como uno solo. */
@@ -83,7 +89,7 @@ export class RentalsService {
 
   async create(data: CreateRentalDto) {
     const { eventDate, returnDate } = this.parseDates(data.eventDate, data.returnDate);
-    await this.assertCityExists(data.cityId);
+    const shippingPrice = await this.resolveShippingPrice(data.cityId);
     const wanted = this.aggregate(data.items);
     const productIds = [...wanted.keys()];
 
@@ -122,7 +128,7 @@ export class RentalsService {
 
         await this.availability.assertCanFit(tx, wanted, products, eventDate, returnDate);
 
-        const totalPrice = data.items.reduce((sum, item) => sum + Number(byId.get(item.productId)!.pricePerDay) * item.quantity, 0);
+        const itemsSubtotal = data.items.reduce((sum, item) => sum + Number(byId.get(item.productId)!.pricePerDay) * item.quantity, 0);
 
         const created = await tx.rental.create({
           data: {
@@ -130,7 +136,8 @@ export class RentalsService {
             clientPhone: data.clientPhone || '',
             eventDate,
             returnDate,
-            totalPrice,
+            totalPrice: itemsSubtotal + shippingPrice,
+            shippingPrice,
             cityId: data.cityId ?? null,
             items: {
               create: data.items.map((item) => ({
@@ -193,9 +200,10 @@ export class RentalsService {
   // ---------------------------------------------------------------- editar
 
   async update(id: number, data: UpdateRentalDto) {
-    await this.assertCityExists(data.cityId);
-
     const touchesSchedule = data.eventDate !== undefined || data.returnDate !== undefined || data.items !== undefined;
+    const touchesCity = data.cityId !== undefined;
+    // undefined = no se tocó la ciudad; 0 es un envío válido (ciudad gratis o "a coordinar").
+    const newShippingPrice = touchesCity ? await this.resolveShippingPrice(data.cityId) : undefined;
 
     const updated = await this.prisma.$transaction(
       async (tx) => {
@@ -218,7 +226,14 @@ export class RentalsService {
         const update: Prisma.RentalUpdateInput = {};
         if (data.clientName !== undefined) update.clientName = data.clientName;
         if (data.clientPhone !== undefined) update.clientPhone = data.clientPhone || '';
-        if (data.cityId !== undefined) update.city = data.cityId === null ? { disconnect: true } : { connect: { id: data.cityId } };
+        // El envío queda "congelado" al valor de la ciudad en este momento (igual
+        // que el precio de los productos): si no se toca la ciudad, se conserva
+        // el que ya tenía, aunque el precio de esa ciudad haya cambiado después.
+        const shippingPrice = newShippingPrice ?? current.shippingPrice;
+        if (touchesCity) {
+          update.city = data.cityId === null ? { disconnect: true } : { connect: { id: data.cityId } };
+          update.shippingPrice = shippingPrice;
+        }
 
         if (touchesSchedule) {
           const currentLines: RentalItemInput[] = current.items.map((i) => ({ productId: i.productId, quantity: i.quantity }));
@@ -259,12 +274,22 @@ export class RentalsService {
             for (const item of current.items) if (!historicalPrice.has(item.productId)) historicalPrice.set(item.productId, item.unitPrice);
             const priceFor = (productId: number) => historicalPrice.get(productId) ?? byId.get(productId)!.pricePerDay;
 
-            update.totalPrice = data.items.reduce((sum, item) => sum + Number(priceFor(item.productId)) * item.quantity, 0);
+            const itemsSubtotal = data.items.reduce((sum, item) => sum + Number(priceFor(item.productId)) * item.quantity, 0);
+            update.totalPrice = itemsSubtotal + shippingPrice;
             update.items = {
               deleteMany: {},
               create: data.items.map((item) => ({ quantity: item.quantity, productId: item.productId, unitPrice: priceFor(item.productId) })),
             };
           }
+        }
+
+        // Si cambió la ciudad pero NO los ítems (ya se recalculó arriba cuando
+        // sí cambian), el total igual tiene que reflejar el envío nuevo sobre
+        // el mismo subtotal de productos de siempre. current.totalPrice ya
+        // incluye el envío viejo, así que restándolo queda el subtotal puro.
+        if (touchesCity && !data.items) {
+          const itemsSubtotal = Number(current.totalPrice) - Number(current.shippingPrice);
+          update.totalPrice = itemsSubtotal + shippingPrice;
         }
 
         return tx.rental.update({ where: { id }, data: update, include: RENTAL_INCLUDE });

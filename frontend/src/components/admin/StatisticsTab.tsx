@@ -254,6 +254,9 @@ interface Kpis {
   picoVisitas?: { name: string; visitas: number } | null;
   // null si no existe el rubro "Manteles" (ver AnalyticsService).
   manteles?: { conManteles: number; sinManteles: number } | null;
+  // De los alquileres del período, cuántos todavía no llegaron a su fecha de evento.
+  alquileresReservados?: number;
+  picoAlquileres?: { name: string; pedidos: number } | null;
 }
 
 function StatTile({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: string; accent: string }) {
@@ -464,6 +467,7 @@ export default function StatisticsTab() {
         <StatTile icon={<Clock className="w-5 h-5" />} label="Duración prom. de alquiler" value={formatDias(kpis?.duracionPromedioDias ?? 0)} accent="#004080" />
         <StatTile icon={<Hourglass className="w-5 h-5" />} label="Anticipación prom. de reserva" value={formatDias(kpis?.anticipacionPromedioDias ?? 0)} accent="#004080" />
         <StatTile icon={<CheckCircle2 className="w-5 h-5" />} label="Activos / Devueltos" value={`${kpis?.alquileresActivos ?? 0} / ${kpis?.alquileresDevueltos ?? 0}`} accent="#004080" />
+        <StatTile icon={<Calendar className="w-5 h-5" />} label="Reservados (sin usar aún)" value={String(kpis?.alquileresReservados ?? 0)} accent="#004080" />
         {kpis?.manteles && (
           <StatTile icon={<Layers className="w-5 h-5" />} label="Alquileres sin manteles" value={`${kpis.manteles.sinManteles} de ${kpis.totalAlquileres}`} accent="#004080" />
         )}
@@ -545,6 +549,29 @@ export default function StatisticsTab() {
               )}
             </div>
             <VisitasChart data={chartData} mode={viewMode === "anual" ? "anual" : "mensual"} isLoading={isLoading} />
+          </div>
+
+          <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm relative">
+            {isLoading && <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-10 rounded-3xl flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#004080]"/></div>}
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
+              <h3 className="text-lg font-bold text-slate-900 flex items-center"><CalendarDays className="w-5 h-5 mr-2 text-[#004080]" /> Alquileres por Período</h3>
+              {kpis?.picoAlquileres && (
+                <span className="text-xs font-bold text-[#004080] bg-[#e8f0f8] border border-[#004080]/15 px-2.5 py-1 rounded-full">
+                  Pico: {kpis.picoAlquileres.name} · {kpis.picoAlquileres.pedidos} {kpis.picoAlquileres.pedidos === 1 ? "alquiler" : "alquileres"}
+                </span>
+              )}
+            </div>
+            <div className="h-72 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="none" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+                  <YAxis axisLine={false} tickLine={false} allowDecimals={false} tick={{fill: '#64748b', fontSize: 12}} />
+                  <Tooltip formatter={(value) => [`${value}`, "Alquileres"]} cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} />
+                  <Bar dataKey="pedidos" name="Alquileres" fill={COLOR_ALQUILERES} radius={[4, 4, 0, 0]} maxBarSize={40} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
       )}

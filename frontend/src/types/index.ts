@@ -63,7 +63,9 @@ export interface Rental {
   daysOverdue?: number;
   returnedAt?: string | null;
   cancelledAt?: string | null;
+  /** Productos + envío. El envío queda congelado al precio de la ciudad en el momento de elegirla. */
   totalPrice: number;
+  shippingPrice?: number;
   createdAt: string;
   updatedAt: string;
   cityId?: number | null;

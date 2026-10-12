@@ -70,7 +70,13 @@ model Rental {
   status      String   @default("ACTIVO")
   returnedAt  DateTime? // Cuándo se marcó como devuelto
   cancelledAt DateTime? // Cuándo se anuló
-  totalPrice  Float    @default(0) // El precio total en Guaraníes
+  // totalPrice = Σ(precio × cantidad) de los productos + shippingPrice.
+  totalPrice  Float    @default(0) // El precio total en Guaraníes, envío incluido
+  // Precio de envío "congelado" al momento de elegir la ciudad (igual que
+  // RentalItem.unitPrice con los productos): si después cambia el costo de
+  // envío de esa ciudad en Zonas de Entrega, los alquileres ya cargados NO
+  // se recalculan solos — reflejan lo que realmente se cobró.
+  shippingPrice Float  @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 

@@ -234,7 +234,7 @@ export default function ProductsTab({ products, categories, fetchData, isLoading
                     )}
                   </div>
                 </td>
-                <td className="px-6 py-4 font-medium">{formatPYG(p.pricePerDay)}</td>
+                <td className="px-6 py-4 font-medium text-slate-900">{formatPYG(p.pricePerDay)}</td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end space-x-2">
                     <button onClick={() => handleEditClick(p)} className="p-2 text-slate-400 hover:text-[#004080] hover:bg-[#e8f0f8] rounded-lg cursor-pointer transition-colors" title="Editar" aria-label={`Editar ${p.name}`}><Edit className="w-4 h-4" /></button>

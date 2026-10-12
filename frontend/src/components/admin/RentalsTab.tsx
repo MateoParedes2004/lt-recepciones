@@ -218,6 +218,19 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
     return m;
   }, [rentalForm.items]);
 
+  // Vista previa del total: productos (precio vigente, por eso al editar un
+  // alquiler ya guardado puede no coincidir centavo a centavo con el precio
+  // histórico real) + envío de la ciudad elegida. El servidor recalcula esto
+  // mismo al guardar, con los precios que correspondan.
+  const formTotal = useMemo(() => {
+    const itemsSubtotal = [...requestedByProduct.entries()].reduce(
+      (sum, [productId, quantity]) => sum + (productOptions.find((p) => p.id === productId)?.pricePerDay ?? 0) * quantity,
+      0,
+    );
+    const shipping = rentalForm.cityId ? (cities.find((c) => String(c.id) === rentalForm.cityId)?.price ?? 0) : 0;
+    return { itemsSubtotal, shipping, total: itemsSubtotal + shipping };
+  }, [requestedByProduct, productOptions, rentalForm.cityId, cities]);
+
   // Al chocar con el stock, muestra (o esconde) exactamente qué otros alquileres
   // tienen reservadas las unidades de ese producto en esas fechas.
   const toggleHolders = async (productId: number) => {
@@ -488,6 +501,14 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
                         <option value="">Sin especificar</option>
                         {cities.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
                       </select>
+                      {rentalForm.cityId && (() => {
+                        const selectedCity = cities.find((c) => String(c.id) === rentalForm.cityId);
+                        return selectedCity ? (
+                          <p className="mt-1.5 text-xs text-slate-500">
+                            Envío: <span className="font-bold text-[#004080]">{selectedCity.price > 0 ? formatPYG(selectedCity.price) : "A coordinar"}</span>
+                          </p>
+                        ) : null;
+                      })()}
                     </div>
                     <div><label className="block text-sm font-medium text-slate-700 mb-1">Fecha del Evento (Uso)</label><input type="date" required disabled={scheduleLocked} value={rentalForm.eventDate} onChange={(e) => setRentalForm({...rentalForm, eventDate: e.target.value})} className="w-full px-4 py-2 border rounded-xl text-slate-900 disabled:bg-slate-100 disabled:text-slate-500" /></div>
                     <div><label className="block text-sm font-medium text-slate-700 mb-1">Fecha de Devolución</label><input type="date" required disabled={scheduleLocked} min={rentalForm.eventDate || undefined} value={rentalForm.returnDate} onChange={(e) => setRentalForm({...rentalForm, returnDate: e.target.value})} className="w-full px-4 py-2 border rounded-xl text-slate-900 disabled:bg-slate-100 disabled:text-slate-500" /></div>
@@ -540,6 +561,11 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
                               <button type="button" onClick={() => removeRentalItem(index)} aria-label="Quitar este producto" title="Quitar este producto" className="p-2 text-red-500 hover:bg-red-50 rounded-lg cursor-pointer"><Trash2 className="w-5 h-5"/></button>
                             )}
                           </div>
+                          {productId !== null && (
+                            <p className="mt-1.5 text-xs text-slate-500">
+                              Subtotal: <span className="font-bold text-[#004080]">{formatPYG((productOptions.find((p) => p.id === productId)?.pricePerDay ?? 0) * (Number(item.quantity) || 0))}</span>
+                            </p>
+                          )}
                           {over && productId !== null && (() => {
                             const holdersOpen = holdersFor?.productId === productId && holdersFor.eventDate === eventDate && holdersFor.returnDate === returnDate;
                             return (
@@ -581,6 +607,12 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
                       );
                     })}
                   </div>
+                </div>
+
+                <div className="bg-[#e8f0f8] p-4 rounded-2xl border border-[#004080]/15 space-y-1">
+                  <div className="flex justify-between text-sm text-slate-600"><span>Subtotal productos</span><span>{formatPYG(formTotal.itemsSubtotal)}</span></div>
+                  <div className="flex justify-between text-sm text-slate-600"><span>Envío</span><span>{formTotal.shipping > 0 ? formatPYG(formTotal.shipping) : "—"}</span></div>
+                  <div className="flex justify-between text-base font-bold text-[#004080] pt-1 border-t border-[#004080]/15"><span>Total</span><span>{formatPYG(formTotal.total)}</span></div>
                 </div>
               </form>
             </div>

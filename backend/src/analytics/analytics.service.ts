@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
+import { derivePhase } from '../rentals/rentals.service';
 import { CreateCheckoutIntentDto } from './dto/create-checkout-intent.dto';
 import { PublicEventType } from './dto/track-event.dto';
 import {
@@ -780,6 +781,11 @@ export class AnalyticsService {
     const alquileresDevueltos = alquileres.filter(
       (r) => r.status === 'DEVUELTO',
     ).length;
+    // De los alquileres de este período, cuántos todavía no llegaron a su
+    // fecha de evento (fase derivada "ahora mismo", no guardada).
+    const alquileresReservados = alquileres.filter(
+      (r) => derivePhase(r).phase === 'RESERVADO',
+    ).length;
 
     const duraciones = alquileres.map(
       (r) => (r.returnDate.getTime() - r.eventDate.getTime()) / MS_PER_DAY,
@@ -808,6 +814,17 @@ export class AnalyticsService {
         (!picoVisitas || punto.visitas > picoVisitas.visitas)
       ) {
         picoVisitas = { name: punto.name, visitas: punto.visitas };
+      }
+    }
+
+    // Día (o mes) con más alquileres cargados del período (para "Alquileres por Período").
+    let picoAlquileres: { name: string; pedidos: number } | null = null;
+    for (const punto of chartData) {
+      if (
+        punto.pedidos > 0 &&
+        (!picoAlquileres || punto.pedidos > picoAlquileres.pedidos)
+      ) {
+        picoAlquileres = { name: punto.name, pedidos: punto.pedidos };
       }
     }
 
@@ -851,8 +868,10 @@ export class AnalyticsService {
       anticipacionPromedioDias: promedio(anticipaciones),
       alquileresActivos,
       alquileresDevueltos,
+      alquileresReservados,
       picoBucket,
       picoVisitas,
+      picoAlquileres,
     };
 
     return {
