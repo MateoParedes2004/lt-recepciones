@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Plus, Trash2, Search, X, CheckCircle, CalendarDays, PlusCircle, MapPin, Pencil, Ban, RotateCcw, TriangleAlert, List, LayoutGrid, ChevronDown, ChevronUp, Users } from "lucide-react";
 import { apiFetch, readApiError } from "../../lib/api";
@@ -218,18 +218,25 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
     return m;
   }, [rentalForm.items]);
 
-  // Vista previa del total: productos a precio vigente (por eso al editar un
-  // alquiler ya guardado puede no coincidir centavo a centavo con el precio
-  // histórico de ítems que no se tocaron — el servidor sí lo respeta al
-  // guardar). El envío, en cambio, si no se cambió la ciudad respecto a la
-  // que ya tenía el alquiler, muestra el valor CONGELADO real (no el precio
-  // actual de esa ciudad): así la vista previa coincide con lo que de verdad
-  // se va a guardar, igual que ya resuelve handleSaveRental.
+  // Precio que realmente se va a guardar para ese producto (ver
+  // RentalsService.update "priceFor"): uno que ya estaba en el alquiler
+  // conserva su precio histórico (unitPrice); uno nuevo, o cualquiera si es
+  // un alquiler nuevo, toma el precio vigente. Se usa tanto en el subtotal
+  // de cada renglón como en el resumen del total, para que ambos coincidan
+  // centavo a centavo con lo que el servidor va a guardar.
+  const priceFor = useCallback(
+    (productId: number): number => {
+      const historical = editingRental?.items.find((i) => i.productId === productId)?.unitPrice;
+      return historical ?? productOptions.find((p) => p.id === productId)?.pricePerDay ?? 0;
+    },
+    [editingRental, productOptions],
+  );
+
+  // Vista previa del total. El envío, si no se cambió la ciudad, muestra el
+  // valor CONGELADO real (no el precio actual de esa ciudad): así coincide
+  // con lo que de verdad se va a guardar, igual que ya resuelve priceFor con los productos.
   const formTotal = useMemo(() => {
-    const itemsSubtotal = [...requestedByProduct.entries()].reduce(
-      (sum, [productId, quantity]) => sum + (productOptions.find((p) => p.id === productId)?.pricePerDay ?? 0) * quantity,
-      0,
-    );
+    const itemsSubtotal = [...requestedByProduct.entries()].reduce((sum, [productId, quantity]) => sum + priceFor(productId) * quantity, 0);
     const selectedCityId = rentalForm.cityId ? parseInt(rentalForm.cityId) : null;
     const cityUnchanged = editingRental !== null && selectedCityId === (editingRental.cityId ?? null);
     const shipping = cityUnchanged
@@ -238,7 +245,7 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
         ? (cities.find((c) => c.id === selectedCityId)?.price ?? 0)
         : 0;
     return { itemsSubtotal, shipping, total: itemsSubtotal + shipping };
-  }, [requestedByProduct, productOptions, rentalForm.cityId, cities, editingRental]);
+  }, [requestedByProduct, priceFor, rentalForm.cityId, cities, editingRental]);
 
   // Al chocar con el stock, muestra (o esconde) exactamente qué otros alquileres
   // tienen reservadas las unidades de ese producto en esas fechas.
@@ -580,7 +587,7 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
                           </div>
                           {productId !== null && (
                             <p className="mt-1.5 text-xs text-slate-500">
-                              Subtotal: <span className="font-bold text-[#004080]">{formatPYG((productOptions.find((p) => p.id === productId)?.pricePerDay ?? 0) * (Number(item.quantity) || 0))}</span>
+                              Subtotal: <span className="font-bold text-[#004080]">{formatPYG(priceFor(productId) * (Number(item.quantity) || 0))}</span>
                             </p>
                           )}
                           {over && productId !== null && (() => {
