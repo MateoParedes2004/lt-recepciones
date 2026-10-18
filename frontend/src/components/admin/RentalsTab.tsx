@@ -218,18 +218,27 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
     return m;
   }, [rentalForm.items]);
 
-  // Vista previa del total: productos (precio vigente, por eso al editar un
+  // Vista previa del total: productos a precio vigente (por eso al editar un
   // alquiler ya guardado puede no coincidir centavo a centavo con el precio
-  // histórico real) + envío de la ciudad elegida. El servidor recalcula esto
-  // mismo al guardar, con los precios que correspondan.
+  // histórico de ítems que no se tocaron — el servidor sí lo respeta al
+  // guardar). El envío, en cambio, si no se cambió la ciudad respecto a la
+  // que ya tenía el alquiler, muestra el valor CONGELADO real (no el precio
+  // actual de esa ciudad): así la vista previa coincide con lo que de verdad
+  // se va a guardar, igual que ya resuelve handleSaveRental.
   const formTotal = useMemo(() => {
     const itemsSubtotal = [...requestedByProduct.entries()].reduce(
       (sum, [productId, quantity]) => sum + (productOptions.find((p) => p.id === productId)?.pricePerDay ?? 0) * quantity,
       0,
     );
-    const shipping = rentalForm.cityId ? (cities.find((c) => String(c.id) === rentalForm.cityId)?.price ?? 0) : 0;
+    const selectedCityId = rentalForm.cityId ? parseInt(rentalForm.cityId) : null;
+    const cityUnchanged = editingRental !== null && selectedCityId === (editingRental.cityId ?? null);
+    const shipping = cityUnchanged
+      ? (editingRental.shippingPrice ?? 0)
+      : selectedCityId !== null
+        ? (cities.find((c) => c.id === selectedCityId)?.price ?? 0)
+        : 0;
     return { itemsSubtotal, shipping, total: itemsSubtotal + shipping };
-  }, [requestedByProduct, productOptions, rentalForm.cityId, cities]);
+  }, [requestedByProduct, productOptions, rentalForm.cityId, cities, editingRental]);
 
   // Al chocar con el stock, muestra (o esconde) exactamente qué otros alquileres
   // tienen reservadas las unidades de ese producto en esas fechas.
@@ -279,11 +288,19 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
 
     setIsSavingRental(true);
     try {
+      const selectedCityId = rentalForm.cityId ? parseInt(rentalForm.cityId) : null;
+      // Al crear, mandar la ciudad siempre (o null = "sin especificar"). Al
+      // editar, solo si REALMENTE cambió: el servidor usa "vino cityId en el
+      // pedido" como señal de "recalculá el envío con el precio de hoy de esa
+      // ciudad" (para congelarlo, igual que el precio de los productos). Si se
+      // mandara siempre aunque no haya cambiado, cualquier edición chica —
+      // corregir el teléfono, por ejemplo— volvería a congelar el envío al
+      // precio ACTUAL de la ciudad en vez de conservar el que ya tenía.
+      const cityChanged = editingId === null || selectedCityId !== (editingRental?.cityId ?? null);
       const contact = {
         clientName: rentalForm.clientName,
         clientPhone: rentalForm.clientPhone,
-        // Al editar, "Sin especificar" se envía como null para poder quitar la ciudad.
-        cityId: rentalForm.cityId ? parseInt(rentalForm.cityId) : editingId !== null ? null : undefined,
+        ...(cityChanged ? { cityId: selectedCityId } : {}),
       };
       const schedule = scheduleLocked ? {} : {
         eventDate: new Date(rentalForm.eventDate).toISOString(),
