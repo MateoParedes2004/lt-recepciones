@@ -22,11 +22,13 @@ const formatFechaCalendario = (iso: string) => new Date(iso).toLocaleDateString(
 // La misma fecha en el formato que entiende un <input type="date"> (aaaa-mm-dd).
 const toInputDate = (iso: string) => new Date(iso).toISOString().slice(0, 10);
 
-// Los <input> entregan texto: la cantidad puede ser string mientras se edita.
-interface RentalFormItem { productId: string; quantity: number | string }
-interface RentalForm { clientName: string; clientPhone: string; cityId: string; eventDate: string; returnDate: string; items: RentalFormItem[] }
+// Los <input> entregan texto: la cantidad y los precios pueden ser string mientras se editan.
+// unitPrice/shippingPrice son editables a mano: la cotización real suele diferir
+// del catálogo (descuentos, recargos, distancia, acuerdos puntuales).
+interface RentalFormItem { productId: string; quantity: number | string; unitPrice: number | string }
+interface RentalForm { clientName: string; clientPhone: string; cityId: string; shippingPrice: number | string; eventDate: string; returnDate: string; items: RentalFormItem[] }
 
-const EMPTY_FORM: RentalForm = { clientName: "", clientPhone: "", cityId: "", eventDate: "", returnDate: "", items: [{ productId: "", quantity: 1 }] };
+const EMPTY_FORM: RentalForm = { clientName: "", clientPhone: "", cityId: "", shippingPrice: "", eventDate: "", returnDate: "", items: [{ productId: "", quantity: 1, unitPrice: "" }] };
 
 // Quién tiene reservadas las unidades de un producto en el rango consultado (detalle de un conflicto de stock).
 interface StockHolder { rentalId: number; clientName: string; quantity: number; eventDate: string; returnDate: string; phase: RentalPhase; daysOverdue: number }
@@ -152,9 +154,10 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
       clientName: r.clientName,
       clientPhone: r.clientPhone ?? "",
       cityId: r.cityId ? String(r.cityId) : "",
+      shippingPrice: r.shippingPrice ?? 0,
       eventDate: toInputDate(r.eventDate),
       returnDate: toInputDate(r.returnDate),
-      items: r.items.map((i) => ({ productId: String(i.productId), quantity: i.quantity })),
+      items: r.items.map((i) => ({ productId: String(i.productId), quantity: i.quantity, unitPrice: i.unitPrice ?? i.product?.pricePerDay ?? 0 })),
     });
     setIsRentalModalOpen(true);
   };
@@ -171,7 +174,7 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
     const dropped = intent.items.filter((i) => !products.some((p) => p.id === i.productId));
     const items = intent.items
       .filter((i) => products.some((p) => p.id === i.productId))
-      .map((i) => ({ productId: String(i.productId), quantity: i.quantity }));
+      .map((i) => ({ productId: String(i.productId), quantity: i.quantity, unitPrice: products.find((p) => p.id === i.productId)?.pricePerDay ?? 0 }));
     // El pedido pudo haber pedido un producto que después se dio de baja o se
     // borró: en vez de precargar menos ítems de los que el cliente pidió sin
     // decir nada, avisa cuáles quedaron afuera para que se agreguen a mano.
@@ -182,9 +185,10 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
       clientName: "",
       clientPhone: "",
       cityId: matchedCity ? String(matchedCity.id) : "",
+      shippingPrice: matchedCity ? matchedCity.price : "",
       eventDate: intent.eventDate ? toInputDate(intent.eventDate) : "",
       returnDate: intent.returnDate ? toInputDate(intent.returnDate) : "",
-      items: items.length > 0 ? items : [{ productId: "", quantity: 1 }],
+      items: items.length > 0 ? items : [{ productId: "", quantity: 1, unitPrice: "" }],
     });
     setIsRentalModalOpen(true);
   };
@@ -200,11 +204,38 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
     } catch { toast.error("Error de conexión. Revisá tu internet e intentá de nuevo."); }
   };
 
-  const addRentalItem = () => { setRentalForm({ ...rentalForm, items: [...rentalForm.items, { productId: "", quantity: 1 }] }); };
+  // Precio POR DEFECTO al elegir un producto en un renglón (el admin puede
+  // después corregirlo a mano: la cotización real suele diferir del
+  // catálogo). Si el producto ya estaba en el alquiler, arranca con su
+  // precio histórico; si no, con el vigente.
+  const defaultPriceFor = useCallback(
+    (productId: number): number => {
+      const historical = editingRental?.items.find((i) => i.productId === productId)?.unitPrice;
+      return historical ?? productOptions.find((p) => p.id === productId)?.pricePerDay ?? 0;
+    },
+    [editingRental, productOptions],
+  );
+
+  const addRentalItem = () => { setRentalForm({ ...rentalForm, items: [...rentalForm.items, { productId: "", quantity: 1, unitPrice: "" }] }); };
   const removeRentalItem = (index: number) => { const newItems = rentalForm.items.filter((_, i) => i !== index); setRentalForm({ ...rentalForm, items: newItems }); };
-  const updateRentalItem = (index: number, field: "productId" | "quantity", value: string | number) => {
+  const updateRentalItem = (index: number, field: "quantity" | "unitPrice", value: string | number) => {
     const newItems = rentalForm.items.map((item, i) => (i === index ? { ...item, [field]: value } : item));
     setRentalForm({ ...rentalForm, items: newItems });
+  };
+  // Cambiar el producto de un renglón actualiza productId Y precarga su
+  // precio por defecto a la vez (en un solo setState, para no pisarse con
+  // updateRentalItem si se llamaran por separado).
+  const updateRentalItemProduct = (index: number, newProductId: string) => {
+    const pid = newProductId ? parseInt(newProductId) : null;
+    const newItems = rentalForm.items.map((item, i) => (i === index ? { ...item, productId: newProductId, unitPrice: pid !== null ? defaultPriceFor(pid) : "" } : item));
+    setRentalForm({ ...rentalForm, items: newItems });
+  };
+  // Igual que arriba, pero para la ciudad: precarga el envío con el precio
+  // de la ciudad elegida (el admin lo puede corregir después).
+  const handleCityChange = (newCityId: string) => {
+    const cid = newCityId ? parseInt(newCityId) : null;
+    const defaultShipping = cid !== null ? (cities.find((c) => c.id === cid)?.price ?? 0) : "";
+    setRentalForm({ ...rentalForm, cityId: newCityId, shippingPrice: defaultShipping });
   };
 
   // Cantidad pedida por producto (si el mismo producto está en dos filas se suman).
@@ -218,34 +249,14 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
     return m;
   }, [rentalForm.items]);
 
-  // Precio que realmente se va a guardar para ese producto (ver
-  // RentalsService.update "priceFor"): uno que ya estaba en el alquiler
-  // conserva su precio histórico (unitPrice); uno nuevo, o cualquiera si es
-  // un alquiler nuevo, toma el precio vigente. Se usa tanto en el subtotal
-  // de cada renglón como en el resumen del total, para que ambos coincidan
-  // centavo a centavo con lo que el servidor va a guardar.
-  const priceFor = useCallback(
-    (productId: number): number => {
-      const historical = editingRental?.items.find((i) => i.productId === productId)?.unitPrice;
-      return historical ?? productOptions.find((p) => p.id === productId)?.pricePerDay ?? 0;
-    },
-    [editingRental, productOptions],
-  );
-
-  // Vista previa del total. El envío, si no se cambió la ciudad, muestra el
-  // valor CONGELADO real (no el precio actual de esa ciudad): así coincide
-  // con lo que de verdad se va a guardar, igual que ya resuelve priceFor con los productos.
+  // Vista previa del total: precio y envío son los que están cargados AHORA
+  // en el formulario (unitPrice/shippingPrice), que es exactamente lo que se
+  // manda al guardar — no hay que recalcular nada por separado.
   const formTotal = useMemo(() => {
-    const itemsSubtotal = [...requestedByProduct.entries()].reduce((sum, [productId, quantity]) => sum + priceFor(productId) * quantity, 0);
-    const selectedCityId = rentalForm.cityId ? parseInt(rentalForm.cityId) : null;
-    const cityUnchanged = editingRental !== null && selectedCityId === (editingRental.cityId ?? null);
-    const shipping = cityUnchanged
-      ? (editingRental.shippingPrice ?? 0)
-      : selectedCityId !== null
-        ? (cities.find((c) => c.id === selectedCityId)?.price ?? 0)
-        : 0;
+    const itemsSubtotal = rentalForm.items.reduce((sum, item) => sum + (Number(item.unitPrice) || 0) * (Number(item.quantity) || 0), 0);
+    const shipping = Number(rentalForm.shippingPrice) || 0;
     return { itemsSubtotal, shipping, total: itemsSubtotal + shipping };
-  }, [requestedByProduct, priceFor, rentalForm.cityId, cities, editingRental]);
+  }, [rentalForm.items, rentalForm.shippingPrice]);
 
   // Al chocar con el stock, muestra (o esconde) exactamente qué otros alquileres
   // tienen reservadas las unidades de ese producto en esas fechas.
@@ -295,24 +306,25 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
 
     setIsSavingRental(true);
     try {
-      const selectedCityId = rentalForm.cityId ? parseInt(rentalForm.cityId) : null;
-      // Al crear, mandar la ciudad siempre (o null = "sin especificar"). Al
-      // editar, solo si REALMENTE cambió: el servidor usa "vino cityId en el
-      // pedido" como señal de "recalculá el envío con el precio de hoy de esa
-      // ciudad" (para congelarlo, igual que el precio de los productos). Si se
-      // mandara siempre aunque no haya cambiado, cualquier edición chica —
-      // corregir el teléfono, por ejemplo— volvería a congelar el envío al
-      // precio ACTUAL de la ciudad en vez de conservar el que ya tenía.
-      const cityChanged = editingId === null || selectedCityId !== (editingRental?.cityId ?? null);
+      // El envío y el precio de cada producto son los que el admin ve y puede
+      // corregir a mano en el formulario (la cotización real suele diferir
+      // del catálogo): se mandan siempre tal cual están cargados, no hay que
+      // adivinar si "cambiaron" — eso ya evita el problema de antes, donde
+      // mandar la ciudad sin querer recongelaba el envío al precio de hoy.
       const contact = {
         clientName: rentalForm.clientName,
         clientPhone: rentalForm.clientPhone,
-        ...(cityChanged ? { cityId: selectedCityId } : {}),
+        cityId: rentalForm.cityId ? parseInt(rentalForm.cityId) : null,
+        shippingPrice: Number(rentalForm.shippingPrice) || 0,
       };
       const schedule = scheduleLocked ? {} : {
         eventDate: new Date(rentalForm.eventDate).toISOString(),
         returnDate: new Date(rentalForm.returnDate).toISOString(),
-        items: rentalForm.items.map((item) => ({ productId: parseInt(item.productId), quantity: parseInt(item.quantity.toString()) })),
+        items: rentalForm.items.map((item) => ({
+          productId: parseInt(item.productId),
+          quantity: parseInt(item.quantity.toString()),
+          unitPrice: Number(item.unitPrice) || 0,
+        })),
       };
       // Si viene de "Convertir en alquiler" de un pedido por WhatsApp, enlaza
       // ese pedido con el alquiler recién creado (solo aplica al crear, no al editar).
@@ -521,18 +533,24 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
                     <div><label className="block text-sm font-medium text-slate-700 mb-1">Teléfono</label><input type="text" value={rentalForm.clientPhone} onChange={(e) => setRentalForm({...rentalForm, clientPhone: e.target.value})} className="w-full px-4 py-2 border rounded-xl text-slate-900" placeholder="09XX XXX XXX" /></div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Ciudad de Entrega</label>
-                      <select value={rentalForm.cityId} onChange={(e) => setRentalForm({...rentalForm, cityId: e.target.value})} className="w-full px-4 py-2 border rounded-xl bg-white text-slate-900">
+                      <select value={rentalForm.cityId} onChange={(e) => handleCityChange(e.target.value)} className="w-full px-4 py-2 border rounded-xl bg-white text-slate-900">
                         <option value="">Sin especificar</option>
                         {cities.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
                       </select>
-                      {rentalForm.cityId && (() => {
-                        const selectedCity = cities.find((c) => String(c.id) === rentalForm.cityId);
-                        return selectedCity ? (
-                          <p className="mt-1.5 text-xs text-slate-500">
-                            Envío: <span className="font-bold text-[#004080]">{selectedCity.price > 0 ? formatPYG(selectedCity.price) : "A coordinar"}</span>
-                          </p>
-                        ) : null;
-                      })()}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Precio de Envío</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm">Gs.</span>
+                        <input
+                          type="number" min="0" step="1"
+                          value={rentalForm.shippingPrice}
+                          onChange={(e) => setRentalForm({ ...rentalForm, shippingPrice: e.target.value })}
+                          className="w-full pl-10 pr-4 py-2 border rounded-xl text-slate-900"
+                          placeholder="0"
+                        />
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">Se precarga con el de la ciudad, pero se puede ajustar: la cotización real suele variar.</p>
                     </div>
                     <div><label className="block text-sm font-medium text-slate-700 mb-1">Fecha del Evento (Uso)</label><input type="date" required disabled={scheduleLocked} value={rentalForm.eventDate} onChange={(e) => setRentalForm({...rentalForm, eventDate: e.target.value})} className="w-full px-4 py-2 border rounded-xl text-slate-900 disabled:bg-slate-100 disabled:text-slate-500" /></div>
                     <div><label className="block text-sm font-medium text-slate-700 mb-1">Fecha de Devolución</label><input type="date" required disabled={scheduleLocked} min={rentalForm.eventDate || undefined} value={rentalForm.returnDate} onChange={(e) => setRentalForm({...rentalForm, returnDate: e.target.value})} className="w-full px-4 py-2 border rounded-xl text-slate-900 disabled:bg-slate-100 disabled:text-slate-500" /></div>
@@ -569,16 +587,22 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
                       });
                       return (
                         <div key={index} className={`bg-white p-3 border rounded-xl shadow-sm ${over ? "border-red-300" : "border-slate-200"}`}>
-                          <div className="flex items-center gap-3">
-                            <div className="flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <div className="flex-1 min-w-40">
                               <ProductCombobox
                                 value={item.productId}
-                                onChange={(id) => updateRentalItem(index, 'productId', id)}
+                                onChange={(id) => updateRentalItemProduct(index, id)}
                                 disabled={scheduleLocked}
                                 options={comboOptions}
                               />
                             </div>
-                            <div className="w-24">
+                            <div className="w-32">
+                              <div className="relative">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">Gs.</span>
+                                <input type="number" min="0" step="1" disabled={scheduleLocked} placeholder="Precio" value={item.unitPrice} onChange={(e) => updateRentalItem(index, 'unitPrice', e.target.value)} className="w-full pl-8 pr-2 py-2 border rounded-lg text-sm text-right font-bold text-slate-900 disabled:bg-slate-100 disabled:text-slate-500" />
+                              </div>
+                            </div>
+                            <div className="w-20">
                               <input type="number" required min="1" disabled={scheduleLocked} placeholder="Cant." value={item.quantity} onChange={(e) => updateRentalItem(index, 'quantity', e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm text-center font-bold text-slate-900 disabled:bg-slate-100 disabled:text-slate-500" />
                             </div>
                             {rentalForm.items.length > 1 && !scheduleLocked && (
@@ -587,7 +611,7 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
                           </div>
                           {productId !== null && (
                             <p className="mt-1.5 text-xs text-slate-500">
-                              Subtotal: <span className="font-bold text-[#004080]">{formatPYG(priceFor(productId) * (Number(item.quantity) || 0))}</span>
+                              Subtotal: <span className="font-bold text-[#004080]">{formatPYG((Number(item.unitPrice) || 0) * (Number(item.quantity) || 0))}</span>
                             </p>
                           )}
                           {over && productId !== null && (() => {

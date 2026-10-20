@@ -72,10 +72,12 @@ model Rental {
   cancelledAt DateTime? // Cuándo se anuló
   // totalPrice = Σ(precio × cantidad) de los productos + shippingPrice.
   totalPrice  Float    @default(0) // El precio total en Guaraníes, envío incluido
-  // Precio de envío "congelado" al momento de elegir la ciudad (igual que
-  // RentalItem.unitPrice con los productos): si después cambia el costo de
-  // envío de esa ciudad en Zonas de Entrega, los alquileres ya cargados NO
-  // se recalculan solos — reflejan lo que realmente se cobró.
+  // Precio de envío de esta cotización puntual: se precarga con el de la
+  // ciudad elegida pero el admin lo puede corregir a mano en el panel (varía
+  // mucho según la dirección exacta, el tamaño del pedido, etc.). Igual que
+  // RentalItem.unitPrice, queda "congelado" en el alquiler: si después
+  // cambia el costo de envío de esa ciudad en Zonas de Entrega, los
+  // alquileres ya cargados NO se recalculan solos.
   shippingPrice Float  @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

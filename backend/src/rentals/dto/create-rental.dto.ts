@@ -3,9 +3,11 @@ import {
   ArrayMinSize,
   IsArray,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Matches,
+  Max,
   Min,
   MinLength,
   ValidateNested,
@@ -26,6 +28,16 @@ export class RentalItemDto {
   @IsInt()
   @Min(1)
   quantity: number;
+
+  // Precio unitario real de esta cotización: puede diferir del catálogo
+  // (descuentos, recargos, acuerdos puntuales). Si no se manda, el servidor
+  // usa el precio histórico de ese producto en el alquiler, o el vigente si
+  // es nuevo (ver RentalsService "priceFor").
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1_000_000_000)
+  unitPrice?: number;
 }
 
 export class CreateRentalDto {
@@ -41,6 +53,15 @@ export class CreateRentalDto {
   @IsOptional()
   @IsInt()
   cityId?: number | null;
+
+  // Costo de envío real de esta cotización: puede diferir del que tiene
+  // cargado la ciudad (varía según la dirección exacta, el tamaño del
+  // pedido, etc.). Si no se manda, el servidor usa el precio de la ciudad elegida.
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(1_000_000_000)
+  shippingPrice?: number;
 
   @Matches(FECHA_CALENDARIO, {
     message: 'eventDate debe tener formato AAAA-MM-DD',

@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AvailabilityService } from '../availability/availability.service';
 import { paraguayTodayIndex, toDayIndex } from '../common/timezone';
-import { CreateRentalDto } from './dto/create-rental.dto';
+import { CreateRentalDto, RentalItemDto } from './dto/create-rental.dto';
 import { UpdateRentalDto } from './dto/update-rental.dto';
 
 export type RentalPhase = 'RESERVADO' | 'EN_USO' | 'ATRASADO' | 'DEVUELTO' | 'CANCELADO';
@@ -89,7 +89,9 @@ export class RentalsService {
 
   async create(data: CreateRentalDto) {
     const { eventDate, returnDate } = this.parseDates(data.eventDate, data.returnDate);
-    const shippingPrice = await this.resolveShippingPrice(data.cityId);
+    // El admin puede cargar el costo de envío real de la cotización; si no, se
+    // usa el de la ciudad elegida.
+    const shippingPrice = data.shippingPrice ?? (await this.resolveShippingPrice(data.cityId));
     const wanted = this.aggregate(data.items);
     const productIds = [...wanted.keys()];
 
@@ -128,7 +130,10 @@ export class RentalsService {
 
         await this.availability.assertCanFit(tx, wanted, products, eventDate, returnDate);
 
-        const itemsSubtotal = data.items.reduce((sum, item) => sum + Number(byId.get(item.productId)!.pricePerDay) * item.quantity, 0);
+        // El admin puede cargar el precio unitario real de cada ítem; si no,
+        // se usa el precio vigente del producto en el catálogo.
+        const priceFor = (item: RentalItemDto) => item.unitPrice ?? Number(byId.get(item.productId)!.pricePerDay);
+        const itemsSubtotal = data.items.reduce((sum, item) => sum + priceFor(item) * item.quantity, 0);
 
         const created = await tx.rental.create({
           data: {
@@ -143,7 +148,7 @@ export class RentalsService {
               create: data.items.map((item) => ({
                 quantity: item.quantity,
                 productId: item.productId,
-                unitPrice: byId.get(item.productId)!.pricePerDay,
+                unitPrice: priceFor(item),
               })),
             },
           },
@@ -202,8 +207,14 @@ export class RentalsService {
   async update(id: number, data: UpdateRentalDto) {
     const touchesSchedule = data.eventDate !== undefined || data.returnDate !== undefined || data.items !== undefined;
     const touchesCity = data.cityId !== undefined;
-    // undefined = no se tocó la ciudad; 0 es un envío válido (ciudad gratis o "a coordinar").
-    const newShippingPrice = touchesCity ? await this.resolveShippingPrice(data.cityId) : undefined;
+    // El admin puede cargar el envío real a mano (shippingPrice): tiene
+    // prioridad sobre el precio de la ciudad. Si no lo manda pero sí cambió
+    // la ciudad, se usa el precio de la ciudad nueva como punto de partida
+    // (el panel ya lo precarga así; esto es por si alguna llamada a la API
+    // cambia la ciudad sin mandar el envío). undefined = no se tocó nada
+    // relacionado al envío: se conserva el que ya tenía.
+    const newShippingPrice =
+      data.shippingPrice !== undefined ? data.shippingPrice : touchesCity ? await this.resolveShippingPrice(data.cityId) : undefined;
 
     const updated = await this.prisma.$transaction(
       async (tx) => {
@@ -223,17 +234,13 @@ export class RentalsService {
         const returnDate = data.returnDate !== undefined ? new Date(data.returnDate) : current.returnDate;
         this.parseDates(eventDate, returnDate);
 
+        const touchesShipping = touchesCity || data.shippingPrice !== undefined;
         const update: Prisma.RentalUpdateInput = {};
         if (data.clientName !== undefined) update.clientName = data.clientName;
         if (data.clientPhone !== undefined) update.clientPhone = data.clientPhone || '';
-        // El envío queda "congelado" al valor de la ciudad en este momento (igual
-        // que el precio de los productos): si no se toca la ciudad, se conserva
-        // el que ya tenía, aunque el precio de esa ciudad haya cambiado después.
+        if (touchesCity) update.city = data.cityId === null ? { disconnect: true } : { connect: { id: data.cityId } };
         const shippingPrice = newShippingPrice ?? current.shippingPrice;
-        if (touchesCity) {
-          update.city = data.cityId === null ? { disconnect: true } : { connect: { id: data.cityId } };
-          update.shippingPrice = shippingPrice;
-        }
+        if (touchesShipping) update.shippingPrice = shippingPrice;
 
         if (touchesSchedule) {
           const currentLines: RentalItemInput[] = current.items.map((i) => ({ productId: i.productId, quantity: i.quantity }));
@@ -268,26 +275,29 @@ export class RentalsService {
           update.returnDate = returnDate;
 
           if (data.items) {
-            // Precio histórico: un producto que ya estaba conserva el precio de
-            // cuando se alquiló; uno nuevo toma el precio de hoy.
+            // El admin puede cargar el precio unitario real de cada ítem de
+            // esta cotización (item.unitPrice); si no lo manda, se usa el
+            // histórico (el producto que ya estaba conserva el precio de
+            // cuando se alquiló) o el vigente si es un producto nuevo.
             const historicalPrice = new Map<number, Prisma.Decimal | null>();
             for (const item of current.items) if (!historicalPrice.has(item.productId)) historicalPrice.set(item.productId, item.unitPrice);
-            const priceFor = (productId: number) => historicalPrice.get(productId) ?? byId.get(productId)!.pricePerDay;
+            const priceFor = (item: RentalItemDto) => item.unitPrice ?? Number(historicalPrice.get(item.productId) ?? byId.get(item.productId)!.pricePerDay);
 
-            const itemsSubtotal = data.items.reduce((sum, item) => sum + Number(priceFor(item.productId)) * item.quantity, 0);
+            const itemsSubtotal = data.items.reduce((sum, item) => sum + priceFor(item) * item.quantity, 0);
             update.totalPrice = itemsSubtotal + shippingPrice;
             update.items = {
               deleteMany: {},
-              create: data.items.map((item) => ({ quantity: item.quantity, productId: item.productId, unitPrice: priceFor(item.productId) })),
+              create: data.items.map((item) => ({ quantity: item.quantity, productId: item.productId, unitPrice: priceFor(item) })),
             };
           }
         }
 
-        // Si cambió la ciudad pero NO los ítems (ya se recalculó arriba cuando
-        // sí cambian), el total igual tiene que reflejar el envío nuevo sobre
-        // el mismo subtotal de productos de siempre. current.totalPrice ya
-        // incluye el envío viejo, así que restándolo queda el subtotal puro.
-        if (touchesCity && !data.items) {
+        // Si se tocó el envío (ciudad o el monto a mano) pero NO los ítems (ya
+        // se recalculó arriba cuando sí cambian), el total igual tiene que
+        // reflejar el envío nuevo sobre el mismo subtotal de productos de
+        // siempre. current.totalPrice ya incluye el envío viejo, así que
+        // restándolo queda el subtotal puro.
+        if (touchesShipping && !data.items) {
           const itemsSubtotal = Number(current.totalPrice) - Number(current.shippingPrice);
           update.totalPrice = itemsSubtotal + shippingPrice;
         }
