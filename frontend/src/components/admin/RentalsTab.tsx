@@ -574,6 +574,7 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
                       const free = productId !== null && availability ? availability[productId] : undefined;
                       const requested = productId !== null ? requestedByProduct.get(productId) ?? 0 : 0;
                       const over = free !== undefined && requested > free;
+                      const priceIsZero = productId !== null && !scheduleLocked && (Number(item.unitPrice) || 0) === 0;
                       const comboOptions: ComboboxOption[] = productOptions.map((p) => {
                         const optFree = availability ? availability[p.id] : undefined;
                         const unavailable = availability ? (optFree ?? 0) <= 0 : p.totalStock === 0;
@@ -599,7 +600,14 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
                             <div className="w-32">
                               <div className="relative">
                                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs">Gs.</span>
-                                <input type="number" min="0" step="1" disabled={scheduleLocked} placeholder="Precio" value={item.unitPrice} onChange={(e) => updateRentalItem(index, 'unitPrice', e.target.value)} className="w-full pl-8 pr-2 py-2 border rounded-lg text-sm text-right font-bold text-slate-900 disabled:bg-slate-100 disabled:text-slate-500" />
+                                <input
+                                  type="number" min="0" step="1" disabled={scheduleLocked} placeholder="Precio"
+                                  value={item.unitPrice}
+                                  onChange={(e) => updateRentalItem(index, 'unitPrice', e.target.value)}
+                                  className={`w-full pl-8 pr-2 py-2 border rounded-lg text-sm text-right font-bold text-slate-900 disabled:bg-slate-100 disabled:text-slate-500 ${
+                                    priceIsZero ? "border-amber-300 bg-amber-50" : ""
+                                  }`}
+                                />
                               </div>
                             </div>
                             <div className="w-20">
@@ -612,6 +620,7 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
                           {productId !== null && (
                             <p className="mt-1.5 text-xs text-slate-500">
                               Subtotal: <span className="font-bold text-[#004080]">{formatPYG((Number(item.unitPrice) || 0) * (Number(item.quantity) || 0))}</span>
+                              {priceIsZero && <span className="ml-2 font-medium text-amber-600">¿Precio en Gs. 0 a propósito?</span>}
                             </p>
                           )}
                           {over && productId !== null && (() => {
