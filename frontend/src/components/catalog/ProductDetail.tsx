@@ -76,21 +76,28 @@ export default function ProductDetail({ product, category }: { product: Product;
         <div className="bg-white dark:bg-slate-900 rounded-4xl shadow-xl border border-slate-100 dark:border-slate-800 overflow-hidden">
           <div className="flex flex-col md:flex-row">
 
-            {/* Columna Izquierda: Imagen (Con Animación) */}
+            {/* Columna Izquierda: Imagen. Queda FUERA de ProductImageAnimator a
+                propósito: Safari/WebKit (todos los navegadores de iOS, Brave
+                incluido) no compone bien un elemento con mix-blend-mode
+                cuando un ancestro tiene una animación de transform/opacity
+                (como la de entrada de Framer Motion) — la imagen quedaba
+                invisible en el celular aunque cargara bien. El cartel del
+                rubro no tiene mix-blend-mode, así que a él no le afecta y
+                conserva su animación de entrada. */}
             <div className="w-full md:w-1/2 bg-slate-100 relative min-h-75 md:min-h-125 flex items-center justify-center p-8 overflow-hidden">
+              {product.imageUrl ? (
+                <Image
+                  src={getImageUrl(product.imageUrl)}
+                  alt={`Alquiler de ${product.name} para eventos`}
+                  fill
+                  priority
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  className="object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-500 mix-blend-multiply"
+                />
+              ) : (
+                <ProductPlaceholder size="detail" />
+              )}
               <ProductImageAnimator>
-                {product.imageUrl ? (
-                  <Image
-                    src={getImageUrl(product.imageUrl)}
-                    alt={`Alquiler de ${product.name} para eventos`}
-                    fill
-                    priority
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                    className="object-contain drop-shadow-2xl hover:scale-105 transition-transform duration-500 mix-blend-multiply"
-                  />
-                ) : (
-                  <ProductPlaceholder size="detail" />
-                )}
                 {category ? (
                   <Link href={categoryPath(category)} className="absolute top-0 left-0 bg-white/90 dark:bg-slate-950/90 backdrop-blur-sm px-4 py-1.5 rounded-full shadow-sm border border-slate-200 dark:border-slate-700 hover:border-[#004080] dark:hover:border-[#3b9dff] transition-colors">
                     <span className="text-xs font-bold text-blue-900 dark:text-[#3b9dff] uppercase tracking-wider">{category.name}</span>
