@@ -4,7 +4,7 @@ import ProductDetail, { fallbackDescription } from "../../../components/catalog/
 import CategoryLanding, { categoryMetaDescription } from "../../../components/catalog/CategoryLanding";
 import { getCategories, getCategoryBySlug, getProduct } from "../../../lib/catalog";
 import { getImageUrl } from "../../../lib/api";
-import { baseOpenGraph, categoryPath, productPath } from "../../../lib/site";
+import { baseOpenGraph, categoryPath, formatPYG, metaDescription, productPath } from "../../../lib/site";
 
 export const revalidate = 60;
 
@@ -46,7 +46,15 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   const { category, product } = await resolveSlug(slug);
 
   if (product) {
-    const description = (product.description?.trim() || fallbackDescription(product)).slice(0, 160);
+    // Las descripciones cargadas suelen ser cortas ("Silla de resina blanca."):
+    // se completan con el precio y la zona, que es lo que decide el clic en Google.
+    const own = product.description?.trim();
+    const price = Number(product.pricePerDay) || 0;
+    const description = metaDescription(
+      own
+        ? `${own.replace(/\.?$/, ".")} Alquiler${price > 0 ? ` a ${formatPYG(price)} por día` : ""} en Asunción y Gran Asunción, con entrega a domicilio. Cotizá por WhatsApp.`
+        : fallbackDescription(product),
+    );
     const title = `Alquiler de ${product.name} en Asunción`;
     const path = productPath(product);
     return {
@@ -66,7 +74,7 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
   if (!category) return { title: "Página no encontrada" };
 
   const title = `Alquiler de ${category.name} para Eventos en Asunción`;
-  const description = categoryMetaDescription(category).slice(0, 160);
+  const description = metaDescription(categoryMetaDescription(category));
   const path = categoryPath(category);
   const cover = (category.products ?? []).find((p) => p.imageUrl);
   return {

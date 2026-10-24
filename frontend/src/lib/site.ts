@@ -76,6 +76,18 @@ export function productPath(product: { id: number; name: string }): string {
 export const formatPYG = (amount: number) =>
   `Gs. ${Math.round(Number(amount) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 
+/**
+ * Texto para <meta name="description">: Google muestra ~160 caracteres, así
+ * que se corta ahí pero al final de una palabra (no "…entrega en Gran Asun").
+ */
+export function metaDescription(text: string, max = 160): string {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (clean.length <= max) return clean;
+  const cut = clean.slice(0, max - 1);
+  const lastSpace = cut.lastIndexOf(" ");
+  return `${(lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut).replace(/[\s,;:.]+$/, "")}…`;
+}
+
 /** Link de WhatsApp con un mensaje ya escrito. */
 export function whatsappLink(text: string): string {
   return `https://api.whatsapp.com/send?phone=${BUSINESS.whatsapp}&text=${encodeURIComponent(text)}`;
