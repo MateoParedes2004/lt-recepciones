@@ -21,8 +21,15 @@ export function toFormula(s: ShippingSettings): ShippingFormula {
 export class ShippingSettingsService {
   constructor(private prisma: PrismaService) {}
 
-  /** La fila única; si todavía no existe se crea con los valores por defecto del esquema. */
-  get(tx: Tx = this.prisma): Promise<ShippingSettings> {
+  /**
+   * La fila única; si todavía no existe se crea (una sola vez) con los valores
+   * por defecto del esquema. Se lee primero con findUnique: un upsert escribe
+   * aunque no cambie nada, y GET /cities (público, lo llama cada visita al
+   * carrito) pasaría a hacer una escritura por request.
+   */
+  async get(tx: Tx = this.prisma): Promise<ShippingSettings> {
+    const existing = await tx.shippingSettings.findUnique({ where: { id: 1 } });
+    if (existing) return existing;
     return tx.shippingSettings.upsert({
       where: { id: 1 },
       create: { id: 1 },
@@ -63,13 +70,33 @@ export class ShippingSettingsService {
       where: { priceFromFormula: true, distanceKm: { not: null } },
       select: { id: true, price: true, distanceKm: true },
     });
-    let changed = 0;
-    for (const c of cities) {
-      const price = quoteShipping(c.distanceKm!, formula).price;
-      if (price === c.price) continue;
-      await tx.city.update({ where: { id: c.id }, data: { price } });
-      changed++;
-    }
-    return changed;
+    const changes = cities
+      .map((c) => ({
+        id: c.id,
+        price: quoteShipping(c.distanceKm!, formula).price,
+        current: c.price,
+      }))
+      .filter((c) => c.price !== c.current);
+    await this.setFormulaPrices(tx, changes);
+    return changes.length;
+  }
+
+  /**
+   * Fija el precio de muchas ciudades y las marca "por fórmula" en UNA sola
+   * consulta. Hacerlo ciudad por ciudad (250 UPDATE) dentro de la transacción
+   * puede pasar los 5 s que Prisma permite y cancelar todo en una base remota.
+   */
+  async setFormulaPrices(
+    tx: Tx,
+    rows: { id: number; price: number }[],
+  ): Promise<void> {
+    if (rows.length === 0) return;
+    const ids = rows.map((r) => r.id);
+    const prices = rows.map((r) => r.price);
+    await tx.$executeRaw`
+      UPDATE "City" AS c
+      SET "price" = d.price, "priceFromFormula" = true, "updatedAt" = now()
+      FROM unnest(${ids}::int[], ${prices}::float8[]) AS d(id, price)
+      WHERE c."id" = d.id`;
   }
 }

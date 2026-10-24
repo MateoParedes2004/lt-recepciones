@@ -39,6 +39,7 @@ export class CitiesService {
   }
 
   async createCity(data: CreateCityDto) {
+    this.rejectPriceWithFormula(data);
     const distanceKm = data.distanceKm ?? null;
     const priceFromFormula = data.priceFromFormula ?? false;
     return this.prisma.city.create({
@@ -65,6 +66,7 @@ export class CitiesService {
       throw new NotFoundException(`La ciudad con ID ${id} no existe.`);
     }
 
+    this.rejectPriceWithFormula(data);
     const distanceKm =
       data.distanceKm !== undefined ? data.distanceKm : city.distanceKm;
     const priceFromFormula =
@@ -96,23 +98,15 @@ export class CitiesService {
         where: { id: { in: ids } },
         select: { id: true, name: true, distanceKm: true },
       });
-      const skipped: string[] = [];
-      let applied = 0;
-      for (const c of cities) {
-        if (c.distanceKm === null) {
-          skipped.push(c.name);
-          continue;
-        }
-        await tx.city.update({
-          where: { id: c.id },
-          data: {
-            priceFromFormula: true,
-            price: quoteShipping(c.distanceKm, formula).price,
-          },
-        });
-        applied++;
-      }
-      return { applied, skipped };
+      const skipped = cities.filter((c) => c.distanceKm === null);
+      const rows = cities
+        .filter((c) => c.distanceKm !== null)
+        .map((c) => ({
+          id: c.id,
+          price: quoteShipping(c.distanceKm!, formula).price,
+        }));
+      await this.shipping.setFormulaPrices(tx, rows);
+      return { applied: rows.length, skipped: skipped.map((c) => c.name) };
     });
   }
 
@@ -141,6 +135,18 @@ export class CitiesService {
     }
 
     return this.prisma.city.delete({ where: { id } });
+  }
+
+  /** Un precio a mano y "calcular con la fórmula" a la vez: uno pisaría al otro en silencio. */
+  private rejectPriceWithFormula(data: {
+    price?: number;
+    priceFromFormula?: boolean;
+  }) {
+    if (data.price !== undefined && data.priceFromFormula === true) {
+      throw new BadRequestException(
+        'Mandá el precio a mano o priceFromFormula: true, no los dos a la vez.',
+      );
+    }
   }
 
   private formulaPrice(distanceKm: number | null, formula: ShippingFormula) {

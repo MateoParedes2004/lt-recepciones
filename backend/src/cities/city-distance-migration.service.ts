@@ -8,8 +8,9 @@ import { cityRoadKm } from './city-distances';
  * tienen. NO toca ningún precio: las ciudades siguen con su precio a mano
  * hasta que el admin les aplique la fórmula desde Zonas de Entrega.
  *
- * Igual que CategoryOrderMigration: la marca en AppMeta se reclama en la
- * misma transacción, y si falla solo se registra (no tira abajo el backend).
+ * Corre una sola vez (marca en AppMeta, en la misma transacción): así, si el
+ * admin borra los km de una ciudad a propósito, no reaparecen al reiniciar. Si
+ * falla solo se registra (no tira abajo el backend), como CategoryOrderMigration.
  */
 const MARKER = 'city_distances_v1';
 
@@ -24,15 +25,20 @@ export class CityDistanceMigration implements OnModuleInit {
     const kms = Object.values(cityRoadKm);
     try {
       await this.prisma.$transaction(async (tx) => {
-        const claimed = await tx.$executeRaw`
-          INSERT INTO "AppMeta" ("key", "value") VALUES (${MARKER}, 'migrated')
-          ON CONFLICT ("key") DO NOTHING`;
-        if (claimed === 0) return;
+        const done = await tx.appMeta.findUnique({ where: { key: MARKER } });
+        if (done) return;
 
         const updated = await tx.$executeRaw`
-          UPDATE "City" AS c SET "distanceKm" = d.km
+          UPDATE "City" AS c SET "distanceKm" = d.km, "updatedAt" = now()
           FROM unnest(${names}::text[], ${kms}::float8[]) AS d(name, km)
           WHERE c."name" = d.name AND c."distanceKm" IS NULL`;
+        // Sin ciudades todavía (base recién creada, antes del seed) no se
+        // marca como hecha: si no, esos km no se cargarían nunca.
+        if (updated === 0) return;
+
+        await tx.$executeRaw`
+          INSERT INTO "AppMeta" ("key", "value") VALUES (${MARKER}, 'migrated')
+          ON CONFLICT ("key") DO NOTHING`;
         this.logger.log(`Km por ruta cargados en ${updated} ciudad(es).`);
       });
     } catch (error) {
