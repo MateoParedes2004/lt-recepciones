@@ -178,11 +178,31 @@ model GalleryImage {
 model City {
   id        Int      @id @default(autoincrement())
   name      String   @unique
-  price     Float    @default(0) // El costo de envío. 0 significa que se coordina por WhatsApp
+  price     Float    @default(0) // El costo de envío. 0 significa que se coordina por WhatsApp (o gratis, ver freeShipping en CitiesService)
   isActive  Boolean  @default(true) // Te permitirá habilitar/deshabilitar ciudades
+  // Km POR RUTA desde el local. null = todavía sin cargar.
+  distanceKm       Float?
+  // true: `price` lo calcula la fórmula de envío (ShippingSettings) a partir
+  // de distanceKm, y se recalcula solo si cambian los km o la fórmula.
+  // false: precio puesto a mano, que la fórmula nunca pisa.
+  priceFromFormula Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   rentals   Rental[]
+}
+
+// Fórmula del costo de envío por km (una sola fila, id = 1). Ver
+// src/cities/shipping-price.ts para cómo se aplica.
+model ShippingSettings {
+  id                     Int      @id @default(1)
+  pricePerKm             Float    @default(8000)
+  freeUnderKm            Float    @default(4)
+  longDistanceFromKm     Float    @default(25)
+  longDistancePricePerKm Float    @default(6000)
+  // null = sin límite: toda distancia tiene precio automático.
+  maxKm                  Float?   @default(60)
+  roundTo                Int      @default(10000)
+  updatedAt              DateTime @updatedAt
 }
 
 // Señal de intención de compra: se registra cuando un cliente aprieta

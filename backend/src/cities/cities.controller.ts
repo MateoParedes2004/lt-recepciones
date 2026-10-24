@@ -3,6 +3,7 @@ import { CitiesService } from './cities.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateCityDto } from './dto/create-city.dto';
 import { UpdateCityDto } from './dto/update-city.dto';
+import { ApplyFormulaDto } from './dto/apply-formula.dto';
 import { SkipThrottle } from '@nestjs/throttler';
 
 @Controller('cities')
@@ -22,6 +23,13 @@ export class CitiesController {
     @Post()
     async create(@Body() createCityDto: CreateCityDto) {
         return this.citiesService.createCity(createCityDto);
+    }
+
+    // Pasa ciudades a "precio por fórmula de envío" (POST /cities/apply-formula)
+    @UseGuards(JwtAuthGuard)
+    @Post('apply-formula')
+    async applyFormula(@Body() dto: ApplyFormulaDto) {
+        return this.citiesService.applyFormula(dto.ids);
     }
 
     // 3. ACTUALIZAR CIUDAD (PATCH /cities/:id)

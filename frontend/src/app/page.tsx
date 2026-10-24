@@ -22,8 +22,9 @@ export default async function Home() {
   // Zonas de entrega = ciudades con costo de envío cargado en el panel. Las
   // demás (precio 0, "se coordina") existen para el selector del carrito,
   // pero son todo el país: listarlas en el Home no diría dónde se entrega.
+  // Las de envío gratis también tienen precio 0, pero son las más cercanas.
   const cityNames = cities
-    .filter((c) => Number(c.price) > 0)
+    .filter((c) => Number(c.price) > 0 || c.freeShipping)
     .sort((a, b) => Number(a.price) - Number(b.price) || a.name.localeCompare(b.name, "es"))
     .slice(0, 40)
     .map((c) => c.name);

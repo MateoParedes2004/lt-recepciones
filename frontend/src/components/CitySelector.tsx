@@ -16,10 +16,11 @@ interface City {
     name: string;
     price: number;
     isActive: boolean;
+    freeShipping?: boolean;
 }
 
 interface CitySelectorProps {
-    onCitySelect?: (cityId: number, cityName: string, cityPrice: number) => void;
+    onCitySelect?: (cityId: number, cityName: string, cityPrice: number, freeShipping: boolean) => void;
 }
 
 export default function CitySelector({ onCitySelect }: CitySelectorProps) {
@@ -76,7 +77,7 @@ export default function CitySelector({ onCitySelect }: CitySelectorProps) {
         setSearchTerm(''); // Limpiamos el buscador al seleccionar
         
         if (onCitySelect) {
-            onCitySelect(city.id, city.name, city.price);
+            onCitySelect(city.id, city.name, city.price, !!city.freeShipping);
         }
     };
 
@@ -174,7 +175,7 @@ export default function CitySelector({ onCitySelect }: CitySelectorProps) {
                                     </span>
                                 ) : (
                                     <span className="text-[10px] font-sans uppercase tracking-wider text-[#004080] dark:text-[#3b9dff] font-bold bg-[#004080]/10 dark:bg-[#3b9dff]/10 px-2 py-1 rounded-md border border-[#004080]/20 dark:border-[#3b9dff]/20">
-                                        A coordinar
+                                        {city.freeShipping ? 'Envío gratis' : 'A coordinar'}
                                     </span>
                                 )}
                             </button>

@@ -35,6 +35,23 @@ export interface City {
   name: string;
   price: number;
   isActive: boolean;
+  /** Km por ruta desde el local (null = sin cargar). */
+  distanceKm?: number | null;
+  /** true: el precio lo calcula la fórmula de envío; false: puesto a mano. */
+  priceFromFormula?: boolean;
+  /** price = 0 por estar dentro del radio de envío gratis (si no, 0 = a coordinar). */
+  freeShipping?: boolean;
+}
+
+/** Fórmula del costo de envío por km (GET/PUT /shipping/settings). */
+export interface ShippingSettings {
+  pricePerKm: number;
+  freeUnderKm: number;
+  longDistanceFromKm: number;
+  longDistancePricePerKm: number;
+  /** null = sin límite. */
+  maxKm: number | null;
+  roundTo: number;
 }
 
 export interface RentalItem {

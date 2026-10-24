@@ -11,7 +11,7 @@ import RentalsTab from "../../components/admin/RentalsTab";
 import GalleryTab from "../../components/admin/GalleryTab";
 import CitiesTab from "../../components/admin/CitiesTab";
 import { apiFetch } from "../../lib/api";
-import type { Product, Category, Rental, GalleryImage, City, CheckoutIntent } from "../../types";
+import type { Product, Category, Rental, GalleryImage, City, CheckoutIntent, ShippingSettings } from "../../types";
 
 // StatisticsTab carga recharts (pesado): se difiere para que ese bundle solo
 // se descargue si el admin realmente abre la pestaña de Estadísticas.
@@ -37,6 +37,7 @@ export default function AdminDashboard() {
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [pendingOrders, setPendingOrders] = useState<CheckoutIntent[]>([]);
+  const [shippingSettings, setShippingSettings] = useState<ShippingSettings | null>(null);
   // Recursos que no se pudieron cargar (red caída, servidor caído, etc.):
   // sin esto, una falla se veía igual que "todavía no hay datos cargados".
   const [failedResources, setFailedResources] = useState<string[]>([]);
@@ -50,6 +51,7 @@ export default function AdminDashboard() {
       { label: "galería", path: "/gallery/admin", apply: (d) => setGallery(d as GalleryImage[]) },
       { label: "ciudades", path: "/cities", apply: (d) => setCities(d as City[]) },
       { label: "pedidos por WhatsApp", path: "/analytics/checkout-intents", apply: (d) => setPendingOrders(d as CheckoutIntent[]) },
+      { label: "fórmula de envío", path: "/shipping/settings", apply: (d) => setShippingSettings(d as ShippingSettings) },
     ];
     // Cada recurso se carga por separado: si uno falla, los demás igual se
     // muestran (antes un solo error tiraba abajo la carga completa).
@@ -160,11 +162,11 @@ export default function AdminDashboard() {
       {/* 4. RENDERIZADO DINÁMICO DE PESTAÑAS */}
       {activeTab === "products" && <ProductsTab products={products} categories={categories} fetchData={fetchData} isLoadingData={isLoadingData} />}
       {activeTab === "categories" && <CategoriesTab categories={categories} fetchData={fetchData} />}
-      {activeTab === "rentals" && <RentalsTab rentals={rentals} products={products} cities={cities} pendingOrders={pendingOrders} fetchData={fetchData} isLoadingData={isLoadingData} />}
+      {activeTab === "rentals" && <RentalsTab rentals={rentals} products={products} cities={cities} shippingSettings={shippingSettings} pendingOrders={pendingOrders} fetchData={fetchData} isLoadingData={isLoadingData} />}
       {activeTab === "gallery" && <GalleryTab gallery={gallery} fetchData={fetchData} isLoadingData={isLoadingData} />}
       {activeTab === "statistics" && <StatisticsTab />}
       {/* RENDERIZAMOS LA PESTAÑA DE CIUDADES */}
-      {activeTab === "cities" && <CitiesTab cities={cities} fetchData={fetchData} isLoadingData={isLoadingData} />}
+      {activeTab === "cities" && <CitiesTab cities={cities} shippingSettings={shippingSettings} fetchData={fetchData} isLoadingData={isLoadingData} />}
 
     </div>
   );

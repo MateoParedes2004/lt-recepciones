@@ -5,7 +5,8 @@ import { createPortal } from "react-dom";
 import { Plus, Trash2, Search, X, CheckCircle, CalendarDays, PlusCircle, MapPin, Pencil, Ban, RotateCcw, TriangleAlert, List, LayoutGrid, ChevronDown, ChevronUp, Users } from "lucide-react";
 import { apiFetch, readApiError } from "../../lib/api";
 import { useToast } from "./ToastProvider";
-import type { Product, Rental, City, RentalPhase, CheckoutIntent } from "../../types";
+import type { Product, Rental, City, RentalPhase, CheckoutIntent, ShippingSettings } from "../../types";
+import { quoteShipping } from "../../lib/shipping";
 import RentalsCalendar from "./RentalsCalendar";
 import ProductCombobox, { type ComboboxOption } from "./ProductCombobox";
 import PendingOrdersPanel from "./PendingOrdersPanel";
@@ -63,7 +64,8 @@ function PhaseBadge({ rental }: { rental: Rental }) {
   }
 }
 
-export default function RentalsTab({ rentals, products, cities, pendingOrders, fetchData, isLoadingData }: { rentals: Rental[], products: Product[], cities: City[], pendingOrders: CheckoutIntent[], fetchData: () => void, isLoadingData: boolean }) {
+export default function RentalsTab({ rentals, products, cities, shippingSettings, pendingOrders, fetchData, isLoadingData }: { rentals: Rental[], products: Product[], cities: City[], shippingSettings: ShippingSettings | null, pendingOrders: CheckoutIntent[], fetchData: () => void, isLoadingData: boolean }) {
+  const [calcKm, setCalcKm] = useState("");
   const toast = useToast();
   const [searchRental, setSearchRental] = useState("");
   const [phaseFilter, setPhaseFilter] = useState<PhaseFilter>("TODOS");
@@ -192,7 +194,7 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
     });
     setIsRentalModalOpen(true);
   };
-  const closeRentalModal = () => { setIsRentalModalOpen(false); setEditingId(null); setConvertingIntentId(null); setRentalForm(EMPTY_FORM); setAvailability(null); };
+  const closeRentalModal = () => { setIsRentalModalOpen(false); setEditingId(null); setConvertingIntentId(null); setRentalForm(EMPTY_FORM); setAvailability(null); setCalcKm(""); };
 
   // El admin decide (tras hablar por WhatsApp) que ese pedido no prosperó.
   const discardIntent = async (intent: CheckoutIntent) => {
@@ -234,9 +236,15 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
   // de la ciudad elegida (el admin lo puede corregir después).
   const handleCityChange = (newCityId: string) => {
     const cid = newCityId ? parseInt(newCityId) : null;
-    const defaultShipping = cid !== null ? (cities.find((c) => c.id === cid)?.price ?? 0) : "";
+    const city = cid !== null ? cities.find((c) => c.id === cid) : undefined;
+    const defaultShipping = cid !== null ? (city?.price ?? 0) : "";
     setRentalForm({ ...rentalForm, cityId: newCityId, shippingPrice: defaultShipping });
+    // La calculadora arranca con los km de la ciudad, para ajustarlos a la dirección exacta.
+    setCalcKm(city?.distanceKm != null ? String(city.distanceKm) : "");
   };
+  // Calculadora "km → precio de envío" con la fórmula de Zonas de Entrega.
+  const calcKmValue = calcKm.trim() === "" ? NaN : Number(calcKm);
+  const calcQuote = shippingSettings && Number.isFinite(calcKmValue) && calcKmValue >= 0 ? quoteShipping(calcKmValue, shippingSettings) : null;
 
   // Cantidad pedida por producto (si el mismo producto está en dos filas se suman).
   const requestedByProduct = useMemo(() => {
@@ -551,6 +559,29 @@ export default function RentalsTab({ rentals, products, cities, pendingOrders, f
                         />
                       </div>
                       <p className="mt-1 text-xs text-slate-500">Se precarga con el de la ciudad, pero se puede ajustar: la cotización real suele variar.</p>
+                      {shippingSettings && (
+                        <div className="mt-2 flex items-center gap-2 flex-wrap text-xs text-slate-600">
+                          <span>Calcular por distancia:</span>
+                          <input
+                            type="number" min="0" step="0.1" placeholder="km" aria-label="Distancia en km"
+                            value={calcKm} onChange={(e) => setCalcKm(e.target.value)}
+                            className="w-20 px-2 py-1 border rounded-lg text-slate-900"
+                          />
+                          <span>km</span>
+                          {calcQuote && (
+                            <>
+                              <span className="font-bold text-[#004080]">
+                                → {calcQuote.kind === "charged" ? formatPYG(calcQuote.price) : calcQuote.kind === "free" ? "Gratis" : "A coordinar"}
+                              </span>
+                              {calcQuote.kind !== "coordinate" && Number(rentalForm.shippingPrice) !== calcQuote.price && (
+                                <button type="button" onClick={() => setRentalForm({ ...rentalForm, shippingPrice: calcQuote.price })} className="px-2 py-1 rounded-lg bg-[#e8f0f8] text-[#004080] font-bold hover:bg-[#d5e4f2] cursor-pointer">
+                                  Usar este precio
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div><label className="block text-sm font-medium text-slate-700 mb-1">Fecha del Evento (Uso)</label><input type="date" required disabled={scheduleLocked} value={rentalForm.eventDate} onChange={(e) => setRentalForm({...rentalForm, eventDate: e.target.value})} className="w-full px-4 py-2 border rounded-xl text-slate-900 disabled:bg-slate-100 disabled:text-slate-500" /></div>
                     <div><label className="block text-sm font-medium text-slate-700 mb-1">Fecha de Devolución</label><input type="date" required disabled={scheduleLocked} min={rentalForm.eventDate || undefined} value={rentalForm.returnDate} onChange={(e) => setRentalForm({...rentalForm, returnDate: e.target.value})} className="w-full px-4 py-2 border rounded-xl text-slate-900 disabled:bg-slate-100 disabled:text-slate-500" /></div>

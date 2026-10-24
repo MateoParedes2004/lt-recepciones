@@ -1,11 +1,14 @@
 import { Module } from '@nestjs/common';
 import { CitiesService } from './cities.service';
 import { CitiesController } from './cities.controller';
-import { PrismaModule } from '../prisma/prisma.module'; // Importante para que el CitiesService pueda usar Prisma
+import { PrismaModule } from '../prisma/prisma.module';
+import { ShippingSettingsService } from './shipping-settings.service';
+import { ShippingSettingsController } from './shipping-settings.controller';
+import { CityDistanceMigration } from './city-distance-migration.service';
 
 @Module({
-    imports: [PrismaModule], // Asegúrate de importar el módulo de Prisma aquí
-    controllers: [CitiesController],
-    providers: [CitiesService],
+  imports: [PrismaModule],
+  controllers: [CitiesController, ShippingSettingsController],
+  providers: [CitiesService, ShippingSettingsService, CityDistanceMigration],
 })
 export class CitiesModule {}

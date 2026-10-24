@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
   MinLength,
@@ -26,4 +27,16 @@ export class CreateCityDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  // Km por ruta desde el local; null para borrarlos.
+  @IsNumber()
+  @Min(0)
+  @Max(5000)
+  @IsOptional()
+  distanceKm?: number | null;
+
+  // true: el precio lo calcula la fórmula de envío (ver CitiesService).
+  @IsBoolean()
+  @IsOptional()
+  priceFromFormula?: boolean;
 }

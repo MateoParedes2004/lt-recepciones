@@ -39,6 +39,7 @@ export default function CartProvider({ children }: { children: React.ReactNode }
   const [selectedCityName, setSelectedCityName] = useState<string>("No seleccionada");
   const [selectedCityId, setSelectedCityId] = useState<number | null>(null);
   const [shippingCost, setShippingCost] = useState<number>(0);
+  const [shippingIsFree, setShippingIsFree] = useState(false);
   const [cityError, setCityError] = useState(false);
 
   // Fechas opcionales que elige el cliente. Con ellas se consulta cuánto hay
@@ -201,12 +202,15 @@ export default function CartProvider({ children }: { children: React.ReactNode }
   const totalAmount = subTotalAmount + shippingCost; 
   const formatPYG = (amount: number) => `Gs. ${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 
-  const handleCitySelect = (cityId: number, cityName: string, cityPrice: number) => {
+  const handleCitySelect = (cityId: number, cityName: string, cityPrice: number, freeShipping: boolean) => {
     setSelectedCityName(cityName);
     setSelectedCityId(cityId);
     setShippingCost(cityPrice);
+    setShippingIsFree(freeShipping);
     setCityError(false);
   };
+  // Con precio 0 el envío puede ser gratis (cerca del local) o a coordinar.
+  const shippingLabel = shippingCost > 0 ? formatPYG(shippingCost) : shippingIsFree ? 'Gratis' : 'A coordinar';
 
   const sendToWhatsApp = () => {
     if (hasConflicts) return; // el botón ya está deshabilitado; por las dudas
@@ -224,7 +228,7 @@ export default function CartProvider({ children }: { children: React.ReactNode }
     
     message += `┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈┈\n`;
     message += `📦 *Subtotal:* ${formatPYG(subTotalAmount)}\n`;
-    message += `🚚 *Envío (${selectedCityName}):* ${shippingCost > 0 ? formatPYG(shippingCost) : 'A coordinar'}\n`;
+    message += `🚚 *Envío (${selectedCityName}):* ${shippingLabel}\n`;
     message += `*💰 TOTAL ESTIMADO: ${formatPYG(totalAmount)}*\n\n`;
     
     const dateLine = datesValid
@@ -409,7 +413,7 @@ export default function CartProvider({ children }: { children: React.ReactNode }
                       <span className={`${playfair.className} font-medium`}>Envío ({selectedCityName})</span>
                       {/* 👇 Asegurado font-sans para los números */}
                       <span className="font-sans font-bold text-slate-900 dark:text-slate-100">
-                        {shippingCost > 0 ? formatPYG(shippingCost) : (selectedCityName !== "No seleccionada" ? 'A coordinar' : '-')}
+                        {selectedCityName !== "No seleccionada" ? shippingLabel : '-'}
                       </span>
                     </div>
                   </div>
