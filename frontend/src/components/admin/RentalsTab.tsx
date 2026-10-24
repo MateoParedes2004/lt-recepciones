@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Plus, Trash2, Search, X, CheckCircle, CalendarDays, PlusCircle, MapPin, Pencil, Ban, RotateCcw, TriangleAlert, List, LayoutGrid, ChevronDown, ChevronUp, Users } from "lucide-react";
+import { Plus, Trash2, Search, X, CheckCircle, CalendarDays, PlusCircle, MapPin, Pencil, Ban, RotateCcw, TriangleAlert, List, LayoutGrid, ChevronDown, ChevronUp, Users, Star } from "lucide-react";
 import { apiFetch, readApiError } from "../../lib/api";
 import { useToast } from "./ToastProvider";
 import type { Product, Rental, City, RentalPhase, CheckoutIntent, ShippingSettings } from "../../types";
 import { quoteShipping } from "../../lib/shipping";
+import { BUSINESS, toWhatsappNumber, whatsappLinkTo } from "../../lib/site";
 import RentalsCalendar from "./RentalsCalendar";
 import ProductCombobox, { type ComboboxOption } from "./ProductCombobox";
 import PendingOrdersPanel from "./PendingOrdersPanel";
@@ -378,6 +379,24 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
     } catch { toast.error("Error de conexión. Revisá tu internet e intentá de nuevo."); }
   };
 
+  // Abre WhatsApp con el mensaje para pedirle una reseña en Google al cliente
+  // (solo en alquileres devueltos). Las reseñas son lo que más pesa para
+  // aparecer en Google Maps y para que un cliente nuevo confíe.
+  const requestReview = (r: Rental) => {
+    if (!BUSINESS.googleReviewUrl) {
+      toast.error("Falta el link de reseñas de Google. Cargalo en Vercel como NEXT_PUBLIC_GOOGLE_REVIEW_URL (o pasáselo a Claude para que lo deje configurado).");
+      return;
+    }
+    const phone = toWhatsappNumber(r.clientPhone);
+    if (!phone) {
+      toast.error(`No se pudo interpretar el teléfono de ${r.clientName}. Corregilo en el alquiler (ej. 0985 123 456).`);
+      return;
+    }
+    const firstName = r.clientName.trim().split(/\s+/)[0];
+    const message = `¡Hola ${firstName}! 😊 Gracias por confiar en LT Recepciones para tu evento. Si quedaste conforme, nos ayudaría muchísimo que nos dejes una reseña en Google (te lleva menos de un minuto): ${BUSINESS.googleReviewUrl}\n\n¡Muchas gracias!`;
+    window.open(whatsappLinkTo(phone, message), "_blank", "noopener,noreferrer");
+  };
+
   return (
     <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row justify-between gap-4">
@@ -503,6 +522,16 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
                       {rental.status === "ACTIVO" && (
                         <button onClick={() => changeStatus(rental, "return")} className="flex items-center justify-end w-full text-sm font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-2 rounded-lg transition-colors cursor-pointer">
                           <CheckCircle className="w-4 h-4 mr-1" /> Marcar Devuelto
+                        </button>
+                      )}
+                      {rental.status === "DEVUELTO" && (
+                        <button
+                          onClick={() => requestReview(rental)}
+                          disabled={!toWhatsappNumber(rental.clientPhone)}
+                          title={toWhatsappNumber(rental.clientPhone) ? "Abre WhatsApp con un mensaje para pedirle una reseña en Google" : "Cargá el teléfono del cliente para poder pedirle la reseña"}
+                          className="flex items-center justify-end w-full text-sm font-bold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 px-3 py-2 rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <Star className="w-4 h-4 mr-1" /> Pedir reseña
                         </button>
                       )}
                       {rental.status !== "ACTIVO" && (

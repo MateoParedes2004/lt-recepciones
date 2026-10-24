@@ -22,6 +22,9 @@ export const BUSINESS = {
   facebook: "https://www.facebook.com/share/14VSpY6d3hm/",
   // Centro del mapa de la sección de contacto.
   geo: { latitude: -25.302442669518815, longitude: -57.60189306166173 },
+  // Link para que un cliente deje su reseña en Google (se saca del Perfil de
+  // Empresa: "Pedir reseñas"). Se carga en Vercel como NEXT_PUBLIC_GOOGLE_REVIEW_URL.
+  googleReviewUrl: (process.env.NEXT_PUBLIC_GOOGLE_REVIEW_URL || "").trim(),
 } as const;
 
 export const DEFAULT_OG_IMAGE = {
@@ -109,4 +112,22 @@ export function composeMetaDescription(sentences: string[], max = 160): string {
 /** Link de WhatsApp con un mensaje ya escrito. */
 export function whatsappLink(text: string): string {
   return `https://api.whatsapp.com/send?phone=${BUSINESS.whatsapp}&text=${encodeURIComponent(text)}`;
+}
+
+/**
+ * Teléfono paraguayo escrito de cualquier forma ("0985 123 456", "985123456",
+ * "+595 985 123 456") → número internacional sin símbolos ("595985123456"),
+ * que es lo que pide WhatsApp. null si no se puede interpretar con seguridad.
+ */
+export function toWhatsappNumber(raw: string | null | undefined): string | null {
+  const digits = (raw ?? "").replace(/\D/g, "");
+  if (digits.startsWith("595") && digits.length >= 11 && digits.length <= 12) return digits;
+  if (digits.startsWith("0") && digits.length >= 9 && digits.length <= 10) return `595${digits.slice(1)}`;
+  if (digits.startsWith("9") && digits.length === 9) return `595${digits}`;
+  return null;
+}
+
+/** Link de WhatsApp para escribirle a un cliente (no al negocio), con el mensaje ya escrito. */
+export function whatsappLinkTo(phone: string, text: string): string {
+  return `https://api.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(text)}`;
 }
