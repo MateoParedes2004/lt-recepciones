@@ -88,6 +88,24 @@ export function metaDescription(text: string, max = 160): string {
   return `${(lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut).replace(/[\s,;:.]+$/, "")}…`;
 }
 
+/**
+ * Arma la descripción con frases completas, en orden de importancia: la
+ * primera siempre entra (se corta si es demasiado larga) y de las siguientes
+ * se suman solo las que caben, para no terminar en "…con entrega a" a medias.
+ */
+export function composeMetaDescription(sentences: string[], max = 160): string {
+  const [first, ...rest] = sentences.map((s) => s.replace(/\s+/g, " ").trim()).filter(Boolean);
+  if (!first) return "";
+  const end = (s: string) => (/[.!?…]$/.test(s) ? s : `${s}.`);
+  let out = first.length > max ? metaDescription(first, max) : end(first);
+  if (out.endsWith("…")) return out;
+  for (const s of rest) {
+    const next = `${out} ${end(s)}`;
+    if (next.length <= max) out = next;
+  }
+  return out;
+}
+
 /** Link de WhatsApp con un mensaje ya escrito. */
 export function whatsappLink(text: string): string {
   return `https://api.whatsapp.com/send?phone=${BUSINESS.whatsapp}&text=${encodeURIComponent(text)}`;

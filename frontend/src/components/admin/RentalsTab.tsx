@@ -65,7 +65,13 @@ function PhaseBadge({ rental }: { rental: Rental }) {
 }
 
 export default function RentalsTab({ rentals, products, cities, shippingSettings, pendingOrders, fetchData, isLoadingData }: { rentals: Rental[], products: Product[], cities: City[], shippingSettings: ShippingSettings | null, pendingOrders: CheckoutIntent[], fetchData: () => void, isLoadingData: boolean }) {
+  // Calculadora "km → envío": arranca con los km de la ciudad elegida, para
+  // ajustarlos a la dirección exacta.
   const [calcKm, setCalcKm] = useState("");
+  const kmOfCity = (cityId: number | null | undefined) => {
+    const km = cityId != null ? cities.find((c) => c.id === cityId)?.distanceKm : null;
+    return km != null ? String(km) : "";
+  };
   const toast = useToast();
   const [searchRental, setSearchRental] = useState("");
   const [phaseFilter, setPhaseFilter] = useState<PhaseFilter>("TODOS");
@@ -161,6 +167,7 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
       returnDate: toInputDate(r.returnDate),
       items: r.items.map((i) => ({ productId: String(i.productId), quantity: i.quantity, unitPrice: i.unitPrice ?? i.product?.pricePerDay ?? 0 })),
     });
+    setCalcKm(kmOfCity(r.cityId));
     setIsRentalModalOpen(true);
   };
   // "Convertir en alquiler" de un pedido por WhatsApp: precarga el formulario
@@ -192,6 +199,7 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
       returnDate: intent.returnDate ? toInputDate(intent.returnDate) : "",
       items: items.length > 0 ? items : [{ productId: "", quantity: 1, unitPrice: "" }],
     });
+    setCalcKm(kmOfCity(matchedCity?.id));
     setIsRentalModalOpen(true);
   };
   const closeRentalModal = () => { setIsRentalModalOpen(false); setEditingId(null); setConvertingIntentId(null); setRentalForm(EMPTY_FORM); setAvailability(null); setCalcKm(""); };
@@ -239,8 +247,7 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
     const city = cid !== null ? cities.find((c) => c.id === cid) : undefined;
     const defaultShipping = cid !== null ? (city?.price ?? 0) : "";
     setRentalForm({ ...rentalForm, cityId: newCityId, shippingPrice: defaultShipping });
-    // La calculadora arranca con los km de la ciudad, para ajustarlos a la dirección exacta.
-    setCalcKm(city?.distanceKm != null ? String(city.distanceKm) : "");
+    setCalcKm(kmOfCity(cid));
   };
   // Calculadora "km → precio de envío" con la fórmula de Zonas de Entrega.
   const calcKmValue = calcKm.trim() === "" ? NaN : Number(calcKm);

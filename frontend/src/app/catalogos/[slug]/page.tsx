@@ -1,10 +1,10 @@
 import { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
-import ProductDetail, { fallbackDescription } from "../../../components/catalog/ProductDetail";
+import ProductDetail from "../../../components/catalog/ProductDetail";
 import CategoryLanding, { categoryMetaDescription } from "../../../components/catalog/CategoryLanding";
 import { getCategories, getCategoryBySlug, getProduct } from "../../../lib/catalog";
 import { getImageUrl } from "../../../lib/api";
-import { baseOpenGraph, categoryPath, formatPYG, metaDescription, productPath } from "../../../lib/site";
+import { baseOpenGraph, categoryPath, composeMetaDescription, formatPYG, metaDescription, productPath } from "../../../lib/site";
 
 export const revalidate = 60;
 
@@ -50,11 +50,13 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     // se completan con el precio y la zona, que es lo que decide el clic en Google.
     const own = product.description?.trim();
     const price = Number(product.pricePerDay) || 0;
-    const description = metaDescription(
-      own
-        ? `${own.replace(/\.?$/, ".")} Alquiler${price > 0 ? ` a ${formatPYG(price)} por día` : ""} en Asunción y Gran Asunción, con entrega a domicilio. Cotizá por WhatsApp.`
-        : fallbackDescription(product),
-    );
+    const description = composeMetaDescription([
+      own || `Alquiler de ${product.name} para casamientos, cumpleaños y eventos en Asunción`,
+      ...(price > 0
+        ? [`Alquiler a ${formatPYG(price)} por día en Asunción y Gran Asunción`, "Entrega a domicilio"]
+        : ["Entregamos en Asunción y Gran Asunción"]),
+      "Cotizá por WhatsApp",
+    ]);
     const title = `Alquiler de ${product.name} en Asunción`;
     const path = productPath(product);
     return {
