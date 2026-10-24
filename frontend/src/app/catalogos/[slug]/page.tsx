@@ -50,8 +50,11 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     // se completan con el precio y la zona, que es lo que decide el clic en Google.
     const own = product.description?.trim();
     const price = Number(product.pricePerDay) || 0;
+    // De la descripción larga de la ficha solo entra la primera frase: Google
+    // muestra ~160 caracteres y el precio y la zona valen más que el resto.
+    const firstSentence = own?.split(/(?<=[.!?])\s+/)[0];
     const description = composeMetaDescription([
-      own || `Alquiler de ${product.name} para casamientos, cumpleaños y eventos en Asunción`,
+      firstSentence || `Alquiler de ${product.name} para casamientos, cumpleaños y eventos en Asunción`,
       ...(price > 0
         ? [`Alquiler a ${formatPYG(price)} por día en Asunción y Gran Asunción`, "Entrega a domicilio"]
         : ["Entregamos en Asunción y Gran Asunción"]),
