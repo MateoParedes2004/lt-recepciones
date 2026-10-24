@@ -7,6 +7,9 @@ import { GALLERY_EVENT_TYPES } from "../../lib/gallery";
 import { useToast } from "./ToastProvider";
 import type { GalleryImage } from "../../types";
 
+const ALL = "Todas";
+const UNCLASSIFIED = "Sin clasificar";
+
 export default function GalleryTab({ gallery, fetchData, isLoadingData }: { gallery: GalleryImage[], fetchData: () => void, isLoadingData: boolean }) {
   const toast = useToast();
   const [isUploading, setIsUploading] = useState(false);
@@ -17,6 +20,58 @@ export default function GalleryTab({ gallery, fetchData, isLoadingData }: { gall
   // el formulario solo a esa tarjeta. null = ninguna.
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+  // Filtro de la grilla: "todas", "sin clasificar" o un tipo de evento.
+  const [filter, setFilter] = useState<string>(ALL);
+  // Modo "Seleccionar": tocar una foto la marca para ponerle el tipo de
+  // evento a varias de una vez (en vez de abrir el editor foto por foto).
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkType, setBulkType] = useState<string>(GALLERY_EVENT_TYPES[0]);
+  const [isBulkSaving, setIsBulkSaving] = useState(false);
+
+  const unclassified = gallery.filter((g) => !g.eventType);
+  const countOf = (f: string) => f === ALL ? gallery.length : f === UNCLASSIFIED ? unclassified.length : gallery.filter((g) => g.eventType === f).length;
+  const shown = filter === ALL ? gallery : filter === UNCLASSIFIED ? unclassified : gallery.filter((g) => g.eventType === filter);
+  // Si el filtro elegido se quedó sin fotos (ej. se clasificaron todas), se
+  // vuelve a mostrar todo en vez de dejar una grilla vacía sin explicación.
+  const effectiveFilter = filter !== ALL && shown.length === 0 ? ALL : filter;
+  const visibleGallery = effectiveFilter === filter ? shown : gallery;
+
+  // Solo cuentan las fotos marcadas que todavía existen (una puede haberse
+  // borrado desde otra pestaña mientras estaba seleccionada).
+  const selectedIds = [...selected].filter((id) => gallery.some((g) => g.id === id));
+
+  const toggleSelected = (id: number) => setSelected((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const exitSelectMode = () => { setSelectMode(false); setSelected(new Set()); };
+
+  const handleBulkType = async () => {
+    if (selectedIds.length === 0) return;
+    setIsBulkSaving(true);
+    try {
+      const results = await Promise.allSettled(selectedIds.map(async (id) => {
+        const res = await apiFetch(`/gallery/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ eventType: bulkType }),
+        });
+        if (!res.ok) throw new Error(await readApiError(res));
+      }));
+      const failed = results.filter((r) => r.status === "rejected").length;
+      const done = results.length - failed;
+      if (done > 0) fetchData();
+      if (failed === 0) toast.success(`${done} foto${done === 1 ? "" : "s"} clasificada${done === 1 ? "" : "s"} como "${bulkType}".`);
+      else toast.error(`${done} foto${done === 1 ? "" : "s"} clasificada${done === 1 ? "" : "s"}, pero ${failed} no se pudo guardar. Revisá e intentá de nuevo con esas.`);
+      // Si falló alguna, queda seleccionada para reintentar solo esa.
+      if (failed === 0) exitSelectMode();
+      else setSelected(new Set(selectedIds.filter((_, i) => results[i].status === "rejected")));
+    } finally {
+      setIsBulkSaving(false);
+    }
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -158,11 +213,75 @@ export default function GalleryTab({ gallery, fetchData, isLoadingData }: { gall
           <p className="text-slate-500">Haz clic en &quot;Subir Fotos&quot; y selecciona varias imágenes.</p>
         </div>
       ) : (
+        <>
+        {unclassified.length > 0 && (
+          <div role="status" className="mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl px-4 py-3">
+            <p className="text-sm">
+              <strong>{unclassified.length} foto{unclassified.length === 1 ? "" : "s"} sin clasificar.</strong> Las fotos sin tipo de evento no entran en las páginas de Bodas, Cumpleaños, etc., que ayudan a aparecer en Google. Marcá varias y asignales el tipo de una vez.
+            </p>
+            <button
+              onClick={() => { setFilter(UNCLASSIFIED); setSelectMode(true); setSelected(new Set()); }}
+              className="shrink-0 px-4 py-2 bg-amber-500 text-white text-sm font-bold rounded-xl hover:bg-amber-600 cursor-pointer"
+            >
+              Clasificarlas ahora
+            </button>
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-2 mb-5">
+          {[ALL, ...(unclassified.length > 0 ? [UNCLASSIFIED] : []), ...GALLERY_EVENT_TYPES.filter((t) => countOf(t) > 0)].map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              aria-pressed={effectiveFilter === f}
+              className={`h-9 px-4 rounded-full text-[13px] font-bold border transition-colors cursor-pointer ${effectiveFilter === f ? "bg-[#004080] text-white border-transparent" : "bg-white text-slate-600 border-slate-200 hover:border-[#004080] hover:text-[#004080]"}`}
+            >
+              {f} <span className="opacity-70">{countOf(f)}</span>
+            </button>
+          ))}
+          <button
+            onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+            aria-pressed={selectMode}
+            className={`ml-auto h-9 px-4 rounded-full text-[13px] font-bold border cursor-pointer ${selectMode ? "bg-emerald-500 text-white border-transparent" : "bg-white text-slate-600 border-slate-200 hover:border-emerald-500 hover:text-emerald-600"}`}
+          >
+            {selectMode ? "Salir de selección" : "Seleccionar varias"}
+          </button>
+        </div>
+
+        {selectMode && (
+          <div className="sticky top-2 z-30 mb-5 flex flex-wrap items-center gap-3 bg-slate-900 text-white rounded-2xl px-4 py-3 shadow-lg">
+            <span className="text-sm font-bold">{selectedIds.length} seleccionada{selectedIds.length === 1 ? "" : "s"}</span>
+            <button onClick={() => setSelected(new Set(visibleGallery.map((g) => g.id)))} className="text-xs underline underline-offset-2 hover:text-[#3b9dff] cursor-pointer">Marcar las {visibleGallery.length} de esta vista</button>
+            <button onClick={() => setSelected(new Set())} className="text-xs underline underline-offset-2 hover:text-[#3b9dff] cursor-pointer">Desmarcar</button>
+            <div className="ml-auto flex items-center gap-2">
+              <select
+                aria-label="Tipo de evento para las fotos seleccionadas"
+                value={bulkType}
+                onChange={(e) => setBulkType(e.target.value)}
+                className="px-3 py-1.5 rounded-lg text-sm text-slate-900 outline-none cursor-pointer"
+              >
+                {GALLERY_EVENT_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <button
+                onClick={handleBulkType}
+                disabled={selectedIds.length === 0 || isBulkSaving}
+                className="px-4 py-1.5 bg-emerald-500 text-white text-sm font-bold rounded-lg hover:bg-emerald-600 cursor-pointer disabled:opacity-50 flex items-center"
+              >
+                {isBulkSaving ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Check className="w-4 h-4 mr-1.5" />}
+                Asignar tipo
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {gallery.map((img) => (
+          {visibleGallery.map((img) => (
             <GalleryCard
               key={img.id}
               img={img}
+              selectMode={selectMode}
+              isSelected={selected.has(img.id)}
+              onToggleSelected={() => toggleSelected(img.id)}
               isEditing={editingId === img.id}
               isSaving={isSavingEdit}
               onEdit={() => setEditingId(img.id)}
@@ -173,6 +292,7 @@ export default function GalleryTab({ gallery, fetchData, isLoadingData }: { gall
             />
           ))}
         </div>
+        </>
       )}
     </div>
   );
@@ -181,8 +301,11 @@ export default function GalleryTab({ gallery, fetchData, isLoadingData }: { gall
 // Una tarjeta de foto. Normalmente muestra el título/tipo con los botones
 // de siempre (ocultar/borrar); en modo edición los reemplaza por un
 // mini-formulario (título + tipo) con Guardar/Cancelar.
-function GalleryCard({ img, isEditing, isSaving, onEdit, onCancelEdit, onSaveEdit, onToggleVisibility, onDelete }: {
+function GalleryCard({ img, selectMode, isSelected, onToggleSelected, isEditing, isSaving, onEdit, onCancelEdit, onSaveEdit, onToggleVisibility, onDelete }: {
   img: GalleryImage;
+  selectMode: boolean;
+  isSelected: boolean;
+  onToggleSelected: () => void;
   isEditing: boolean;
   isSaving: boolean;
   onEdit: () => void;
@@ -211,7 +334,19 @@ function GalleryCard({ img, isEditing, isSaving, onEdit, onCancelEdit, onSaveEdi
         {img.eventType || 'Sin clasificar'}
       </span>
 
-      {isEditing ? (
+      {selectMode ? (
+        <button
+          type="button"
+          onClick={onToggleSelected}
+          aria-pressed={isSelected}
+          aria-label={`${isSelected ? "Quitar de la selección" : "Seleccionar"} ${img.title || "esta foto"}`}
+          className={`absolute inset-0 cursor-pointer transition-colors ${isSelected ? "bg-[#004080]/30 ring-4 ring-inset ring-[#3b9dff]" : "hover:bg-slate-900/20"}`}
+        >
+          <span className={`absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center border-2 ${isSelected ? "bg-[#3b9dff] border-white text-white" : "bg-white/80 border-slate-300 text-transparent"}`}>
+            <Check className="w-4 h-4" />
+          </span>
+        </button>
+      ) : isEditing ? (
         <div className="absolute inset-0 bg-slate-900/90 flex flex-col justify-center gap-2 p-3">
           <input
             type="text"
