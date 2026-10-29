@@ -202,7 +202,7 @@ export default function CartProvider({ children }: { children: React.ReactNode }
   const totalAmount = subTotalAmount + shippingCost; 
   const formatPYG = (amount: number) => `Gs. ${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 
-  const handleCitySelect = (cityId: number, cityName: string, cityPrice: number, freeShipping: boolean) => {
+  const handleCitySelect = (cityId: number | null, cityName: string, cityPrice: number, freeShipping: boolean) => {
     setSelectedCityName(cityName);
     setSelectedCityId(cityId);
     setShippingCost(cityPrice);

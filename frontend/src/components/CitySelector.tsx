@@ -20,7 +20,8 @@ interface City {
 }
 
 interface CitySelectorProps {
-    onCitySelect?: (cityId: number, cityName: string, cityPrice: number, freeShipping: boolean) => void;
+    // cityId es null cuando la ciudad se escribió a mano (la lista no cargó).
+    onCitySelect?: (cityId: number | null, cityName: string, cityPrice: number, freeShipping: boolean) => void;
 }
 
 export default function CitySelector({ onCitySelect }: CitySelectorProps) {
@@ -31,15 +32,24 @@ export default function CitySelector({ onCitySelect }: CitySelectorProps) {
     // Estados para el Custom Dropdown y el Buscador
     const [isOpen, setIsOpen] = useState(false);
     const [selectedCity, setSelectedCity] = useState<City | null>(null);
-    const [searchTerm, setSearchTerm] = useState(''); 
+    const [searchTerm, setSearchTerm] = useState('');
+    const [manualCity, setManualCity] = useState('');
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
+        // Si el servidor no contesta (caído o dormido) la espera no puede ser
+        // infinita: el cliente se quedaría en "Cargando..." sin poder pedir su
+        // cotización. Pasados 8 s se muestra el campo para escribir la ciudad.
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+        // Si el componente se desmonta (o React repite el efecto en desarrollo)
+        // la petición se cancela a propósito y eso no es un error de carga.
+        let unmounted = false;
         const fetchCities = async () => {
             try {
                 // 👇 Añadimos cache: 'no-store' para tener siempre la lista actualizada
-                const response = await fetch(`${getApiUrl()}/cities`, { cache: 'no-store' });
-                
+                const response = await fetch(`${getApiUrl()}/cities`, { cache: 'no-store', signal: controller.signal });
+
                 if (!response.ok) {
                     throw new Error('Error al cargar las ciudades');
                 }
@@ -47,14 +57,17 @@ export default function CitySelector({ onCitySelect }: CitySelectorProps) {
                 const data = await response.json();
                 setCities(data);
             } catch (err) {
+                if (unmounted) return;
                 setError(err instanceof Error ? err.message : 'Error desconocido');
                 console.error(err);
             } finally {
-                setIsLoading(false);
+                clearTimeout(timeout);
+                if (!unmounted) setIsLoading(false);
             }
         };
 
         fetchCities();
+        return () => { unmounted = true; clearTimeout(timeout); controller.abort(); };
     }, []);
 
     useEffect(() => {
@@ -87,7 +100,30 @@ export default function CitySelector({ onCitySelect }: CitySelectorProps) {
     );
 
     if (isLoading) return <div className="text-sm text-slate-500 dark:text-slate-400 animate-pulse py-2">Cargando zonas de entrega...</div>;
-    if (error) return <div className="text-sm text-red-500 py-2">{error}</div>;
+    // Sin la lista de ciudades el pedido igual tiene que poder enviarse: el
+    // cliente escribe su ciudad o barrio y el envío queda "a coordinar".
+    if (error) return (
+        <div className="flex flex-col gap-2 w-full">
+            <label htmlFor="ciudad-manual" className="font-semibold text-slate-700 dark:text-slate-300 text-sm">
+                Zona de entrega
+            </label>
+            <input
+                id="ciudad-manual"
+                type="text"
+                maxLength={80}
+                placeholder="Escribí tu ciudad o barrio"
+                value={manualCity}
+                onChange={(e) => {
+                    setManualCity(e.target.value);
+                    onCitySelect?.(null, e.target.value.trim() || 'No seleccionada', 0, false);
+                }}
+                className="w-full p-3 border-2 rounded-xl bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-[#004080] dark:focus:border-[#3b9dff]"
+            />
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+                No pudimos cargar la lista de ciudades. Escribí la tuya y coordinamos el costo del envío por WhatsApp.
+            </p>
+        </div>
+    );
 
     return (
         <div className="flex flex-col gap-2 relative w-full" ref={dropdownRef}>
