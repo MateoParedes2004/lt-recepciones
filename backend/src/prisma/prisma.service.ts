@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { Pool } from 'pg';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as dotenv from 'dotenv';
+import { poolConfigFor } from './database-ssl';
 
 // Cargamos las variables de entorno para que encuentre tu DATABASE_URL
 dotenv.config();
@@ -13,7 +14,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
 
   constructor() {
     // 1. Creamos la conexión nativa
-    const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+    // DATABASE_CA_CERT (opcional): certificado CA del proveedor de la base (ver database-ssl.ts).
+    const pool = new Pool(poolConfigFor(process.env.DATABASE_URL, process.env.DATABASE_CA_CERT));
     
     // 2. Envolvemos la conexión en el adaptador de Prisma 7
     const adapter = new PrismaPg(pool);
