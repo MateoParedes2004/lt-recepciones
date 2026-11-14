@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsInt,
   IsNumber,
   IsOptional,
@@ -85,4 +86,10 @@ export class CreateRentalDto {
   @IsOptional()
   @IsInt()
   checkoutIntentId?: number;
+
+  // true = se guarda como PRESUPUESTO: no reserva stock ni cuenta en ingresos
+  // hasta que se confirma (PATCH /rentals/:id/confirm).
+  @IsOptional()
+  @IsBoolean()
+  asQuote?: boolean;
 }

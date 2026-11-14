@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, Put, Patch, Query, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Patch, Delete, Query, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { RentalsService } from './rentals.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CreateRentalDto } from './dto/create-rental.dto';
@@ -59,5 +59,17 @@ export class RentalsController {
   @Patch(':id/reopen')
   reopen(@Param('id', ParseIntPipe) id: number) {
     return this.rentalsService.reopen(id);
+  }
+
+  // El cliente aceptó el presupuesto: pasa a alquiler y reserva el stock.
+  @Patch(':id/confirm')
+  confirm(@Param('id', ParseIntPipe) id: number) {
+    return this.rentalsService.confirm(id);
+  }
+
+  // Solo borra presupuestos; un alquiler confirmado se anula (queda en el historial).
+  @Delete(':id')
+  deleteQuote(@Param('id', ParseIntPipe) id: number) {
+    return this.rentalsService.deleteQuote(id);
   }
 }

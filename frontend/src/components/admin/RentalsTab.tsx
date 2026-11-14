@@ -2,10 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Plus, Trash2, Search, X, CheckCircle, CalendarDays, PlusCircle, MapPin, Pencil, Ban, RotateCcw, TriangleAlert, List, LayoutGrid, ChevronDown, ChevronUp, Users, Star } from "lucide-react";
+import { Plus, Trash2, Search, X, CheckCircle, CalendarDays, PlusCircle, MapPin, Pencil, Ban, RotateCcw, TriangleAlert, List, LayoutGrid, ChevronDown, ChevronUp, Users, Star, FileText, Receipt, BadgeCheck } from "lucide-react";
 import { apiFetch, readApiError } from "../../lib/api";
+import { formatInvoiceNumber, sharePdf } from "../../lib/invoice";
 import { useToast } from "./ToastProvider";
-import type { Product, Rental, City, RentalPhase, CheckoutIntent, ShippingSettings } from "../../types";
+import InvoiceFormModal from "./InvoiceFormModal";
+import type { Product, Rental, City, RentalPhase, CheckoutIntent, ShippingSettings, InvoiceSettingsView } from "../../types";
 import { quoteShipping } from "../../lib/shipping";
 import { BUSINESS, toWhatsappNumber, whatsappLinkTo } from "../../lib/site";
 import RentalsCalendar from "./RentalsCalendar";
@@ -39,6 +41,7 @@ interface StockHolder { rentalId: number; clientName: string; quantity: number; 
 type PhaseFilter = "TODOS" | RentalPhase;
 const FILTERS: { key: PhaseFilter; label: string }[] = [
   { key: "TODOS", label: "Todos" },
+  { key: "PRESUPUESTO", label: "Presupuestos" },
   { key: "ATRASADO", label: "Atrasados" },
   { key: "EN_USO", label: "En uso" },
   { key: "RESERVADO", label: "Reservados" },
@@ -46,12 +49,18 @@ const FILTERS: { key: PhaseFilter; label: string }[] = [
   { key: "CANCELADO", label: "Anulados" },
 ];
 
-// Lo que necesita atención va primero: atrasados, en uso, próximos por fecha, y al final el historial.
-const PHASE_ORDER: Record<RentalPhase, number> = { ATRASADO: 0, EN_USO: 1, RESERVADO: 2, DEVUELTO: 3, CANCELADO: 4 };
+// Lo que necesita atención va primero: atrasados, en uso, próximos por fecha,
+// presupuestos por confirmar, y al final el historial.
+const PHASE_ORDER: Record<RentalPhase, number> = { ATRASADO: 0, EN_USO: 1, RESERVADO: 2, PRESUPUESTO: 3, DEVUELTO: 4, CANCELADO: 5 };
+
+// La factura vigente de un alquiler (aprobada o esperando respuesta); una anulada o rechazada no cuenta.
+const currentInvoice = (r: Rental) => r.invoices?.find((i) => i.status === "APROBADA" || i.status === "PENDIENTE");
 
 function PhaseBadge({ rental }: { rental: Rental }) {
   const phase = rental.phase ?? (rental.status === "ACTIVO" ? "EN_USO" : rental.status);
   switch (phase) {
+    case "PRESUPUESTO":
+      return <span className="px-3 py-1 bg-white text-[#004080] rounded-full text-xs font-bold border border-dashed border-[#004080]/50">PRESUPUESTO</span>;
     case "ATRASADO":
       return <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-bold border border-red-200 whitespace-nowrap">ATRASADO · {rental.daysOverdue} {rental.daysOverdue === 1 ? "día" : "días"}</span>;
     case "EN_USO":
@@ -96,11 +105,15 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
 
   const editingRental = editingId !== null ? rentals.find((r) => r.id === editingId) ?? null : null;
   // Uno devuelto o anulado ya no ocupa stock: solo se corrigen sus datos de contacto.
-  const scheduleLocked = !!editingRental && editingRental.status !== "ACTIVO";
+  const scheduleLocked = !!editingRental && editingRental.status !== "ACTIVO" && editingRental.status !== "PRESUPUESTO";
+  const editingQuote = editingRental?.status === "PRESUPUESTO";
+  // Alquiler que se está facturando (abre el formulario de factura).
+  const [invoicingRental, setInvoicingRental] = useState<Rental | null>(null);
+  const [quotePdfBusyId, setQuotePdfBusyId] = useState<number | null>(null);
 
   const phaseOf = (r: Rental): RentalPhase => r.phase ?? (r.status === "ACTIVO" ? "EN_USO" : r.status);
   const counts = useMemo(() => {
-    const c: Record<PhaseFilter, number> = { TODOS: rentals.length, ATRASADO: 0, EN_USO: 0, RESERVADO: 0, DEVUELTO: 0, CANCELADO: 0 };
+    const c: Record<PhaseFilter, number> = { TODOS: rentals.length, PRESUPUESTO: 0, ATRASADO: 0, EN_USO: 0, RESERVADO: 0, DEVUELTO: 0, CANCELADO: 0 };
     for (const r of rentals) c[r.phase ?? (r.status === "ACTIVO" ? "EN_USO" : r.status)] += 1;
     return c;
   }, [rentals]);
@@ -115,7 +128,7 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
         const pb = PHASE_ORDER[b.phase ?? (b.status === "ACTIVO" ? "EN_USO" : b.status)];
         if (pa !== pb) return pa - pb;
         // Dentro de lo vigente, el que llega primero arriba; en el historial, lo más reciente arriba.
-        return pa <= PHASE_ORDER.RESERVADO ? a.eventDate.localeCompare(b.eventDate) : b.createdAt.localeCompare(a.createdAt);
+        return pa <= PHASE_ORDER.PRESUPUESTO ? a.eventDate.localeCompare(b.eventDate) : b.createdAt.localeCompare(a.createdAt);
       });
   }, [rentals, searchRental, phaseFilter]);
 
@@ -293,6 +306,11 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
 
   const handleSaveRental = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Un presupuesto (nuevo o que se está editando) no reserva stock: no se bloquea por disponibilidad.
+    // Qué botón se apretó lo dice el propio formulario (submitter): así Enter dentro de un campo,
+    // que acciona el botón principal, nunca guarda un presupuesto por accidente.
+    const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLElement | null;
+    const isQuote = editingId !== null ? editingQuote : submitter?.dataset.quote === "true";
 
     if (!scheduleLocked) {
       // El buscador de productos ya no es un <select required>: sin esto, un
@@ -308,7 +326,7 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
 
       // Aviso rápido con la disponibilidad ya calculada para esas fechas; la
       // decisión final la toma el servidor de forma atómica al guardar.
-      if (availability) {
+      if (availability && !isQuote) {
         for (const [productId, quantity] of requestedByProduct) {
           const free = availability[productId];
           const name = productOptions.find((p) => p.id === productId)?.name ?? "el producto";
@@ -345,38 +363,71 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
       // Si viene de "Convertir en alquiler" de un pedido por WhatsApp, enlaza
       // ese pedido con el alquiler recién creado (solo aplica al crear, no al editar).
       const linkIntent = editingId === null && convertingIntentId !== null ? { checkoutIntentId: convertingIntentId } : {};
+      const quoteFlag = editingId === null && isQuote ? { asQuote: true } : {};
+      const noun = isQuote ? "presupuesto" : "alquiler";
 
       const res = await apiFetch(editingId !== null ? `/rentals/${editingId}` : "/rentals", {
         method: editingId !== null ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...contact, ...schedule, ...linkIntent }),
+        body: JSON.stringify({ ...contact, ...schedule, ...linkIntent, ...quoteFlag }),
       });
       if (res.ok) {
         closeRentalModal();
         fetchData();
-        toast.success(editingId !== null ? "Alquiler actualizado." : "Alquiler registrado: el stock quedó reservado para esas fechas.");
+        toast.success(
+          editingId !== null
+            ? `${isQuote ? "Presupuesto" : "Alquiler"} actualizado.`
+            : isQuote
+              ? "Presupuesto guardado: no reserva stock hasta que lo confirmes."
+              : "Alquiler registrado: el stock quedó reservado para esas fechas.",
+        );
       } else {
-        toast.error(`No se pudo ${editingId !== null ? "guardar el alquiler" : "crear el alquiler"}: ${await readApiError(res)}`);
+        toast.error(`No se pudo ${editingId !== null ? `guardar el ${noun}` : `crear el ${noun}`}: ${await readApiError(res)}`);
       }
     } catch { toast.error("Error de conexión. Revisá tu internet e intentá de nuevo."); } finally { setIsSavingRental(false); }
   };
 
   // Devolver, anular y reabrir no tocan contadores: el servidor calcula la
   // disponibilidad desde el estado de cada alquiler, así que solo cambia el estado.
-  const changeStatus = async (r: Rental, action: "return" | "cancel" | "reopen") => {
+  const changeStatus = async (r: Rental, action: "return" | "cancel" | "reopen" | "confirm" | "discard") => {
+    const invoice = currentInvoice(r);
+    const invoiceWarning = invoice ? `\n\nOjo: tiene la factura ${formatInvoiceNumber(invoice)}. Anulala aparte en Factura Electrónica (hasta 48 h después de emitida).` : "";
     const texts = {
       return: { confirm: "¿Confirmás que el cliente devolvió todos los productos? Las unidades quedan libres de nuevo.", ok: "Devolución registrada: las unidades quedaron libres.", fail: "No se pudo registrar la devolución" },
-      cancel: { confirm: `¿Anular el alquiler de ${r.clientName}? Las unidades reservadas quedan libres y el alquiler deja de contar en las estadísticas.`, ok: "Alquiler anulado: las unidades quedaron libres.", fail: "No se pudo anular el alquiler" },
+      cancel: { confirm: `¿Anular el alquiler de ${r.clientName}? Las unidades reservadas quedan libres y el alquiler deja de contar en las estadísticas.${invoiceWarning}`, ok: "Alquiler anulado: las unidades quedaron libres.", fail: "No se pudo anular el alquiler" },
       reopen: { confirm: `¿Reabrir el alquiler de ${r.clientName}? Vuelve a ocupar sus unidades (se comprueba que sigan libres).`, ok: "Alquiler reabierto.", fail: "No se pudo reabrir el alquiler" },
+      confirm: { confirm: `¿${r.clientName} aceptó el presupuesto? Pasa a alquiler y reserva el stock para esas fechas (se comprueba que siga libre).`, ok: "Presupuesto confirmado: el stock quedó reservado.", fail: "No se pudo confirmar el presupuesto" },
+      discard: { confirm: `¿Descartar el presupuesto de ${r.clientName}? Se borra definitivamente.`, ok: "Presupuesto descartado.", fail: "No se pudo descartar el presupuesto" },
     }[action];
     if (!window.confirm(texts.confirm)) return;
     try {
       const res = action === "return"
         ? await apiFetch(`/rentals/${r.id}/return`, { method: "PUT" })
-        : await apiFetch(`/rentals/${r.id}/${action}`, { method: "PATCH" });
+        : action === "discard"
+          ? await apiFetch(`/rentals/${r.id}`, { method: "DELETE" })
+          : await apiFetch(`/rentals/${r.id}/${action}`, { method: "PATCH" });
       if (res.ok) { fetchData(); toast.success(texts.ok); }
       else toast.error(`${texts.fail}: ${await readApiError(res)}`);
     } catch { toast.error("Error de conexión. Revisá tu internet e intentá de nuevo."); }
+  };
+
+  // PDF del presupuesto con los datos del emisor de Factura Electrónica. En el
+  // celular abre "Compartir" (WhatsApp, correo…); en la computadora lo descarga.
+  const sendQuotePdf = async (r: Rental) => {
+    setQuotePdfBusyId(r.id);
+    try {
+      const res = await apiFetch("/invoices/settings");
+      if (!res.ok) { toast.error(`No se pudieron cargar los datos del emisor: ${await readApiError(res)}`); return; }
+      const { settings }: InvoiceSettingsView = await res.json();
+      const { quotePdf, quoteFileName } = await import("../../lib/invoice-pdf");
+      const blob = await quotePdf(r, settings);
+      const result = await sharePdf(blob, quoteFileName(r), `Presupuesto de ${settings.tradeName} para ${r.clientName}`);
+      if (result === "downloaded") toast.info("El PDF del presupuesto se descargó para que lo envíes.");
+    } catch {
+      toast.error("No se pudo generar el PDF del presupuesto. Probá de nuevo.");
+    } finally {
+      setQuotePdfBusyId(null);
+    }
   };
 
   // Abre WhatsApp con el mensaje para pedirle una reseña en Google al cliente
@@ -519,6 +570,28 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col items-end gap-2">
+                      {rental.status === "PRESUPUESTO" && (
+                        <>
+                          <button onClick={() => changeStatus(rental, "confirm")} className="flex items-center justify-end w-full text-sm font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-2 rounded-lg transition-colors cursor-pointer">
+                            <BadgeCheck className="w-4 h-4 mr-1" /> Confirmar
+                          </button>
+                          <button onClick={() => sendQuotePdf(rental)} disabled={quotePdfBusyId === rental.id} title="Enviar el presupuesto en PDF (WhatsApp, correo…)" className="flex items-center justify-end w-full text-sm font-bold text-[#004080] hover:text-[#00294f] bg-[#e8f0f8] hover:bg-[#d3e3f2] px-3 py-2 rounded-lg transition-colors cursor-pointer disabled:opacity-60">
+                            <FileText className="w-4 h-4 mr-1" /> {quotePdfBusyId === rental.id ? "Generando..." : "PDF presupuesto"}
+                          </button>
+                        </>
+                      )}
+                      {(rental.status === "ACTIVO" || rental.status === "DEVUELTO") && (() => {
+                        const invoice = currentInvoice(rental);
+                        return invoice ? (
+                          <span title={invoice.status === "PENDIENTE" ? "Esperando respuesta de la DNIT" : "Factura emitida (ver en Factura Electrónica)"} className="flex items-center text-xs font-bold text-slate-500 whitespace-nowrap">
+                            <Receipt className="w-3.5 h-3.5 mr-1" /> Factura {formatInvoiceNumber(invoice)}{invoice.environment === "PRUEBA" ? " (prueba)" : ""}{invoice.status === "PENDIENTE" ? " · pendiente" : ""}
+                          </span>
+                        ) : (
+                          <button onClick={() => setInvoicingRental(rental)} className="flex items-center justify-end w-full text-sm font-bold text-white bg-[#004080] hover:bg-[#00294f] px-3 py-2 rounded-lg transition-colors cursor-pointer">
+                            <Receipt className="w-4 h-4 mr-1" /> Realizar factura
+                          </button>
+                        );
+                      })()}
                       {rental.status === "ACTIVO" && (
                         <button onClick={() => changeStatus(rental, "return")} className="flex items-center justify-end w-full text-sm font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-2 rounded-lg transition-colors cursor-pointer">
                           <CheckCircle className="w-4 h-4 mr-1" /> Marcar Devuelto
@@ -534,7 +607,7 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
                           <Star className="w-4 h-4 mr-1" /> Pedir reseña
                         </button>
                       )}
-                      {rental.status !== "ACTIVO" && (
+                      {(rental.status === "DEVUELTO" || rental.status === "CANCELADO") && (
                         <button onClick={() => changeStatus(rental, "reopen")} className="flex items-center justify-end w-full text-sm font-bold text-[#004080] hover:text-[#00294f] bg-[#e8f0f8] hover:bg-[#d3e3f2] px-3 py-2 rounded-lg transition-colors cursor-pointer">
                           <RotateCcw className="w-4 h-4 mr-1" /> Reabrir
                         </button>
@@ -543,6 +616,9 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
                         <button onClick={() => openEditRental(rental)} aria-label={`Editar el alquiler de ${rental.clientName}`} title="Editar" className="p-2 text-slate-400 hover:text-[#004080] hover:bg-[#e8f0f8] rounded-lg cursor-pointer transition-colors"><Pencil className="w-4 h-4" /></button>
                         {rental.status === "ACTIVO" && (
                           <button onClick={() => changeStatus(rental, "cancel")} aria-label={`Anular el alquiler de ${rental.clientName}`} title="Anular" className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer transition-colors"><Ban className="w-4 h-4" /></button>
+                        )}
+                        {rental.status === "PRESUPUESTO" && (
+                          <button onClick={() => changeStatus(rental, "discard")} aria-label={`Descartar el presupuesto de ${rental.clientName}`} title="Descartar presupuesto" className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg cursor-pointer transition-colors"><Trash2 className="w-4 h-4" /></button>
                         )}
                       </div>
                     </div>
@@ -559,7 +635,7 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[95vh]">
             <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/80">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center"><CalendarDays className="w-6 h-6 mr-2 text-[#004080]"/> {editingId !== null ? "Editar Alquiler" : "Registrar Alquiler"}</h3>
+              <h3 className="text-xl font-bold text-slate-900 flex items-center"><CalendarDays className="w-6 h-6 mr-2 text-[#004080]"/> {editingId !== null ? (editingQuote ? "Editar Presupuesto" : "Editar Alquiler") : "Registrar Alquiler o Presupuesto"}</h3>
               <button onClick={closeRentalModal} aria-label="Cerrar" className="text-slate-400 hover:text-slate-700 p-1 rounded-full cursor-pointer"><X className="w-6 h-6" /></button>
             </div>
 
@@ -741,15 +817,27 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
               </form>
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-100 flex justify-end space-x-3 bg-slate-50/80">
-              <button type="button" onClick={closeRentalModal} className="px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-200 rounded-xl cursor-pointer">Cancelar</button>
-              <button type="submit" form="rentalForm" disabled={isSavingRental} className="px-6 py-2.5 bg-[#004080] text-white font-bold rounded-xl hover:bg-[#00294f] shadow-md flex items-center cursor-pointer">
+            <div className="px-6 py-4 border-t border-slate-100 flex flex-wrap justify-end gap-3 bg-slate-50/80">
+              <button type="button" onClick={closeRentalModal} className="order-1 px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-200 rounded-xl cursor-pointer">Cancelar</button>
+              {/* El botón principal va PRIMERO en el HTML (es el que acciona Enter dentro de un campo) y se
+                  muestra al final con `order`. Presupuesto: queda guardado sin reservar stock, para mandárselo
+                  al cliente y confirmarlo después; no aplica a un pedido por WhatsApp (ese se confirma como alquiler). */}
+              <button type="submit" form="rentalForm" disabled={isSavingRental} className="order-3 px-6 py-2.5 bg-[#004080] text-white font-bold rounded-xl hover:bg-[#00294f] shadow-md flex items-center cursor-pointer disabled:opacity-60">
                 {isSavingRental ? "Procesando..." : editingId !== null ? "Guardar Cambios" : "Confirmar y Reservar Stock"}
               </button>
+              {editingId === null && convertingIntentId === null && (
+                <button type="submit" form="rentalForm" data-quote="true" disabled={isSavingRental} className="order-2 px-5 py-2.5 bg-[#e8f0f8] text-[#004080] font-bold rounded-xl hover:bg-[#d3e3f2] flex items-center cursor-pointer disabled:opacity-60">
+                  Guardar como Presupuesto
+                </button>
+              )}
             </div>
           </div>
         </div>,
         document.body
+      )}
+
+      {invoicingRental && (
+        <InvoiceFormModal rental={invoicingRental} products={products} onClose={() => setInvoicingRental(null)} onIssued={fetchData} />
       )}
     </div>
   );

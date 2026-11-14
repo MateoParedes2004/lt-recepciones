@@ -4,12 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { Package, CalendarDays, TrendingUp, LogOut, Layers, Tags, BarChart3, Camera, MapPin, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { Package, CalendarDays, TrendingUp, LogOut, Layers, Tags, BarChart3, Camera, MapPin, Loader2, AlertCircle, RefreshCw, Receipt } from "lucide-react";
 import ProductsTab from "../../components/admin/ProductsTab";
 import CategoriesTab from "../../components/admin/CategoriesTab";
 import RentalsTab from "../../components/admin/RentalsTab";
 import GalleryTab from "../../components/admin/GalleryTab";
 import CitiesTab from "../../components/admin/CitiesTab";
+import InvoicesTab from "../../components/admin/InvoicesTab";
 import { apiFetch } from "../../lib/api";
 import type { Product, Category, Rental, GalleryImage, City, CheckoutIntent, ShippingSettings } from "../../types";
 
@@ -98,8 +99,8 @@ export default function AdminDashboard() {
   const currentMonthIncome = rentals.reduce((acc, r) => {
     const d = new Date(r.eventDate);
     const isThisMonth = d.getUTCFullYear() === now.getFullYear() && d.getUTCMonth() === now.getMonth();
-    // Un alquiler anulado nunca se concretó: no suma ingresos.
-    return isThisMonth && r.status !== "CANCELADO" ? acc + (Number(r.totalPrice) || 0) : acc;
+    // Un alquiler anulado nunca se concretó, y un presupuesto todavía no: no suman ingresos.
+    return isThisMonth && r.status !== "CANCELADO" && r.status !== "PRESUPUESTO" ? acc + (Number(r.totalPrice) || 0) : acc;
   }, 0);
 
   return (
@@ -157,6 +158,7 @@ export default function AdminDashboard() {
         <button onClick={() => setActiveTab("statistics")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "statistics" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><BarChart3 className="w-4 h-4 mr-2" /> Estadísticas</button>
         {/*  NUEVO BOTÓN PARA CIUDADES */}
         <button onClick={() => setActiveTab("cities")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "cities" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><MapPin className="w-4 h-4 mr-2" /> Zonas de Entrega</button>
+        <button onClick={() => setActiveTab("invoices")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "invoices" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Receipt className="w-4 h-4 mr-2" /> Factura Electrónica</button>
       </div>
 
       {/* 4. RENDERIZADO DINÁMICO DE PESTAÑAS */}
@@ -167,6 +169,7 @@ export default function AdminDashboard() {
       {activeTab === "statistics" && <StatisticsTab />}
       {/* RENDERIZAMOS LA PESTAÑA DE CIUDADES */}
       {activeTab === "cities" && <CitiesTab cities={cities} shippingSettings={shippingSettings} fetchData={fetchData} isLoadingData={isLoadingData} />}
+      {activeTab === "invoices" && <InvoicesTab products={products} />}
 
     </div>
   );

@@ -14,6 +14,7 @@ const MAX_CHIPS_POR_DIA = 3;
 // Mismos colores que PhaseBadge (arriba, en la vista de lista): un alquiler
 // se ve igual sin importar en qué vista se lo mire.
 const PHASE_STYLE: Record<RentalPhase, { chip: string; dot: string; label: string }> = {
+  PRESUPUESTO: { chip: "bg-white text-[#004080] border-dashed border-[#004080]/40", dot: "bg-white border border-dashed border-[#004080]", label: "Presupuesto" },
   ATRASADO: { chip: "bg-red-100 text-red-800 border-red-200", dot: "bg-red-500", label: "Atrasado" },
   EN_USO: { chip: "bg-amber-100 text-amber-800 border-amber-200", dot: "bg-amber-500", label: "En uso" },
   RESERVADO: { chip: "bg-[#e8f0f8] text-[#004080] border-[#004080]/20", dot: "bg-[#004080]", label: "Reservado" },

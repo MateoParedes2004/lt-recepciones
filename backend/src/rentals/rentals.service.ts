@@ -6,11 +6,16 @@ import { paraguayTodayIndex, toDayIndex } from '../common/timezone';
 import { CreateRentalDto, RentalItemDto } from './dto/create-rental.dto';
 import { UpdateRentalDto } from './dto/update-rental.dto';
 
-export type RentalPhase = 'RESERVADO' | 'EN_USO' | 'ATRASADO' | 'DEVUELTO' | 'CANCELADO';
+export type RentalPhase = 'PRESUPUESTO' | 'RESERVADO' | 'EN_USO' | 'ATRASADO' | 'DEVUELTO' | 'CANCELADO';
 
 const RENTAL_INCLUDE = {
   items: { include: { product: true } },
   city: true,
+  // Resumen de sus facturas, para que el panel muestre "Factura 001-001-…" o el botón "Realizar factura".
+  invoices: {
+    select: { id: true, establishment: true, expeditionPoint: true, number: true, status: true, environment: true },
+    orderBy: { id: 'desc' },
+  },
 } satisfies Prisma.RentalInclude;
 
 type RentalItemInput = { productId: number; quantity: number };
@@ -26,6 +31,7 @@ export function derivePhase(
   rental: { status: string; eventDate: Date; returnDate: Date },
   today: number = paraguayTodayIndex(),
 ): { phase: RentalPhase; daysOverdue: number } {
+  if (rental.status === 'PRESUPUESTO') return { phase: 'PRESUPUESTO', daysOverdue: 0 };
   if (rental.status === 'CANCELADO') return { phase: 'CANCELADO', daysOverdue: 0 };
   if (rental.status === 'DEVUELTO') return { phase: 'DEVUELTO', daysOverdue: 0 };
 
@@ -89,6 +95,12 @@ export class RentalsService {
 
   async create(data: CreateRentalDto) {
     const { eventDate, returnDate } = this.parseDates(data.eventDate, data.returnDate);
+    const isQuote = data.asQuote === true;
+    // Un pedido por WhatsApp se confirma como alquiler real: las estadísticas
+    // lo cuentan como venta cerrada, así que no puede quedar como presupuesto.
+    if (isQuote && data.checkoutIntentId !== undefined) {
+      throw new BadRequestException('Un pedido por WhatsApp se convierte en alquiler, no en presupuesto.');
+    }
     // El admin puede cargar el costo de envío real de la cotización; si no, se
     // usa el de la ciudad elegida.
     const shippingPrice = data.shippingPrice ?? (await this.resolveShippingPrice(data.cityId));
@@ -116,7 +128,8 @@ export class RentalsService {
         // Bloqueamos los productos ANTES de mirar la disponibilidad: si otro
         // alquiler sobre los mismos productos se está creando ahora mismo, este
         // espera y ve su resultado. Así nunca se venden dos veces las mismas unidades.
-        await this.availability.lockProducts(tx, productIds);
+        // Un presupuesto no reserva nada: el stock se revisa recién al confirmarlo.
+        if (!isQuote) await this.availability.lockProducts(tx, productIds);
 
         const products = await tx.product.findMany({ where: { id: { in: productIds } } });
         const byId = new Map(products.map((p) => [p.id, p]));
@@ -128,7 +141,7 @@ export class RentalsService {
           }
         }
 
-        await this.availability.assertCanFit(tx, wanted, products, eventDate, returnDate);
+        if (!isQuote) await this.availability.assertCanFit(tx, wanted, products, eventDate, returnDate);
 
         // El admin puede cargar el precio unitario real de cada ítem; si no,
         // se usa el precio vigente del producto en el catálogo.
@@ -139,6 +152,7 @@ export class RentalsService {
           data: {
             clientName: data.clientName,
             clientPhone: data.clientPhone || '',
+            status: isQuote ? 'PRESUPUESTO' : 'ACTIVO',
             eventDate,
             returnDate,
             totalPrice: itemsSubtotal + shippingPrice,
@@ -224,7 +238,8 @@ export class RentalsService {
         // Los datos de contacto se pueden corregir siempre; fechas y productos
         // solo mientras el alquiler está vigente (uno devuelto o anulado ya no
         // ocupa unidades: para cambiarlo hay que reabrirlo, y ahí se revisa el stock).
-        if (touchesSchedule && current.status !== 'ACTIVO') {
+        const isQuote = current.status === 'PRESUPUESTO';
+        if (touchesSchedule && current.status !== 'ACTIVO' && !isQuote) {
           throw new ConflictException(
             `Este alquiler está ${current.status === 'DEVUELTO' ? 'devuelto' : 'anulado'}: reabrilo para cambiar las fechas o los productos.`,
           );
@@ -254,7 +269,7 @@ export class RentalsService {
           const sameQuantities =
             wanted.size === currentWanted.size && [...wanted].every(([productId, qty]) => currentWanted.get(productId) === qty);
 
-          await this.availability.lockProducts(tx, productIds);
+          if (!isQuote) await this.availability.lockProducts(tx, productIds);
           const products = await tx.product.findMany({ where: { id: { in: productIds } } });
           const byId = new Map(products.map((p) => [p.id, p]));
           for (const productId of productIds) {
@@ -266,8 +281,9 @@ export class RentalsService {
           }
 
           // Solo se revisa el stock si algo relevante cambió; el propio alquiler
-          // no cuenta como ocupación (excludeRentalId) para no chocar consigo mismo.
-          if (!sameDates || !sameQuantities) {
+          // no cuenta como ocupación (excludeRentalId) para no chocar consigo
+          // mismo. Un presupuesto no ocupa nada: se revisa al confirmarlo.
+          if (!isQuote && (!sameDates || !sameQuantities)) {
             await this.availability.assertCanFit(tx, wanted, products, eventDate, returnDate, id);
           }
 
@@ -334,6 +350,9 @@ export class RentalsService {
     });
     if (result.count === 0) {
       const existing = await this.findOneOrFail(id);
+      if (existing.status === 'PRESUPUESTO') {
+        throw new ConflictException('Es un presupuesto: descartalo en vez de anularlo.');
+      }
       if (existing.status === 'DEVUELTO') {
         throw new ConflictException('Este alquiler ya fue devuelto: no se puede anular. Si lo marcaste por error, reabrilo primero.');
       }
@@ -342,19 +361,54 @@ export class RentalsService {
     return this.withPhase(await this.findOneOrFail(id));
   }
 
-  async reopen(id: number) {
-    const reopened = await this.prisma.$transaction(
+  /** Reabre un alquiler devuelto o anulado: vuelve a ocupar sus unidades. */
+  reopen(id: number) {
+    return this.activate(id, ['DEVUELTO', 'CANCELADO']);
+  }
+
+  /** El cliente aceptó el presupuesto: pasa a alquiler y reserva el stock. */
+  confirm(id: number) {
+    return this.activate(id, ['PRESUPUESTO']);
+  }
+
+  /** Borra un presupuesto que no prosperó (un presupuesto no tiene historial que conservar). */
+  async deleteQuote(id: number) {
+    const result = await this.prisma.rental.deleteMany({ where: { id, status: 'PRESUPUESTO' } });
+    if (result.count === 0) {
+      await this.findOneOrFail(id);
+      throw new ConflictException('Solo se pueden descartar presupuestos; un alquiler confirmado se anula.');
+    }
+    return { deleted: true };
+  }
+
+  /** Pasa a ACTIVO desde alguno de los estados permitidos, comprobando que las unidades sigan libres. */
+  private async activate(id: number, from: string[]) {
+    const activated = await this.prisma.$transaction(
       async (tx) => {
         const current = await tx.rental.findUnique({ where: { id }, include: { items: true } });
         if (!current) throw new NotFoundException(`El alquiler con ID ${id} no existe.`);
         if (current.status === 'ACTIVO') return tx.rental.findUniqueOrThrow({ where: { id }, include: RENTAL_INCLUDE });
+        if (!from.includes(current.status)) {
+          throw new ConflictException(
+            current.status === 'PRESUPUESTO' ? 'Es un presupuesto: usá "Confirmar".' : 'Este alquiler no es un presupuesto.',
+          );
+        }
 
-        // Al reabrirlo vuelve a ocupar unidades: hay que comprobar que
-        // sigan libres, porque desde que se cerró pudo alquilarse ese stock.
+        // Al reabrirlo o confirmarlo pasa a ocupar unidades: hay que comprobar
+        // que sigan libres, porque mientras tanto pudo alquilarse ese stock.
         const wanted = this.aggregate(current.items.map((i) => ({ productId: i.productId, quantity: i.quantity })));
         const productIds = [...wanted.keys()];
         await this.availability.lockProducts(tx, productIds);
         const products = await tx.product.findMany({ where: { id: { in: productIds } } });
+        // Un presupuesto que se confirma es un alquiler NUEVO: no puede incluir un
+        // producto que se dio de baja mientras esperaba (igual que al crear uno).
+        // Reabrir un alquiler viejo sí los conserva: ya los había tenido.
+        if (current.status === 'PRESUPUESTO') {
+          const dropped = products.filter((p) => p.isArchived).map((p) => p.name);
+          if (dropped.length > 0) {
+            throw new BadRequestException(`El presupuesto incluye productos dados de baja: ${dropped.join(', ')}. Editalo para quitarlos antes de confirmar.`);
+          }
+        }
         await this.availability.assertCanFit(tx, wanted, products, current.eventDate, current.returnDate, id);
 
         return tx.rental.update({
@@ -365,6 +419,6 @@ export class RentalsService {
       },
       { timeout: 15000 },
     );
-    return this.withPhase(reopened);
+    return this.withPhase(activated);
   }
 }

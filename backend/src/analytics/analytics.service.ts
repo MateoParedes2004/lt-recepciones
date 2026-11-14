@@ -332,10 +332,12 @@ export class AnalyticsService {
     const [oldestRental, newestRental, oldestVisit, newestVisit] =
       await Promise.all([
         this.prisma.rental.findFirst({
+          where: { status: { not: 'PRESUPUESTO' } },
           orderBy: { eventDate: 'asc' },
           select: { eventDate: true },
         }),
         this.prisma.rental.findFirst({
+          where: { status: { not: 'PRESUPUESTO' } },
           orderBy: { eventDate: 'desc' },
           select: { eventDate: true },
         }),
@@ -464,10 +466,11 @@ export class AnalyticsService {
           where: { date: { gte: realStart, lte: realEnd } },
         }),
         this.prisma.rental.findMany({
-          // Un alquiler anulado nunca se concretó: no suma ingresos, unidades ni conversión.
+          // Un alquiler anulado nunca se concretó, y un presupuesto todavía no:
+          // ninguno suma ingresos, unidades ni conversión.
           where: {
             eventDate: { gte: calStart, lte: calEnd },
-            status: { not: 'CANCELADO' },
+            status: { notIn: ['CANCELADO', 'PRESUPUESTO'] },
           },
           include: {
             items: { include: { product: { include: { category: true } } } },

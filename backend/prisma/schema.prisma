@@ -53,6 +53,7 @@ model User {
   role      String   @default("ADMIN") // Por ahora, el que se registre será Administrador
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  invoices  Invoice[]
 }
 
 // ==========================================
@@ -65,8 +66,10 @@ model Rental {
   clientPhone String?  // Teléfono (Opcional)
   eventDate   DateTime // Fecha en la que usa los productos
   returnDate  DateTime // Fecha en la que debe devolverlos
-  // "ACTIVO" (reservado / en uso / atrasado: se calcula por fecha), "DEVUELTO"
-  // o "CANCELADO". Solo los ACTIVO ocupan unidades del inventario.
+  // "PRESUPUESTO" (cotización todavía sin confirmar), "ACTIVO" (reservado /
+  // en uso / atrasado: se calcula por fecha), "DEVUELTO" o "CANCELADO". Solo
+  // los ACTIVO ocupan unidades del inventario; un PRESUPUESTO tampoco cuenta
+  // en ingresos ni estadísticas hasta que se confirma.
   status      String   @default("ACTIVO")
   returnedAt  DateTime? // Cuándo se marcó como devuelto
   cancelledAt DateTime? // Cuándo se anuló
@@ -91,6 +94,9 @@ model Rental {
 
   // Pedido por WhatsApp que se confirmó como este alquiler (si vino de ahí).
   checkoutIntent CheckoutIntent?
+
+  // Facturas emitidas por este alquiler (normalmente una; más si alguna se anuló).
+  invoices    Invoice[]
 
   @@index([eventDate])
   @@index([status])
@@ -255,4 +261,102 @@ model AppMeta {
   key       String   @id
   value     String
   createdAt DateTime @default(now())
+}
+
+// ==========================================
+// FACTURACIÓN ELECTRÓNICA (SIFEN / DNIT)
+// ==========================================
+
+// Datos del emisor que salen impresos en cada factura (una sola fila, id = 1).
+// Se precarga con los del talonario actual (ver invoices/issuer-defaults.ts).
+model InvoiceSettings {
+  id              Int       @id @default(1)
+  businessName    String // Razón social (nombre del titular del RUC)
+  tradeName       String // Nombre de fantasía
+  slogan          String    @default("")
+  ruc             String // Con dígito verificador: "5726203-9"
+  activities      String    @default("") // Actividades económicas, una por línea
+  address         String
+  city            String
+  phone           String    @default("")
+  email           String    @default("")
+  establishment   String    @default("001")
+  expeditionPoint String    @default("001")
+  // Timbrado ELECTRÓNICO que asigna la DNIT al habilitarse como facturador
+  // electrónico (no es el del talonario de papel). Vacío = todavía sin habilitar.
+  timbrado        String    @default("")
+  timbradoStart   DateTime? // Fecha de inicio de vigencia (fecha de calendario, medianoche UTC)
+  updatedAt       DateTime  @updatedAt
+}
+
+model Invoice {
+  id              Int      @id @default(autoincrement())
+  // PRUEBA = emitida con el proveedor de prueba (sin validez fiscal);
+  // PRODUCCION = enviada a la DNIT de verdad. Cada ambiente numera aparte.
+  environment     String
+  timbrado        String
+  establishment   String
+  expeditionPoint String
+  number          Int
+  issuedAt        DateTime @default(now())
+  condition       String   @default("CONTADO") // CONTADO | CREDITO
+
+  // Receptor. customerType: RUC (contribuyente), CI (cédula, no
+  // contribuyente) o SIN_NOMBRE (consumidor final sin identificar).
+  customerType     String
+  customerDocument String?
+  customerName     String
+  customerAddress  String?
+  customerEmail    String?
+  customerPhone    String?
+
+  // Montos en guaraníes enteros, IVA INCLUIDO en los precios (como en el
+  // talonario): taxed10 es lo vendido a la tasa del 10 % e iva10 = taxed10 / 11.
+  total   Int
+  taxed10 Int
+  taxed5  Int
+  exempt  Int
+  iva10   Int
+  iva5    Int
+
+  // PENDIENTE (todavía sin respuesta de la DNIT) | APROBADA | RECHAZADA | ANULADA
+  status        String    @default("PENDIENTE")
+  cdc           String?   @unique // Código de control de 44 dígitos que asigna el SIFEN
+  qrUrl         String?
+  statusMessage String? // Motivo de rechazo o error de comunicación
+  approvedAt    DateTime?
+  cancelledAt   DateTime?
+  cancelReason  String?
+
+  // Copia de los datos del emisor al momento de emitir: si después se
+  // editan en el panel, las facturas ya emitidas no cambian.
+  issuer Json
+
+  rentalId    Int?
+  rental      Rental?       @relation(fields: [rentalId], references: [id], onDelete: SetNull)
+  createdById Int?
+  createdBy   User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  items       InvoiceItem[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([environment, timbrado, establishment, expeditionPoint, number])
+  @@index([rentalId])
+  @@index([issuedAt])
+}
+
+model InvoiceItem {
+  id          Int     @id @default(autoincrement())
+  invoiceId   Int
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Int
+  unitPrice   Int // Guaraníes, IVA incluido
+  ivaRate     Int     @default(10) // 10 | 5 | 0 (exenta)
+  total       Int // quantity × unitPrice
+  // Producto del catálogo del que salió la línea (si salió de uno). Sin clave
+  // foránea a propósito: la factura conserva su descripción aunque el producto se borre.
+  productId   Int?
+
+  @@index([invoiceId])
 }

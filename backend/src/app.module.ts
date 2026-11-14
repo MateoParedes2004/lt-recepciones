@@ -10,6 +10,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { GalleryModule } from './gallery/gallery.module';
 import { CitiesModule } from './cities/cities.module';
 import { AvailabilityModule } from './availability/availability.module';
+import { InvoicesModule } from './invoices/invoices.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -26,6 +27,7 @@ import { AppController } from './app.controller';
     GalleryModule,
     CitiesModule,
     AvailabilityModule,
+    InvoicesModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
