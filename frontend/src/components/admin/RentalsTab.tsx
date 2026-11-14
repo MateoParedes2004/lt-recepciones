@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Plus, Trash2, Search, X, CheckCircle, CalendarDays, PlusCircle, MapPin, Pencil, Ban, RotateCcw, TriangleAlert, List, LayoutGrid, ChevronDown, ChevronUp, Users, Star, FileText, Receipt, BadgeCheck } from "lucide-react";
+import { Plus, Trash2, Search, X, CheckCircle, CalendarDays, PlusCircle, MapPin, Pencil, Ban, RotateCcw, TriangleAlert, List, LayoutGrid, ChevronDown, ChevronUp, Users, Star, FileText, Receipt, BadgeCheck, Navigation, LocateFixed } from "lucide-react";
 import { apiFetch, readApiError } from "../../lib/api";
 import { formatInvoiceNumber, sharePdf } from "../../lib/invoice";
 import { useToast } from "./ToastProvider";
 import InvoiceFormModal from "./InvoiceFormModal";
-import type { Product, Rental, City, RentalPhase, CheckoutIntent, ShippingSettings, InvoiceSettingsView } from "../../types";
+import type { Product, Rental, City, RentalPhase, CheckoutIntent, ShippingSettings, InvoiceSettingsView, LocateResult } from "../../types";
 import { quoteShipping } from "../../lib/shipping";
+import { formatKm, mapsDirectionsUrl, mapsPointUrl } from "../../lib/maps";
 import { BUSINESS, toWhatsappNumber, whatsappLinkTo } from "../../lib/site";
 import RentalsCalendar from "./RentalsCalendar";
 import ProductCombobox, { type ComboboxOption } from "./ProductCombobox";
@@ -30,9 +31,25 @@ const toInputDate = (iso: string) => new Date(iso).toISOString().slice(0, 10);
 // unitPrice/shippingPrice son editables a mano: la cotización real suele diferir
 // del catálogo (descuentos, recargos, distancia, acuerdos puntuales).
 interface RentalFormItem { productId: string; quantity: number | string; unitPrice: number | string }
-interface RentalForm { clientName: string; clientPhone: string; cityId: string; shippingPrice: number | string; eventDate: string; returnDate: string; items: RentalFormItem[] }
+// Ubicación exacta de entrega ya leída por el servidor (POST /routing/locate).
+// method/durationMinutes/provider/warning solo existen recién calculada; al
+// editar un alquiler guardado se conocen el punto y los km.
+interface DeliveryPoint { lat: number; lng: number; km: number | null; method?: LocateResult["method"]; durationMinutes?: number | null; provider?: string | null; warning?: string | null }
+// deliveryInput = lo que se pegó (link o coordenadas); delivery = el punto ya
+// leído. Si se cambia el texto, el punto se descarta hasta volver a calcular.
+interface RentalForm { clientName: string; clientPhone: string; cityId: string; shippingPrice: number | string; eventDate: string; returnDate: string; items: RentalFormItem[]; deliveryInput: string; deliveryAddress: string; delivery: DeliveryPoint | null }
 
-const EMPTY_FORM: RentalForm = { clientName: "", clientPhone: "", cityId: "", shippingPrice: "", eventDate: "", returnDate: "", items: [{ productId: "", quantity: 1, unitPrice: "" }] };
+const EMPTY_FORM: RentalForm = { clientName: "", clientPhone: "", cityId: "", shippingPrice: "", eventDate: "", returnDate: "", items: [{ productId: "", quantity: 1, unitPrice: "" }], deliveryInput: "", deliveryAddress: "", delivery: null };
+
+// La ubicación guardada de un alquiler, como la espera el formulario.
+const deliveryFormFields = (r: Rental): Pick<RentalForm, "deliveryInput" | "deliveryAddress" | "delivery"> => {
+  const hasPoint = r.deliveryLat != null && r.deliveryLng != null;
+  return {
+    deliveryInput: hasPoint ? `${r.deliveryLat}, ${r.deliveryLng}` : "",
+    deliveryAddress: r.deliveryAddress ?? "",
+    delivery: hasPoint ? { lat: r.deliveryLat!, lng: r.deliveryLng!, km: r.deliveryKm ?? null } : null,
+  };
+};
 
 // Quién tiene reservadas las unidades de un producto en el rango consultado (detalle de un conflicto de stock).
 interface StockHolder { rentalId: number; clientName: string; quantity: number; eventDate: string; returnDate: string; phase: RentalPhase; daysOverdue: number }
@@ -78,6 +95,9 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
   // Calculadora "km → envío": arranca con los km de la ciudad elegida, para
   // ajustarlos a la dirección exacta.
   const [calcKm, setCalcKm] = useState("");
+  // Cálculo de la ubicación exacta de entrega en curso, y su error (si lo hubo).
+  const [locating, setLocating] = useState(false);
+  const [locateError, setLocateError] = useState<string | null>(null);
   const kmOfCity = (cityId: number | null | undefined) => {
     const km = cityId != null ? cities.find((c) => c.id === cityId)?.distanceKm : null;
     return km != null ? String(km) : "";
@@ -167,7 +187,7 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
     return () => controller.abort();
   }, [isRentalModalOpen, scheduleLocked, eventDate, returnDate, editingId]);
 
-  const openNewRental = () => { setEditingId(null); setConvertingIntentId(null); setRentalForm(EMPTY_FORM); setAvailability(null); setIsRentalModalOpen(true); };
+  const openNewRental = () => { setEditingId(null); setConvertingIntentId(null); setRentalForm(EMPTY_FORM); setAvailability(null); setLocateError(null); setIsRentalModalOpen(true); };
   const openEditRental = (r: Rental) => {
     setEditingId(r.id);
     setConvertingIntentId(null);
@@ -180,8 +200,11 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
       eventDate: toInputDate(r.eventDate),
       returnDate: toInputDate(r.returnDate),
       items: r.items.map((i) => ({ productId: String(i.productId), quantity: i.quantity, unitPrice: i.unitPrice ?? i.product?.pricePerDay ?? 0 })),
+      ...deliveryFormFields(r),
     });
-    setCalcKm(kmOfCity(r.cityId));
+    // Los km de la ubicación exacta, si la tiene, valen más que los de la ciudad.
+    setCalcKm(r.deliveryKm != null ? String(r.deliveryKm) : kmOfCity(r.cityId));
+    setLocateError(null);
     setIsRentalModalOpen(true);
   };
   // "Convertir en alquiler" de un pedido por WhatsApp: precarga el formulario
@@ -212,11 +235,15 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
       eventDate: intent.eventDate ? toInputDate(intent.eventDate) : "",
       returnDate: intent.returnDate ? toInputDate(intent.returnDate) : "",
       items: items.length > 0 ? items : [{ productId: "", quantity: 1, unitPrice: "" }],
+      deliveryInput: "",
+      deliveryAddress: "",
+      delivery: null,
     });
     setCalcKm(kmOfCity(matchedCity?.id));
+    setLocateError(null);
     setIsRentalModalOpen(true);
   };
-  const closeRentalModal = () => { setIsRentalModalOpen(false); setEditingId(null); setConvertingIntentId(null); setRentalForm(EMPTY_FORM); setAvailability(null); setCalcKm(""); };
+  const closeRentalModal = () => { setIsRentalModalOpen(false); setEditingId(null); setConvertingIntentId(null); setRentalForm(EMPTY_FORM); setAvailability(null); setCalcKm(""); setLocateError(null); };
 
   // El admin decide (tras hablar por WhatsApp) que ese pedido no prosperó.
   const discardIntent = async (intent: CheckoutIntent) => {
@@ -257,11 +284,54 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
   // Igual que arriba, pero para la ciudad: precarga el envío con el precio
   // de la ciudad elegida (el admin lo puede corregir después).
   const handleCityChange = (newCityId: string) => {
+    // Con la ubicación exacta ya calculada, el envío sale de esos km: elegir
+    // la ciudad después no lo pisa con el precio aproximado de la ciudad.
+    if (rentalForm.delivery?.km != null) {
+      setRentalForm({ ...rentalForm, cityId: newCityId });
+      return;
+    }
     const cid = newCityId ? parseInt(newCityId) : null;
     const city = cid !== null ? cities.find((c) => c.id === cid) : undefined;
     const defaultShipping = cid !== null ? (city?.price ?? 0) : "";
     setRentalForm({ ...rentalForm, cityId: newCityId, shippingPrice: defaultShipping });
     setCalcKm(kmOfCity(cid));
+  };
+
+  // Ubicación exacta de entrega: el servidor lee el link o las coordenadas y
+  // calcula los km por calle desde el depósito; con esos km se aplica la
+  // fórmula de envío (la misma de Zonas de Entrega) y se completa el precio.
+  const locateDelivery = async () => {
+    const input = rentalForm.deliveryInput.trim();
+    if (!input || locating) return;
+    setLocating(true);
+    setLocateError(null);
+    try {
+      const res = await apiFetch("/routing/locate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input }),
+      });
+      if (!res.ok) { setLocateError(await readApiError(res)); return; }
+      const result: LocateResult = await res.json();
+      const quote = shippingSettings ? quoteShipping(result.distanceKm, shippingSettings) : null;
+      // setState funcional: mientras esperaba la respuesta el admin pudo seguir escribiendo en otros campos.
+      setRentalForm((prev) => ({
+        ...prev,
+        delivery: { lat: result.point.lat, lng: result.point.lng, km: result.distanceKm, method: result.method, durationMinutes: result.durationMinutes, provider: result.provider, warning: result.warning },
+        // "A coordinar" (más lejos que el máximo) no tiene precio automático: se deja el que había.
+        shippingPrice: quote && quote.kind !== "coordinate" ? quote.price : prev.shippingPrice,
+      }));
+      setCalcKm(String(result.distanceKm));
+    } catch {
+      setLocateError("Error de conexión. Revisá tu internet e intentá de nuevo.");
+    } finally {
+      setLocating(false);
+    }
+  };
+  const clearDelivery = () => {
+    setRentalForm({ ...rentalForm, deliveryInput: "", delivery: null });
+    setLocateError(null);
+    setCalcKm(kmOfCity(rentalForm.cityId ? parseInt(rentalForm.cityId) : null));
   };
   // Calculadora "km → precio de envío" con la fórmula de Zonas de Entrega.
   const calcKmValue = calcKm.trim() === "" ? NaN : Number(calcKm);
@@ -314,6 +384,13 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
     const wantsPdf = submitter?.dataset.quote === "true";
     const isQuote = editingId !== null ? editingQuote : wantsPdf;
 
+    // Pegó una ubicación pero no la calculó (o la cambió después): guardar
+    // así la perdería sin avisar.
+    if (rentalForm.deliveryInput.trim() && !rentalForm.delivery) {
+      toast.error('Tocá "Calcular" para leer la ubicación de entrega, o borrala si no la vas a usar.');
+      return;
+    }
+
     if (!scheduleLocked) {
       // El buscador de productos ya no es un <select required>: sin esto, un
       // renglón sin producto elegido pasaría la validación nativa del form.
@@ -352,6 +429,11 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
         clientPhone: rentalForm.clientPhone,
         cityId: rentalForm.cityId ? parseInt(rentalForm.cityId) : null,
         shippingPrice: Number(rentalForm.shippingPrice) || 0,
+        // La ubicación de entrega es un dato de contacto más: se corrige siempre.
+        deliveryLat: rentalForm.delivery?.lat ?? null,
+        deliveryLng: rentalForm.delivery?.lng ?? null,
+        deliveryKm: rentalForm.delivery?.km ?? null,
+        deliveryAddress: rentalForm.deliveryAddress.trim() || null,
       };
       const schedule = scheduleLocked ? {} : {
         eventDate: new Date(rentalForm.eventDate).toISOString(),
@@ -548,6 +630,16 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
                     {rental.city?.name && (
                       <p className="text-xs text-[#004080] mb-1 flex items-center"><MapPin className="w-3 h-3 mr-1" />{rental.city.name}</p>
                     )}
+                    {rental.deliveryLat != null && rental.deliveryLng != null && (
+                      <a
+                        href={mapsDirectionsUrl(rental.deliveryLat, rental.deliveryLng)} target="_blank" rel="noopener noreferrer"
+                        title={rental.deliveryAddress || "Abrir en Google Maps cómo llegar"}
+                        className="text-xs text-[#004080] mb-1 flex items-center underline hover:text-[#00294f]"
+                      >
+                        <Navigation className="w-3 h-3 mr-1" />Cómo llegar{rental.deliveryKm != null ? ` · ${formatKm(rental.deliveryKm)}` : ""}
+                      </a>
+                    )}
+                    {rental.deliveryAddress && <p className="text-xs text-slate-500 mb-1 max-w-56">{rental.deliveryAddress}</p>}
                     <div className="text-xs bg-slate-100 inline-block px-2 py-1 rounded text-slate-600">
                       <strong>Uso:</strong> {formatFechaCalendario(rental.eventDate)} <br/>
                       <strong>Devolución:</strong> {formatFechaCalendario(rental.returnDate)}
@@ -656,6 +748,64 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div><label className="block text-sm font-medium text-slate-700 mb-1">Nombre Completo</label><input type="text" required value={rentalForm.clientName} onChange={(e) => setRentalForm({...rentalForm, clientName: e.target.value})} className="w-full px-4 py-2 border rounded-xl text-slate-900" placeholder="Ej. Juan Pérez" /></div>
                     <div><label className="block text-sm font-medium text-slate-700 mb-1">Teléfono</label><input type="text" value={rentalForm.clientPhone} onChange={(e) => setRentalForm({...rentalForm, clientPhone: e.target.value})} className="w-full px-4 py-2 border rounded-xl text-slate-900" placeholder="09XX XXX XXX" /></div>
+                    <div className="md:col-span-2">
+                      <label htmlFor="delivery-input" className="block text-sm font-medium text-slate-700 mb-1">
+                        Ubicación exacta de entrega <span className="font-normal text-slate-400">(opcional)</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          id="delivery-input" type="text"
+                          value={rentalForm.deliveryInput}
+                          // Cambiar el texto descarta el punto ya calculado: hay que volver a calcular.
+                          onChange={(e) => { setRentalForm({ ...rentalForm, deliveryInput: e.target.value, delivery: null }); setLocateError(null); }}
+                          // Enter calcula en vez de guardar el formulario.
+                          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); locateDelivery(); } }}
+                          className="flex-1 min-w-0 px-4 py-2 border rounded-xl text-slate-900"
+                          placeholder="Pegá el link de Google Maps o las coordenadas"
+                        />
+                        <button
+                          type="button" onClick={locateDelivery}
+                          disabled={locating || !rentalForm.deliveryInput.trim()}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#e8f0f8] text-[#004080] font-bold hover:bg-[#d5e4f2] cursor-pointer whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <LocateFixed className="w-4 h-4" /> {locating ? "Calculando..." : "Calcular"}
+                        </button>
+                      </div>
+                      {locateError && <p role="alert" className="mt-1.5 text-xs text-red-600">{locateError}</p>}
+                      {rentalForm.delivery ? (
+                        <>
+                          <div className="mt-2 flex items-center gap-x-3 gap-y-1 flex-wrap text-xs text-slate-600">
+                            <span className="flex items-center font-bold text-[#004080]">
+                              <MapPin className="w-3.5 h-3.5 mr-1" />
+                              {/* Sin method = km guardados de antes: no se sabe si fueron por calle o aproximados. */}
+                              {rentalForm.delivery.km != null
+                                ? `${rentalForm.delivery.method === "estimate" ? "≈ " : ""}${formatKm(rentalForm.delivery.km)} ${rentalForm.delivery.method === "estimate" ? "aproximados " : rentalForm.delivery.method === "route" ? "por calle " : ""}desde el depósito`
+                                : "Ubicación cargada"}
+                              {rentalForm.delivery.durationMinutes ? ` · ~${rentalForm.delivery.durationMinutes} min` : ""}
+                            </span>
+                            <a href={mapsPointUrl(rentalForm.delivery.lat, rentalForm.delivery.lng)} target="_blank" rel="noopener noreferrer" className="text-[#004080] underline hover:text-[#00294f]">Ver en el mapa</a>
+                            <a href={mapsDirectionsUrl(rentalForm.delivery.lat, rentalForm.delivery.lng)} target="_blank" rel="noopener noreferrer" className="text-[#004080] underline hover:text-[#00294f]">Cómo llegar</a>
+                            <button type="button" onClick={clearDelivery} className="text-slate-500 underline hover:text-red-600 cursor-pointer">Quitar</button>
+                          </div>
+                          {rentalForm.delivery.warning && <p className="mt-1 text-xs text-amber-700">{rentalForm.delivery.warning}</p>}
+                          {/* Crédito que exige la licencia gratuita de Geoapify (y los datos de OpenStreetMap). */}
+                          {rentalForm.delivery.provider === "Geoapify" && (
+                            <p className="mt-1 text-[11px] text-slate-400">
+                              Rutas: <a href="https://www.geoapify.com/" target="_blank" rel="noopener noreferrer" className="underline">Powered by Geoapify</a> · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="underline">OpenStreetMap</a>
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        !locateError && <p className="mt-1 text-xs text-slate-500">Con la ubicación exacta, el envío se calcula con los km reales desde el depósito.</p>
+                      )}
+                      <input
+                        type="text" maxLength={300} aria-label="Referencia de la dirección de entrega"
+                        value={rentalForm.deliveryAddress}
+                        onChange={(e) => setRentalForm({ ...rentalForm, deliveryAddress: e.target.value })}
+                        className="mt-2 w-full px-4 py-2 border rounded-xl text-slate-900"
+                        placeholder="Referencia para el que entrega (ej. Salón Los Lapachos, portón negro)"
+                      />
+                    </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Ciudad de Entrega</label>
                       <select value={rentalForm.cityId} onChange={(e) => handleCityChange(e.target.value)} className="w-full px-4 py-2 border rounded-xl bg-white text-slate-900">

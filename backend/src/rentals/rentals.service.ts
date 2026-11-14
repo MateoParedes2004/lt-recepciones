@@ -19,6 +19,13 @@ const RENTAL_INCLUDE = {
 } satisfies Prisma.RentalInclude;
 
 type RentalItemInput = { productId: number; quantity: number };
+type DeliveryInput = Pick<CreateRentalDto, 'deliveryLat' | 'deliveryLng' | 'deliveryAddress' | 'deliveryKm'>;
+type DeliveryFields = {
+  deliveryLat?: number | null;
+  deliveryLng?: number | null;
+  deliveryAddress?: string | null;
+  deliveryKm?: number | null;
+};
 
 /**
  * En qué etapa está un alquiler. No se guarda: se deduce del estado y de las
@@ -72,6 +79,29 @@ export class RentalsService {
     return city.price;
   }
 
+  /**
+   * Lugar exacto de entrega, listo para guardar. undefined = no se tocó (al
+   * editar se conserva el que tenía). Latitud y longitud van siempre juntas,
+   * y los km solo existen si hay ubicación: sin punto no hay de dónde medirlos.
+   */
+  private deliveryFields(data: DeliveryInput): DeliveryFields {
+    const fields: DeliveryFields = {};
+    if (data.deliveryLat !== undefined || data.deliveryLng !== undefined) {
+      const lat = data.deliveryLat ?? null;
+      const lng = data.deliveryLng ?? null;
+      if ((lat === null) !== (lng === null)) {
+        throw new BadRequestException('La ubicación de entrega necesita latitud y longitud juntas.');
+      }
+      fields.deliveryLat = lat;
+      fields.deliveryLng = lng;
+      fields.deliveryKm = lat !== null ? (data.deliveryKm ?? null) : null;
+    } else if (data.deliveryKm != null) {
+      throw new BadRequestException('Los km de entrega se mandan junto con la ubicación (deliveryLat y deliveryLng).');
+    }
+    if (data.deliveryAddress !== undefined) fields.deliveryAddress = data.deliveryAddress?.trim() || null;
+    return fields;
+  }
+
   /** Suma las cantidades por producto: el mismo producto en dos líneas se valida como uno solo. */
   private aggregate(items: RentalItemInput[]): Map<number, number> {
     const byProduct = new Map<number, number>();
@@ -104,6 +134,7 @@ export class RentalsService {
     // El admin puede cargar el costo de envío real de la cotización; si no, se
     // usa el de la ciudad elegida.
     const shippingPrice = data.shippingPrice ?? (await this.resolveShippingPrice(data.cityId));
+    const delivery = this.deliveryFields(data);
     const wanted = this.aggregate(data.items);
     const productIds = [...wanted.keys()];
 
@@ -158,6 +189,7 @@ export class RentalsService {
             totalPrice: itemsSubtotal + shippingPrice,
             shippingPrice,
             cityId: data.cityId ?? null,
+            ...delivery,
             items: {
               create: data.items.map((item) => ({
                 quantity: item.quantity,
@@ -229,6 +261,9 @@ export class RentalsService {
     // relacionado al envío: se conserva el que ya tenía.
     const newShippingPrice =
       data.shippingPrice !== undefined ? data.shippingPrice : touchesCity ? await this.resolveShippingPrice(data.cityId) : undefined;
+    // Como el teléfono, la ubicación de entrega se puede corregir siempre
+    // (también en un alquiler devuelto o anulado): no toca stock ni fechas.
+    const delivery = this.deliveryFields(data);
 
     const updated = await this.prisma.$transaction(
       async (tx) => {
@@ -250,7 +285,7 @@ export class RentalsService {
         this.parseDates(eventDate, returnDate);
 
         const touchesShipping = touchesCity || data.shippingPrice !== undefined;
-        const update: Prisma.RentalUpdateInput = {};
+        const update: Prisma.RentalUpdateInput = { ...delivery };
         if (data.clientName !== undefined) update.clientName = data.clientName;
         if (data.clientPhone !== undefined) update.clientPhone = data.clientPhone || '';
         if (touchesCity) update.city = data.cityId === null ? { disconnect: true } : { connect: { id: data.cityId } };

@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
@@ -9,10 +9,12 @@ import {
   IsString,
   Matches,
   Max,
+  MaxLength,
   Min,
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import { trimString } from '../../common/trim';
 
 // AAAA-MM-DD puro, opcionalmente con la medianoche UTC exacta que produce
 // `new Date(...).toISOString()` (el panel siempre manda esa forma). Todo el
@@ -63,6 +65,33 @@ export class CreateRentalDto {
   @Min(0)
   @Max(1_000_000_000)
   shippingPrice?: number;
+
+  // Lugar exacto de entrega (ver el schema). Latitud y longitud van juntas;
+  // null = quitar la ubicación al editar. Los km se calculan con
+  // POST /routing/locate y se guardan tal cual (como shippingPrice).
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  deliveryLat?: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  deliveryLng?: number | null;
+
+  @IsOptional()
+  @Transform(trimString)
+  @IsString()
+  @MaxLength(300)
+  deliveryAddress?: string | null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(5000)
+  deliveryKm?: number | null;
 
   @Matches(FECHA_CALENDARIO, {
     message: 'eventDate debe tener formato AAAA-MM-DD',

@@ -89,6 +89,19 @@ model Rental {
   cityId      Int?
   city        City?    @relation(fields: [cityId], references: [id], onDelete: SetNull)
 
+  // Lugar exacto de entrega (opcional; los alquileres viejos no lo tienen).
+  // Coordenadas en grados decimales, como Google Maps. Es la base de la
+  // futura app de recorridos: cada alquiler es una parada de ENTREGA el día
+  // del evento (eventDate) y de RETIRO el día de devolución (returnDate).
+  // El punto de partida es siempre el depósito (DEPOT en src/routing/geo.ts).
+  deliveryLat     Float?
+  deliveryLng     Float?
+  // Referencia escrita para el que entrega ("Salón X, Av. Y c/ Z, portón negro").
+  deliveryAddress String?
+  // Km por calle desde el depósito, calculados al cargar la ubicación. Quedan
+  // congelados como shippingPrice: si después cambia la fórmula, no se tocan.
+  deliveryKm      Float?
+
   // Relación: Un alquiler tiene muchos productos adentro (ítems)
   items       RentalItem[]
 

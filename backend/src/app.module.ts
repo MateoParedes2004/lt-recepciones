@@ -11,6 +11,7 @@ import { GalleryModule } from './gallery/gallery.module';
 import { CitiesModule } from './cities/cities.module';
 import { AvailabilityModule } from './availability/availability.module';
 import { InvoicesModule } from './invoices/invoices.module';
+import { RoutingModule } from './routing/routing.module';
 import { AppController } from './app.controller';
 
 @Module({
@@ -28,6 +29,7 @@ import { AppController } from './app.controller';
     CitiesModule,
     AvailabilityModule,
     InvoicesModule,
+    RoutingModule,
   ],
   controllers: [AppController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

@@ -54,6 +54,19 @@ export interface ShippingSettings {
   roundTo: number;
 }
 
+/** POST /routing/locate: ubicación pegada (link o coordenadas) → punto exacto + km por calle desde el depósito. */
+export interface LocateResult {
+  point: { lat: number; lng: number };
+  origin: { lat: number; lng: number; label: string };
+  distanceKm: number;
+  durationMinutes: number | null;
+  /** 'route' = km por calle; 'estimate' = aproximados (línea recta × 1,3). */
+  method: "route" | "estimate";
+  /** Servicio que calculó la ruta (se muestra su crédito, lo pide la licencia). */
+  provider: string | null;
+  warning: string | null;
+}
+
 export interface RentalItem {
   id: number;
   quantity: number;
@@ -98,6 +111,13 @@ export interface Rental {
   updatedAt: string;
   cityId?: number | null;
   city?: City | null;
+  /** Lugar exacto de entrega (null = no cargado). Coordenadas como en Google Maps. */
+  deliveryLat?: number | null;
+  deliveryLng?: number | null;
+  /** Referencia escrita para el que entrega. */
+  deliveryAddress?: string | null;
+  /** Km por calle desde el depósito, calculados al cargar la ubicación. */
+  deliveryKm?: number | null;
   items: RentalItem[];
   /** Facturas emitidas por este alquiler, la más nueva primero. */
   invoices?: RentalInvoiceSummary[];
