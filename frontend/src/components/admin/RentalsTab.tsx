@@ -310,7 +310,9 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
     // Qué botón se apretó lo dice el propio formulario (submitter): así Enter dentro de un campo,
     // que acciona el botón principal, nunca guarda un presupuesto por accidente.
     const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLElement | null;
-    const isQuote = editingId !== null ? editingQuote : submitter?.dataset.quote === "true";
+    // "Generar Presupuesto" guarda (sin reservar stock) y arma el PDF en el mismo paso.
+    const wantsPdf = submitter?.dataset.quote === "true";
+    const isQuote = editingId !== null ? editingQuote : wantsPdf;
 
     if (!scheduleLocked) {
       // El buscador de productos ya no es un <select required>: sin esto, un
@@ -372,6 +374,8 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
         body: JSON.stringify({ ...contact, ...schedule, ...linkIntent, ...quoteFlag }),
       });
       if (res.ok) {
+        // El servidor devuelve el alquiler completo (productos, ciudad, envío): alcanza para armar el PDF.
+        const saved: Rental = await res.json();
         closeRentalModal();
         fetchData();
         toast.success(
@@ -381,6 +385,7 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
               ? "Presupuesto guardado: no reserva stock hasta que lo confirmes."
               : "Alquiler registrado: el stock quedó reservado para esas fechas.",
         );
+        if (wantsPdf) await sendQuotePdf(saved);
       } else {
         toast.error(`No se pudo ${editingId !== null ? `guardar el ${noun}` : `crear el ${noun}`}: ${await readApiError(res)}`);
       }
@@ -820,14 +825,14 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
             <div className="px-6 py-4 border-t border-slate-100 flex flex-wrap justify-end gap-3 bg-slate-50/80">
               <button type="button" onClick={closeRentalModal} className="order-1 px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-200 rounded-xl cursor-pointer">Cancelar</button>
               {/* El botón principal va PRIMERO en el HTML (es el que acciona Enter dentro de un campo) y se
-                  muestra al final con `order`. Presupuesto: queda guardado sin reservar stock, para mandárselo
-                  al cliente y confirmarlo después; no aplica a un pedido por WhatsApp (ese se confirma como alquiler). */}
+                  muestra al final con `order`. "Generar Presupuesto": guarda sin reservar stock y arma el PDF para
+                  mandárselo al cliente (se confirma después); no aplica a un pedido por WhatsApp (ese se confirma como alquiler). */}
               <button type="submit" form="rentalForm" disabled={isSavingRental} className="order-3 px-6 py-2.5 bg-[#004080] text-white font-bold rounded-xl hover:bg-[#00294f] shadow-md flex items-center cursor-pointer disabled:opacity-60">
                 {isSavingRental ? "Procesando..." : editingId !== null ? "Guardar Cambios" : "Confirmar y Reservar Stock"}
               </button>
-              {editingId === null && convertingIntentId === null && (
+              {convertingIntentId === null && (editingId === null || editingQuote) && (
                 <button type="submit" form="rentalForm" data-quote="true" disabled={isSavingRental} className="order-2 px-5 py-2.5 bg-[#e8f0f8] text-[#004080] font-bold rounded-xl hover:bg-[#d3e3f2] flex items-center cursor-pointer disabled:opacity-60">
-                  Guardar como Presupuesto
+                  <FileText className="w-4 h-4 mr-2" /> {editingId === null ? "Generar Presupuesto (PDF)" : "Guardar y generar PDF"}
                 </button>
               )}
             </div>

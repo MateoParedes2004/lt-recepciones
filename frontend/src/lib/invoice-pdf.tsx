@@ -18,6 +18,7 @@ import {
   formatThousands,
   linesFromRental,
   numberToSpanishWords,
+  toPrintable,
   type InvoiceLine,
 } from "./invoice";
 
@@ -48,7 +49,6 @@ const s = StyleSheet.create({
 const COLS = { qty: "8%", desc: "39%", unit: "14%", ex: "13%", five: "13%", ten: "13%" } as const;
 
 interface DocData {
-  kind: "FACTURA" | "PRESUPUESTO";
   banner?: string;
   issuer: InvoiceIssuer;
   logoUrl: string;
@@ -69,40 +69,47 @@ const Checkbox = ({ checked }: { checked: boolean }) => (
   </View>
 );
 
+/** Recuadro del emisor (logo, nombre, actividades, teléfono, dirección): igual en la factura y en el presupuesto. */
+function IssuerBox({ issuer, logoUrl }: { issuer: InvoiceIssuer; logoUrl: string }) {
+  const activities = issuer.activities.split("\n").filter(Boolean);
+  return (
+    <View style={[s.box, { flex: 1.65, flexDirection: "row", gap: 8 }]}>
+      {/* eslint-disable-next-line jsx-a11y/alt-text -- Image de react-pdf no es un <img> HTML */}
+      <Image src={logoUrl} style={{ width: 58, height: 58 }} />
+      <View style={{ flex: 1 }}>
+        <Text style={s.tradeName}>{issuer.tradeName.toUpperCase()}</Text>
+        {issuer.slogan && <Text style={[s.bold, { color: NAVY, fontSize: 8.5 }]}>{issuer.slogan.toUpperCase()}</Text>}
+        <Text style={[s.bold, { marginTop: 2 }]}>de {issuer.businessName}</Text>
+        {activities.map((a) => (
+          <Text key={a} style={s.small}>* {a}</Text>
+        ))}
+        {issuer.phone && <Text style={[s.bold, { marginTop: 3 }]}>Cel.: {issuer.phone}</Text>}
+        <Text style={s.small}>{issuer.address} - {issuer.city} - Paraguay</Text>
+        {issuer.email && <Text style={s.small}>{issuer.email}</Text>}
+      </View>
+    </View>
+  );
+}
+
 function FiscalDocument({ d }: { d: DocData }) {
   const totals = computeTotals(d.lines);
   const money = (n: number) => (n ? formatThousands(n) : "");
-  const activities = d.issuer.activities.split("\n").filter(Boolean);
 
   return (
-    <Document title={`${d.kind === "FACTURA" ? "Factura" : "Presupuesto"} ${d.numberLabel}`} author={d.issuer.tradeName}>
+    <Document title={`Factura ${d.numberLabel}`} author={d.issuer.tradeName}>
       <Page size="A4" style={s.page}>
         {d.banner && <Text style={s.banner}>{d.banner}</Text>}
 
         {/* Encabezado: emisor (izquierda) y timbrado / número (derecha) */}
         <View style={[s.row, { gap: 8, marginBottom: 8 }]}>
-          <View style={[s.box, { flex: 1.65, flexDirection: "row", gap: 8 }]}>
-            {/* eslint-disable-next-line jsx-a11y/alt-text -- Image de react-pdf no es un <img> HTML */}
-            <Image src={d.logoUrl} style={{ width: 58, height: 58 }} />
-            <View style={{ flex: 1 }}>
-              <Text style={s.tradeName}>{d.issuer.tradeName.toUpperCase()}</Text>
-              {d.issuer.slogan && <Text style={[s.bold, { color: NAVY, fontSize: 8.5 }]}>{d.issuer.slogan.toUpperCase()}</Text>}
-              <Text style={[s.bold, { marginTop: 2 }]}>de {d.issuer.businessName}</Text>
-              {activities.map((a) => (
-                <Text key={a} style={s.small}>* {a}</Text>
-              ))}
-              {d.issuer.phone && <Text style={[s.bold, { marginTop: 3 }]}>Cel.: {d.issuer.phone}</Text>}
-              <Text style={s.small}>{d.issuer.address} - {d.issuer.city} - Paraguay</Text>
-              {d.issuer.email && <Text style={s.small}>{d.issuer.email}</Text>}
-            </View>
-          </View>
+          <IssuerBox issuer={d.issuer} logoUrl={d.logoUrl} />
           <View style={[s.box, { flex: 1, justifyContent: "center" }]}>
             {d.stamp.map(([label, value]) => (
               <Text key={label} style={{ marginBottom: 1.5 }}>
                 {label}: <Text style={s.bold}>{value}</Text>
               </Text>
             ))}
-            <Text style={s.docTitle}>{d.kind === "FACTURA" ? "FACTURA ELECTRÓNICA" : "PRESUPUESTO"}</Text>
+            <Text style={s.docTitle}>FACTURA ELECTRÓNICA</Text>
             <Text style={[s.bold, { fontSize: 12, textAlign: "center" }]}>{d.numberLabel}</Text>
           </View>
         </View>
@@ -175,7 +182,7 @@ function FiscalDocument({ d }: { d: DocData }) {
           </View>
         </View>
 
-        {/* Pie: QR + CDC (factura) o aclaración (presupuesto) */}
+        {/* Pie: QR + CDC (o aclaración si no tiene validez) */}
         {"cdc" in d.footer ? (
           <View style={[s.box, s.row, { marginTop: 10, gap: 10, alignItems: "center" }]} wrap={false}>
             {/* eslint-disable-next-line jsx-a11y/alt-text -- Image de react-pdf no es un <img> HTML */}
@@ -221,7 +228,6 @@ export async function invoicePdf(invoice: Invoice): Promise<Blob> {
         : undefined;
 
   return render({
-    kind: "FACTURA",
     banner,
     issuer: invoice.issuer,
     logoUrl: logoUrl(),
@@ -244,26 +250,112 @@ export async function invoicePdf(invoice: Invoice): Promise<Blob> {
 export const invoiceFileName = (invoice: Invoice) =>
   `Factura-${formatInvoiceNumber(invoice)}${invoice.environment === "PRUEBA" ? "-PRUEBA" : ""}.pdf`;
 
+// ---------------------------------------------------------------- presupuesto
+
+// Anchos de la tabla del presupuesto (suman 100 %).
+const QCOLS = { qty: "10%", desc: "50%", unit: "20%", total: "20%" } as const;
+
+interface QuoteData {
+  issuer: InvoiceIssuer;
+  logoUrl: string;
+  numberLabel: string;
+  dateLabel: string;
+  customer: [string, string][];
+  /** Productos + "Transporte". Cada uno con su total (cantidad × precio). */
+  lines: InvoiceLine[];
+  note: string;
+}
+
+/** Presupuesto para el cliente: mismo estilo que la factura, pero sin columnas de IVA ni timbrado. */
+function QuoteDocument({ q }: { q: QuoteData }) {
+  const total = q.lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0);
+  return (
+    <Document title={`Presupuesto ${q.numberLabel}`} author={q.issuer.tradeName}>
+      <Page size="A4" style={s.page}>
+        <View style={[s.row, { gap: 8, marginBottom: 8 }]}>
+          <IssuerBox issuer={q.issuer} logoUrl={q.logoUrl} />
+          <View style={[s.box, { flex: 1, justifyContent: "center" }]}>
+            <Text>R.U.C.: <Text style={s.bold}>{q.issuer.ruc}</Text></Text>
+            <Text style={s.docTitle}>PRESUPUESTO</Text>
+            <Text style={[s.bold, { fontSize: 12, textAlign: "center" }]}>{q.numberLabel}</Text>
+          </View>
+        </View>
+
+        <View style={[s.box, { marginBottom: 8, gap: 3 }]}>
+          <Text>{q.dateLabel}</Text>
+          {q.customer.map(([label, value]) => (
+            <Text key={label}>
+              {label}: <Text style={s.bold}>{softWrap(value)}</Text>
+            </Text>
+          ))}
+        </View>
+
+        <View style={{ borderWidth: 1, borderColor: LINE, borderRadius: 6, overflow: "hidden" }}>
+          <View style={[s.row, { borderBottomWidth: 1, borderColor: LINE }]}>
+            <Text style={[s.th, s.cell, { width: QCOLS.qty }]}>CANT.</Text>
+            <Text style={[s.th, s.cell, { width: QCOLS.desc }]}>DESCRIPCIÓN</Text>
+            <Text style={[s.th, s.cell, { width: QCOLS.unit }]}>PRECIO UNITARIO</Text>
+            <Text style={[s.th, s.cell, { width: QCOLS.total, borderRightWidth: 0 }]}>TOTAL</Text>
+          </View>
+          {q.lines.map((l, i) => (
+            <View key={i} style={[s.row, { borderBottomWidth: 0.5, borderColor: "#cbd5e1" }]} wrap={false}>
+              <Text style={[s.cell, { width: QCOLS.qty, textAlign: "center" }]}>{l.quantity}</Text>
+              <Text style={[s.cell, { width: QCOLS.desc }]}>{softWrap(l.description)}</Text>
+              <Text style={[s.cell, s.num, { width: QCOLS.unit }]}>{formatThousands(l.unitPrice)}</Text>
+              <Text style={[s.cell, s.num, s.bold, { width: QCOLS.total, borderRightWidth: 0 }]}>{formatThousands(l.quantity * l.unitPrice)}</Text>
+            </View>
+          ))}
+          <View style={[s.row, { borderTopWidth: 1, borderColor: LINE, backgroundColor: SOFT }]} wrap={false}>
+            <Text style={[s.cell, { width: "80%" }]}>
+              <Text style={s.bold}>TOTAL A PAGAR Gs.: </Text>
+              {numberToSpanishWords(total)}
+            </Text>
+            <Text style={[s.cell, s.num, s.bold, { width: QCOLS.total, borderRightWidth: 0, fontSize: 10.5 }]}>{formatThousands(total)}</Text>
+          </View>
+        </View>
+
+        <Text style={[s.small, { marginTop: 10, textAlign: "center" }]}>{q.note}</Text>
+      </Page>
+    </Document>
+  );
+}
+
+// Un presupuesto se arma con lo que haya cargado en el alquiler (nombres que a veces
+// vienen de WhatsApp, con emojis): la fuente del PDF imprimiría basura, así que se limpia
+// solo lo que se IMPRIME (el alquiler guardado no cambia).
+const printable = (text: string) => toPrintable(text).text;
+
+const toDay = (iso: string) => iso.slice(0, 10);
+
 /** Presupuesto (sin validez fiscal) de un alquiler todavía sin confirmar o ya confirmado. */
 export function quotePdf(rental: Rental, issuer: InvoiceSettings): Promise<Blob> {
-  const customer: [string, string][] = [["Cliente", rental.clientName]];
-  if (rental.clientPhone) customer.push(["Teléfono", rental.clientPhone]);
-  customer.push(["Fecha del evento", `${formatCalendarDate(rental.eventDate)} (devolución ${formatCalendarDate(rental.returnDate)})`]);
-  if (rental.city?.name) customer.push(["Ciudad de entrega", rental.city.name]);
+  // Si el nombre era solo emojis, queda "—" en vez de un "Cliente:" vacío.
+  const customer: [string, string][] = [["Cliente", printable(rental.clientName) || "—"]];
+  const phone = rental.clientPhone ? printable(rental.clientPhone) : "";
+  if (phone) customer.push(["Teléfono", phone]);
+  const sameDay = toDay(rental.eventDate) === toDay(rental.returnDate);
+  customer.push([
+    "Fecha del evento",
+    sameDay ? formatCalendarDate(rental.eventDate) : `${formatCalendarDate(rental.eventDate)}  ·  Devolución: ${formatCalendarDate(rental.returnDate)}`,
+  ]);
+  if (rental.city?.name) customer.push(["Ciudad de entrega", printable(rental.city.name)]);
 
-  return render({
-    kind: "PRESUPUESTO",
-    issuer,
-    logoUrl: logoUrl(),
-    stamp: [["R.U.C.", issuer.ruc]],
-    numberLabel: `Nº ${String(rental.id).padStart(6, "0")}`,
-    dateLabel: `Fecha: ${formatLongDate(new Date().toISOString())}`,
-    customer,
-    lines: linesFromRental(rental),
-    footer: {
-      note: "Este presupuesto no es un comprobante fiscal. Precios en guaraníes con IVA incluido. La disponibilidad se confirma al reservar.",
-    },
-  });
+  // linesFromRental ya agrega el envío como renglón "Transporte" (igual que en el talonario).
+  const lines = linesFromRental(rental).map((l) => ({ ...l, description: printable(l.description) || "Producto" }));
+
+  return pdf(
+    <QuoteDocument
+      q={{
+        issuer,
+        logoUrl: logoUrl(),
+        numberLabel: `Nº ${String(rental.id).padStart(6, "0")}`,
+        dateLabel: `Fecha: ${formatLongDate(new Date().toISOString())}`,
+        customer,
+        lines,
+        note: "Este presupuesto no es un comprobante fiscal. Precios en guaraníes con IVA incluido. La disponibilidad se confirma al reservar.",
+      }}
+    />,
+  ).toBlob();
 }
 
 export const quoteFileName = (rental: Rental) => `Presupuesto-LT-${String(rental.id).padStart(6, "0")}.pdf`;
