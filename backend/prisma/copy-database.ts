@@ -88,10 +88,18 @@ async function columnsOf(db: Client, table: string): Promise<string[]> {
   return res.rows.map((r) => r.column_name as string);
 }
 
-/** Huella de todo el contenido de la tabla: si coincide en las dos bases, las filas son idénticas. */
-async function fingerprint(db: Client, table: string): Promise<{ n: number; hash: string }> {
+/**
+ * Huella de todo el contenido de la tabla: si coincide en las dos bases, las filas son idénticas.
+ *
+ * Las columnas se nombran una por una y en orden alfabético: `t::text` las
+ * escribe en el orden FÍSICO de la tabla, y ese orden cambia entre una base
+ * que fue creciendo con columnas agregadas después (la de siempre) y otra
+ * creada de cero con el esquema final, aunque los datos sean idénticos.
+ */
+async function fingerprint(db: Client, table: string, columns: string[]): Promise<{ n: number; hash: string }> {
+  const row = columns.map((c) => `t."${c}"`).join(', ');
   const { rows } = await db.query(
-    `SELECT COUNT(*)::int AS n, md5(COALESCE(string_agg(t::text, '|' ORDER BY t."${keyOf(table)}"), '')) AS hash FROM "${table}" t`,
+    `SELECT COUNT(*)::int AS n, md5(COALESCE(string_agg(ROW(${row})::text, '|' ORDER BY t."${keyOf(table)}"), '')) AS hash FROM "${table}" t`,
   );
   return rows[0];
 }
@@ -187,7 +195,9 @@ async function main() {
       // 4) Verificación: cada tabla tiene que haber quedado idéntica.
       const problems: string[] = [];
       for (const table of TABLES) {
-        const [a, b] = [await fingerprint(source, table), await fingerprint(target, table)];
+        // Mismas columnas en las dos bases (ya se comprobó al principio), siempre en el mismo orden.
+        const columns = await columnsOf(source, table);
+        const [a, b] = [await fingerprint(source, table, columns), await fingerprint(target, table, columns)];
         if (a.n !== b.n || a.hash !== b.hash) {
           problems.push(`${table}: origen ${a.n} filas (${a.hash.slice(0, 8)}) ≠ destino ${b.n} filas (${b.hash.slice(0, 8)})`);
         }
