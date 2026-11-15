@@ -1,5 +1,7 @@
-// Paraguay no aplica horario de verano desde 2024: queda fijo en UTC-4 todo
-// el año. Este es el único lugar del backend que debe saber ese dato —
+// Paraguay adoptó el horario de verano de forma permanente en octubre de 2024
+// (ley promulgada el 14/10/2024; base de zonas horarias IANA desde 2025a): ya
+// no cambia la hora y queda fijo en UTC-3 todo el año. Este es el único lugar
+// del backend que debe saber ese dato —
 // cualquier código que necesite razonar sobre "qué día es" en términos del
 // negocio (no del reloj/huso horario del servidor, que en Render corre en
 // UTC) pasa por estas funciones.
@@ -10,7 +12,7 @@
 // y guardadas como medianoche UTC por convención) NO deben pasar por acá:
 // ajustarlas por huso horario las correría de fecha. Esas se leen siempre
 // con los getters UTC (getUTCFullYear/getUTCMonth/getUTCDate).
-const PARAGUAY_OFFSET_HOURS = 4; // UTC-4
+const PARAGUAY_OFFSET_HOURS = 3; // UTC-3
 
 /** Instante UTC real que corresponde a una fecha/hora de pared en Paraguay. */
 export function paraguayToUtc(
@@ -60,7 +62,7 @@ export function fromDayIndex(dayIndex: number): Date {
 /**
  * "Hoy" en Paraguay como fecha de calendario pura (medianoche UTC del día que
  * marca el calendario de Paraguay), para compararla con eventDate/returnDate.
- * No es lo mismo que paraguayTodayUtc(), que es un instante real (04:00 UTC).
+ * No es lo mismo que paraguayTodayUtc(), que es un instante real (03:00 UTC).
  */
 export function paraguayTodayIndex(now: Date = new Date()): number {
   const { year, month, day } = utcToParaguayDate(now);
