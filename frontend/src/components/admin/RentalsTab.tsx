@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Plus, Trash2, Search, X, CheckCircle, CalendarDays, PlusCircle, MapPin, Pencil, Ban, RotateCcw, TriangleAlert, List, LayoutGrid, ChevronDown, ChevronUp, Users, Star, FileText, Receipt, BadgeCheck, Navigation, LocateFixed } from "lucide-react";
 import { apiFetch, readApiError } from "../../lib/api";
@@ -98,6 +98,8 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
   // Cálculo de la ubicación exacta de entrega en curso, y su error (si lo hubo).
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState<string | null>(null);
+  // Texto actual del campo de ubicación, para que un cálculo que llega tarde sepa si sigue vigente.
+  const deliveryInputRef = useRef("");
   const kmOfCity = (cityId: number | null | undefined) => {
     const km = cityId != null ? cities.find((c) => c.id === cityId)?.distanceKm : null;
     return km != null ? String(km) : "";
@@ -169,6 +171,7 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
   // edita no cuenta como ocupación (excludeRentalId), y se ignora una respuesta
   // vieja si las fechas cambiaron mientras esperábamos.
   const { eventDate, returnDate } = rentalForm;
+  useEffect(() => { deliveryInputRef.current = rentalForm.deliveryInput; }, [rentalForm.deliveryInput]);
   useEffect(() => {
     const controller = new AbortController();
     const valid = isRentalModalOpen && !scheduleLocked && eventDate && returnDate && returnDate >= eventDate;
@@ -305,14 +308,20 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
     if (!input || locating) return;
     setLocating(true);
     setLocateError(null);
+    // El resultado depende solo del texto que se calculó: si mientras tanto el
+    // campo cambió (se siguió escribiendo, se tocó "Quitar" o se cerró el
+    // formulario), se descarta en vez de dejar un punto que no corresponde al
+    // texto que se ve, o colarlo en el formulario siguiente.
+    const stillCurrent = () => deliveryInputRef.current.trim() === input;
     try {
       const res = await apiFetch("/routing/locate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ input }),
       });
-      if (!res.ok) { setLocateError(await readApiError(res)); return; }
+      if (!res.ok) { const message = await readApiError(res); if (stillCurrent()) setLocateError(message); return; }
       const result: LocateResult = await res.json();
+      if (!stillCurrent()) return;
       const quote = shippingSettings ? quoteShipping(result.distanceKm, shippingSettings) : null;
       // setState funcional: mientras esperaba la respuesta el admin pudo seguir escribiendo en otros campos.
       setRentalForm((prev) => ({
@@ -323,7 +332,7 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
       }));
       setCalcKm(String(result.distanceKm));
     } catch {
-      setLocateError("Error de conexión. Revisá tu internet e intentá de nuevo.");
+      if (stillCurrent()) setLocateError("Error de conexión. Revisá tu internet e intentá de nuevo.");
     } finally {
       setLocating(false);
     }
