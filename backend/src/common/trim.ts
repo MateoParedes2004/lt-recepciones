@@ -9,3 +9,7 @@ export const trimString = ({ value }: { value: unknown }): unknown =>
  */
 export const cleanText = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.normalize('NFC').trim() : value;
+
+/** Para @Transform: un texto vacío (o solo espacios) pasa a null. Sirve para campos opcionales que el panel manda como "" cuando se borran. */
+export const emptyToNull = ({ value }: { value: unknown }): unknown =>
+  typeof value === 'string' && value.trim() === '' ? null : value;

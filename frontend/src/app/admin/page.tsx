@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { Package, CalendarDays, TrendingUp, LogOut, Layers, Tags, BarChart3, Camera, MapPin, Loader2, AlertCircle, RefreshCw, Receipt } from "lucide-react";
+import { Package, CalendarDays, TrendingUp, LogOut, Layers, Tags, BarChart3, Camera, MapPin, Loader2, AlertCircle, RefreshCw, Receipt, Truck } from "lucide-react";
 import ProductsTab from "../../components/admin/ProductsTab";
 import CategoriesTab from "../../components/admin/CategoriesTab";
 import RentalsTab from "../../components/admin/RentalsTab";
+import RoutesTab from "../../components/admin/RoutesTab";
 import GalleryTab from "../../components/admin/GalleryTab";
 import CitiesTab from "../../components/admin/CitiesTab";
 import InvoicesTab from "../../components/admin/InvoicesTab";
@@ -154,6 +155,7 @@ export default function AdminDashboard() {
         <button onClick={() => setActiveTab("products")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "products" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Package className="w-4 h-4 mr-2" /> Productos</button>
         <button onClick={() => setActiveTab("categories")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "categories" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Tags className="w-4 h-4 mr-2" /> Categorías</button>
         <button onClick={() => setActiveTab("rentals")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "rentals" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><CalendarDays className="w-4 h-4 mr-2" /> Alquileres{pendingOrders.length > 0 && <span aria-label={`${pendingOrders.length} pedidos por WhatsApp sin confirmar`} title="Pedidos por WhatsApp sin confirmar" className="ml-2 min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-[#004080] text-white text-xs font-bold">{pendingOrders.length}</span>}{overdueRentalsCount > 0 && <span aria-label={`${overdueRentalsCount} alquileres atrasados`} title="Alquileres atrasados" className="ml-1 min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">{overdueRentalsCount}</span>}</button>
+        <button onClick={() => setActiveTab("routes")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "routes" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Truck className="w-4 h-4 mr-2" /> Rutas</button>
         <button onClick={() => setActiveTab("gallery")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "gallery" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Camera className="w-4 h-4 mr-2" /> Galería</button>
         <button onClick={() => setActiveTab("statistics")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "statistics" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><BarChart3 className="w-4 h-4 mr-2" /> Estadísticas</button>
         {/*  NUEVO BOTÓN PARA CIUDADES */}
@@ -165,6 +167,7 @@ export default function AdminDashboard() {
       {activeTab === "products" && <ProductsTab products={products} categories={categories} fetchData={fetchData} isLoadingData={isLoadingData} />}
       {activeTab === "categories" && <CategoriesTab categories={categories} fetchData={fetchData} />}
       {activeTab === "rentals" && <RentalsTab rentals={rentals} products={products} cities={cities} shippingSettings={shippingSettings} pendingOrders={pendingOrders} fetchData={fetchData} isLoadingData={isLoadingData} />}
+      {activeTab === "routes" && <RoutesTab />}
       {activeTab === "gallery" && <GalleryTab gallery={gallery} fetchData={fetchData} isLoadingData={isLoadingData} />}
       {activeTab === "statistics" && <StatisticsTab />}
       {/* RENDERIZAMOS LA PESTAÑA DE CIUDADES */}

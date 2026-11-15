@@ -19,13 +19,15 @@ const RENTAL_INCLUDE = {
 } satisfies Prisma.RentalInclude;
 
 type RentalItemInput = { productId: number; quantity: number };
-type DeliveryInput = Pick<CreateRentalDto, 'deliveryLat' | 'deliveryLng' | 'deliveryAddress' | 'deliveryKm'>;
+const WINDOW_KEYS = ['deliveryWindowFrom', 'deliveryWindowTo', 'pickupWindowFrom', 'pickupWindowTo'] as const;
+type WindowKey = (typeof WINDOW_KEYS)[number];
+type DeliveryInput = Pick<CreateRentalDto, 'deliveryLat' | 'deliveryLng' | 'deliveryAddress' | 'deliveryKm' | WindowKey>;
 type DeliveryFields = {
   deliveryLat?: number | null;
   deliveryLng?: number | null;
   deliveryAddress?: string | null;
   deliveryKm?: number | null;
-};
+} & Partial<Record<WindowKey, string | null>>;
 
 /**
  * En qué etapa está un alquiler. No se guarda: se deduce del estado y de las
@@ -99,7 +101,28 @@ export class RentalsService {
       throw new BadRequestException('Los km de entrega se mandan junto con la ubicación (deliveryLat y deliveryLng).');
     }
     if (data.deliveryAddress !== undefined) fields.deliveryAddress = data.deliveryAddress?.trim() || null;
+    for (const key of WINDOW_KEYS) if (data[key] !== undefined) fields[key] = data[key] ?? null;
     return fields;
+  }
+
+  /**
+   * El horario "desde" no puede ser posterior al "hasta" (entrega ni retiro).
+   * Al editar se combina con lo que ya tenía guardado el alquiler: se puede
+   * mandar solo uno de los dos extremos.
+   */
+  private assertWindows(data: DeliveryInput, current?: Partial<Record<WindowKey, string | null>>): void {
+    const value = (key: WindowKey) => (data[key] !== undefined ? data[key] : (current?.[key] ?? null));
+    for (const [from, to, label] of [
+      ['deliveryWindowFrom', 'deliveryWindowTo', 'entrega'],
+      ['pickupWindowFrom', 'pickupWindowTo', 'retiro'],
+    ] as const) {
+      const a = value(from);
+      const b = value(to);
+      // "HH:MM" con ceros a la izquierda se ordena igual como texto que como hora.
+      if (a && b && a > b) {
+        throw new BadRequestException(`El horario de ${label}: "desde" (${a}) no puede ser posterior a "hasta" (${b}).`);
+      }
+    }
   }
 
   /** Suma las cantidades por producto: el mismo producto en dos líneas se valida como uno solo. */
@@ -135,6 +158,7 @@ export class RentalsService {
     // usa el de la ciudad elegida.
     const shippingPrice = data.shippingPrice ?? (await this.resolveShippingPrice(data.cityId));
     const delivery = this.deliveryFields(data);
+    this.assertWindows(data);
     const wanted = this.aggregate(data.items);
     const productIds = [...wanted.keys()];
 
@@ -269,6 +293,7 @@ export class RentalsService {
       async (tx) => {
         const current = await tx.rental.findUnique({ where: { id }, include: { items: true } });
         if (!current) throw new NotFoundException(`El alquiler con ID ${id} no existe.`);
+        this.assertWindows(data, current);
 
         // Los datos de contacto se pueden corregir siempre; fechas y productos
         // solo mientras el alquiler está vigente (uno devuelto o anulado ya no

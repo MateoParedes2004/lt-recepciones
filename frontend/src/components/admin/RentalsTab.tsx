@@ -37,17 +37,21 @@ interface RentalFormItem { productId: string; quantity: number | string; unitPri
 interface DeliveryPoint { lat: number; lng: number; km: number | null; method?: LocateResult["method"]; durationMinutes?: number | null; provider?: string | null; warning?: string | null }
 // deliveryInput = lo que se pegó (link o coordenadas); delivery = el punto ya
 // leído. Si se cambia el texto, el punto se descarta hasta volver a calcular.
-interface RentalForm { clientName: string; clientPhone: string; cityId: string; shippingPrice: number | string; eventDate: string; returnDate: string; items: RentalFormItem[]; deliveryInput: string; deliveryAddress: string; delivery: DeliveryPoint | null }
+interface RentalForm { clientName: string; clientPhone: string; cityId: string; shippingPrice: number | string; eventDate: string; returnDate: string; items: RentalFormItem[]; deliveryInput: string; deliveryAddress: string; delivery: DeliveryPoint | null; deliveryFrom: string; deliveryTo: string; pickupFrom: string; pickupTo: string }
 
-const EMPTY_FORM: RentalForm = { clientName: "", clientPhone: "", cityId: "", shippingPrice: "", eventDate: "", returnDate: "", items: [{ productId: "", quantity: 1, unitPrice: "" }], deliveryInput: "", deliveryAddress: "", delivery: null };
+const EMPTY_FORM: RentalForm = { clientName: "", clientPhone: "", cityId: "", shippingPrice: "", eventDate: "", returnDate: "", items: [{ productId: "", quantity: 1, unitPrice: "" }], deliveryInput: "", deliveryAddress: "", delivery: null, deliveryFrom: "", deliveryTo: "", pickupFrom: "", pickupTo: "" };
 
 // La ubicación guardada de un alquiler, como la espera el formulario.
-const deliveryFormFields = (r: Rental): Pick<RentalForm, "deliveryInput" | "deliveryAddress" | "delivery"> => {
+const deliveryFormFields = (r: Rental): Pick<RentalForm, "deliveryInput" | "deliveryAddress" | "delivery" | "deliveryFrom" | "deliveryTo" | "pickupFrom" | "pickupTo"> => {
   const hasPoint = r.deliveryLat != null && r.deliveryLng != null;
   return {
     deliveryInput: hasPoint ? `${r.deliveryLat}, ${r.deliveryLng}` : "",
     deliveryAddress: r.deliveryAddress ?? "",
     delivery: hasPoint ? { lat: r.deliveryLat!, lng: r.deliveryLng!, km: r.deliveryKm ?? null } : null,
+    deliveryFrom: r.deliveryWindowFrom ?? "",
+    deliveryTo: r.deliveryWindowTo ?? "",
+    pickupFrom: r.pickupWindowFrom ?? "",
+    pickupTo: r.pickupWindowTo ?? "",
   };
 };
 
@@ -241,6 +245,10 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
       deliveryInput: "",
       deliveryAddress: "",
       delivery: null,
+      deliveryFrom: "",
+      deliveryTo: "",
+      pickupFrom: "",
+      pickupTo: "",
     });
     setCalcKm(kmOfCity(matchedCity?.id));
     setLocateError(null);
@@ -443,6 +451,11 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
         deliveryLng: rentalForm.delivery?.lng ?? null,
         deliveryKm: rentalForm.delivery?.km ?? null,
         deliveryAddress: rentalForm.deliveryAddress.trim() || null,
+        // Horario en que el cliente espera la entrega y el retiro (vacío = sin horario).
+        deliveryWindowFrom: rentalForm.deliveryFrom || null,
+        deliveryWindowTo: rentalForm.deliveryTo || null,
+        pickupWindowFrom: rentalForm.pickupFrom || null,
+        pickupWindowTo: rentalForm.pickupTo || null,
       };
       const schedule = scheduleLocked ? {} : {
         eventDate: new Date(rentalForm.eventDate).toISOString(),
@@ -814,6 +827,22 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
                         className="mt-2 w-full px-4 py-2 border rounded-xl text-slate-900"
                         placeholder="Referencia para el que entrega (ej. Salón Los Lapachos, portón negro)"
                       />
+                      {/* Horarios que el cliente espera: los usa la pestaña Rutas para ordenar el reparto. */}
+                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {([
+                          { label: "Entrega", from: "deliveryFrom", to: "deliveryTo" },
+                          { label: "Retiro", from: "pickupFrom", to: "pickupTo" },
+                        ] as const).map((w) => (
+                          <fieldset key={w.label} className="border border-slate-200 rounded-xl px-3 pb-2 pt-1 bg-white">
+                            <legend className="px-1 text-xs font-medium text-slate-600">Horario de {w.label.toLowerCase()} <span className="text-slate-400">(opcional)</span></legend>
+                            <div className="flex items-center gap-2">
+                              <input type="time" aria-label={`${w.label}: desde`} value={rentalForm[w.from]} onChange={(e) => setRentalForm({ ...rentalForm, [w.from]: e.target.value })} className="flex-1 min-w-0 px-2 py-1.5 border rounded-lg text-slate-900 text-sm" />
+                              <span className="text-xs text-slate-500">a</span>
+                              <input type="time" aria-label={`${w.label}: hasta`} value={rentalForm[w.to]} onChange={(e) => setRentalForm({ ...rentalForm, [w.to]: e.target.value })} className="flex-1 min-w-0 px-2 py-1.5 border rounded-lg text-slate-900 text-sm" />
+                            </div>
+                          </fieldset>
+                        ))}
+                      </div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">Ciudad de Entrega</label>

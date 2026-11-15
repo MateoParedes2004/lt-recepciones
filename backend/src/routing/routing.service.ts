@@ -22,6 +22,11 @@ import {
   toUrl,
 } from './parse-location';
 import { ROUTE_PROVIDER, type RouteProvider } from './providers/route-provider';
+import {
+  CompleteMatrix,
+  completeMatrix,
+  estimateMatrix,
+} from './travel-matrix';
 
 /** Inyectable para las pruebas: así no hace falta red para probar los links cortos. */
 export const ROUTING_FETCH = Symbol('ROUTING_FETCH');
@@ -42,7 +47,20 @@ export interface LocateResult extends RouteEstimate {
   origin: GeoPoint & { label: string };
 }
 
+/** Matriz de tiempos lista para el optimizador, con de dónde salió. */
+export interface PlanMatrix extends CompleteMatrix {
+  /** 'route' = tiempos por calle reales; 'estimate' = aproximados (línea recta). */
+  method: 'route' | 'estimate';
+  provider: string | null;
+  warning: string | null;
+  /** Pares (origen, destino) sin ruta por calle, como índices de la lista de puntos. */
+  missing: [number, number][];
+}
+
 const MAX_REDIRECTS = 5;
+/** La matriz de un mismo conjunto de puntos se reutiliza este tiempo (recalcular el plan del día no gasta créditos). */
+const MATRIX_TTL_MS = 6 * 60 * 60 * 1000;
+const MATRIX_CACHE_MAX = 30;
 
 @Injectable()
 export class RoutingService {
@@ -61,6 +79,68 @@ export class RoutingService {
     if (!this.provider) {
       this.logger.warn(
         'Falta GEOAPIFY_API_KEY: los km de envío se van a estimar en línea recta (aproximados) en vez de por calle.',
+      );
+    }
+  }
+
+  // Solo en memoria: los términos de Geoapify no dicen nada sobre guardar sus
+  // resultados, así que no se persiste ninguna matriz.
+  private readonly matrixCache = new Map<
+    string,
+    { at: number; value: PlanMatrix }
+  >();
+
+  /**
+   * Tiempos y distancias por calle entre todos los puntos, en una consulta.
+   * Si el servicio no está configurado, falla o hay demasiados puntos, estima
+   * en línea recta y lo avisa: el plan del día nunca se queda sin respuesta.
+   */
+  async travelMatrix(points: GeoPoint[]): Promise<PlanMatrix> {
+    const key = points
+      .map((p) => `${p.lat.toFixed(5)},${p.lng.toFixed(5)}`)
+      .join('|');
+    const hit = this.matrixCache.get(key);
+    if (hit && Date.now() - hit.at < MATRIX_TTL_MS) return hit.value;
+
+    const approximate = (warning: string): PlanMatrix => ({
+      ...estimateMatrix(points),
+      method: 'estimate',
+      provider: null,
+      warning,
+      missing: [],
+    });
+    if (!this.provider) {
+      return approximate(
+        'Sin servicio de rutas configurado: los tiempos y km son aproximados (línea recta × 1,3).',
+      );
+    }
+    if (points.length > this.provider.maxMatrixPoints) {
+      return approximate(
+        `Hay más de ${this.provider.maxMatrixPoints - 1} paradas: los tiempos y km son aproximados.`,
+      );
+    }
+    try {
+      const raw = await this.provider.matrix(points);
+      const { matrix, missing } = completeMatrix(raw, points);
+      const value: PlanMatrix = {
+        ...matrix,
+        method: 'route',
+        provider: this.provider.name,
+        warning: null,
+        missing,
+      };
+      if (this.matrixCache.size >= MATRIX_CACHE_MAX) {
+        const oldest = this.matrixCache.keys().next();
+        if (!oldest.done) this.matrixCache.delete(oldest.value);
+      }
+      this.matrixCache.set(key, { at: Date.now(), value });
+      return value;
+    } catch (error) {
+      this.logger.warn(
+        `No se pudo calcular la matriz con ${this.provider.name}: ${(error as Error).message}`,
+      );
+      return approximate(
+        'El servicio de rutas no respondió: los tiempos y km son aproximados. Probá de nuevo en un rato.',
       );
     }
   }

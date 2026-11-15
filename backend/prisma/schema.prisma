@@ -102,6 +102,14 @@ model Rental {
   // congelados como shippingPrice: si después cambia la fórmula, no se tocan.
   deliveryKm      Float?
 
+  // Horario en que el cliente espera la entrega y el retiro (opcional, "HH:MM"
+  // en hora de Paraguay). Es la ventana que respeta el planificador de rutas:
+  // llegar antes obliga a esperar, llegar después se marca como atraso.
+  deliveryWindowFrom String?
+  deliveryWindowTo   String?
+  pickupWindowFrom   String?
+  pickupWindowTo     String?
+
   // Relación: Un alquiler tiene muchos productos adentro (ítems)
   items       RentalItem[]
 
@@ -110,6 +118,9 @@ model Rental {
 
   // Facturas emitidas por este alquiler (normalmente una; más si alguna se anuló).
   invoices    Invoice[]
+
+  // Paradas de reparto que lo incluyen (una de entrega y otra de retiro por cada ruta que se guardó).
+  deliveryStops DeliveryStop[]
 
   @@index([eventDate])
   @@index([status])
@@ -372,4 +383,78 @@ model InvoiceItem {
   productId   Int?
 
   @@index([invoiceId])
+}
+
+// ==========================================
+// RUTAS DE REPARTO
+// ==========================================
+// El plan guardado de un día: en qué orden se entrega y se retira, a qué hora
+// se espera llegar y, a medida que el chofer avanza, a qué hora llegó de verdad.
+// Esas horas reales son la base para calibrar los tiempos de viaje.
+model DeliveryRun {
+  id             Int      @id @default(autoincrement())
+  // Día del reparto, como fecha de calendario pura (medianoche UTC), igual que Rental.eventDate.
+  date           DateTime @unique
+  // Hora de salida del depósito, en minutos desde la medianoche de Paraguay.
+  startMinutes   Int
+  vehicles       Int
+  // Cuánto se multiplicaron los tiempos de viaje por tráfico al planificar (1 = sin tráfico).
+  trafficFactor  Float
+  // "route" = tiempos por calle; "estimate" = aproximados (línea recta).
+  matrixMethod   String
+  // Servicio que calculó los tiempos (para mostrar su crédito), o null si fueron aproximados.
+  matrixProvider String?
+  // true = el plan es demostrablemente el mejor posible.
+  optimal        Boolean
+  totalKm        Float
+  totalTravelMin Float
+  finishMinutes  Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  routes         DeliveryRoute[]
+  stops          DeliveryStop[]
+}
+
+// El recorrido de un camión dentro de una ruta del día, con sus totales tal
+// como se planificaron (incluido el regreso al depósito).
+model DeliveryRoute {
+  id          Int         @id @default(autoincrement())
+  runId       Int
+  run         DeliveryRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  vehicle     Int
+  travelMin   Float
+  km          Float
+  serviceMin  Int
+  waitMin     Int
+  lateMin     Int
+  // Minutos desde la medianoche de Paraguay en que vuelve al depósito.
+  endMinutes  Int
+  durationMin Int
+
+  @@unique([runId, vehicle])
+}
+
+model DeliveryStop {
+  id                Int         @id @default(autoincrement())
+  runId             Int
+  run               DeliveryRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  rentalId          Int
+  rental            Rental      @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  // "ENTREGA" o "RETIRO".
+  kind              String
+  // Número de camión (1, 2, ...) y posición dentro de su recorrido.
+  vehicle           Int
+  sequence          Int
+  // Lo planificado (minutos desde la medianoche de Paraguay; tramo desde la parada anterior).
+  plannedArriveMin  Int
+  plannedServiceMin Int
+  plannedLegMin     Float
+  plannedLegKm      Float
+  // Lo que pasó de verdad (marcas de tiempo reales, UTC).
+  arrivedAt         DateTime?
+  completedAt       DateTime?
+
+  @@unique([runId, rentalId, kind])
+  @@index([rentalId])
 }

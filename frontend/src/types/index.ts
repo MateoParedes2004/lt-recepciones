@@ -118,6 +118,11 @@ export interface Rental {
   deliveryAddress?: string | null;
   /** Km por calle desde el depósito, calculados al cargar la ubicación. */
   deliveryKm?: number | null;
+  /** Horario en que el cliente espera la entrega y el retiro ("HH:MM", hora de Paraguay). */
+  deliveryWindowFrom?: string | null;
+  deliveryWindowTo?: string | null;
+  pickupWindowFrom?: string | null;
+  pickupWindowTo?: string | null;
   items: RentalItem[];
   /** Facturas emitidas por este alquiler, la más nueva primero. */
   invoices?: RentalInvoiceSummary[];
@@ -239,4 +244,78 @@ export interface CheckoutIntent {
   returnDate?: string | null;
   createdAt: string;
   items: CheckoutIntentItem[];
+}
+
+// ==========================================
+// RUTAS DE REPARTO (espejo de backend/src/routing/dispatch/dispatch.types.ts)
+// ==========================================
+export type StopKind = "ENTREGA" | "RETIRO";
+
+export interface PlanStop {
+  /** Identificador estable dentro del plan: "ENTREGA-12" o "RETIRO-12". */
+  key: string;
+  kind: StopKind;
+  rentalId: number;
+  clientName: string;
+  clientPhone: string | null;
+  address: string | null;
+  cityName: string | null;
+  lat: number;
+  lng: number;
+  units: number;
+  /** Retiro atrasado: días desde la fecha de devolución (0 si no). */
+  overdueDays: number;
+  windowFrom: string | null;
+  windowTo: string | null;
+  serviceMin: number;
+  /** Hora estimada de llegada, "HH:MM". */
+  arrive: string;
+  arriveMin: number;
+  /** El plan se pasó de la medianoche: esta parada cae al día siguiente. */
+  nextDay: boolean;
+  waitMin: number;
+  lateMin: number;
+  legMin: number;
+  legKm: number;
+  pointUrl: string;
+  directionsUrl: string;
+  /** Solo si la ruta está guardada. */
+  stopId?: number;
+  arrivedAt?: string | null;
+  completedAt?: string | null;
+}
+
+export interface PlanRoute {
+  vehicle: number;
+  stops: PlanStop[];
+  travelMin: number;
+  km: number;
+  serviceMin: number;
+  waitMin: number;
+  lateMin: number;
+  endTime: string;
+  endMin: number;
+  durationMin: number;
+  mapsUrls: string[];
+}
+
+export interface PlanSkipped {
+  rentalId: number;
+  kind: StopKind;
+  clientName: string;
+  reason: string;
+}
+
+export interface DispatchPlan {
+  date: string;
+  startTime: string;
+  vehicles: number;
+  trafficFactor: number;
+  matrix: { method: "route" | "estimate"; provider: string | null; warning: string | null };
+  solver: { optimal: boolean; method: "exact" | "heuristic"; iterations: number; elapsedMs: number };
+  totals: { stops: number; deliveries: number; pickups: number; km: number; travelMin: number; serviceMin: number; waitMin: number; lateMin: number; finishTime: string };
+  routes: PlanRoute[];
+  skipped: PlanSkipped[];
+  warnings: string[];
+  saved: { runId: number } | null;
 }

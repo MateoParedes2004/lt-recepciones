@@ -14,7 +14,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
-import { trimString } from '../../common/trim';
+import { emptyToNull, trimString } from '../../common/trim';
 
 // AAAA-MM-DD puro, opcionalmente con la medianoche UTC exacta que produce
 // `new Date(...).toISOString()` (el panel siempre manda esa forma). Todo el
@@ -23,6 +23,9 @@ import { trimString } from '../../common/trim';
 // ISO 8601 válido, incluida una hora u offset distintos, que correrían el
 // día calculado si algo aparte del panel llegara a mandar uno.
 const FECHA_CALENDARIO = /^\d{4}-\d{2}-\d{2}(T00:00:00(\.000)?Z)?$/;
+
+// Hora del día "HH:MM" (00:00 a 23:59).
+const HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export class RentalItemDto {
   @IsInt()
@@ -92,6 +95,28 @@ export class CreateRentalDto {
   @Min(0)
   @Max(5000)
   deliveryKm?: number | null;
+
+  // Horario en que el cliente espera la entrega y el retiro ("HH:MM", hora de
+  // Paraguay). null o "" = sin horario. Lo usa el planificador de rutas.
+  @IsOptional()
+  @Transform(emptyToNull)
+  @Matches(HORA, { message: 'deliveryWindowFrom debe tener formato HH:MM' })
+  deliveryWindowFrom?: string | null;
+
+  @IsOptional()
+  @Transform(emptyToNull)
+  @Matches(HORA, { message: 'deliveryWindowTo debe tener formato HH:MM' })
+  deliveryWindowTo?: string | null;
+
+  @IsOptional()
+  @Transform(emptyToNull)
+  @Matches(HORA, { message: 'pickupWindowFrom debe tener formato HH:MM' })
+  pickupWindowFrom?: string | null;
+
+  @IsOptional()
+  @Transform(emptyToNull)
+  @Matches(HORA, { message: 'pickupWindowTo debe tener formato HH:MM' })
+  pickupWindowTo?: string | null;
 
   @Matches(FECHA_CALENDARIO, {
     message: 'eventDate debe tener formato AAAA-MM-DD',
