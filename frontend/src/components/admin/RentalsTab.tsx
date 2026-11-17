@@ -95,7 +95,11 @@ function PhaseBadge({ rental }: { rental: Rental }) {
   }
 }
 
-export default function RentalsTab({ rentals, products, cities, shippingSettings, pendingOrders, fetchData, isLoadingData }: { rentals: Rental[], products: Product[], cities: City[], shippingSettings: ShippingSettings | null, pendingOrders: CheckoutIntent[], fetchData: () => void, isLoadingData: boolean }) {
+// initialSearch / initialView / startWithNewForm: el panel abre la pestaña ya
+// filtrada por un cliente (buscador de arriba), en el calendario (menú
+// "Calendario") o con el formulario de alquiler nuevo (botón "Nuevo alquiler").
+// Solo cuentan al montarse: el panel cambia la key para volver a aplicarlos.
+export default function RentalsTab({ rentals, products, cities, shippingSettings, pendingOrders, fetchData, isLoadingData, initialSearch = "", initialView = "lista", startWithNewForm = false }: { rentals: Rental[], products: Product[], cities: City[], shippingSettings: ShippingSettings | null, pendingOrders: CheckoutIntent[], fetchData: () => void, isLoadingData: boolean, initialSearch?: string, initialView?: "lista" | "calendario", startWithNewForm?: boolean }) {
   // Calculadora "km → envío": arranca con los km de la ciudad elegida, para
   // ajustarlos a la dirección exacta.
   const [calcKm, setCalcKm] = useState("");
@@ -109,10 +113,10 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
     return km != null ? String(km) : "";
   };
   const toast = useToast();
-  const [searchRental, setSearchRental] = useState("");
+  const [searchRental, setSearchRental] = useState(initialSearch);
   const [phaseFilter, setPhaseFilter] = useState<PhaseFilter>("TODOS");
-  const [view, setView] = useState<"lista" | "calendario">("lista");
-  const [isRentalModalOpen, setIsRentalModalOpen] = useState(false);
+  const [view, setView] = useState<"lista" | "calendario">(initialView);
+  const [isRentalModalOpen, setIsRentalModalOpen] = useState(startWithNewForm);
   const [isSavingRental, setIsSavingRental] = useState(false);
   // null = alquiler nuevo; un id = editando ese alquiler.
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -397,7 +401,11 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
     // Qué botón se apretó lo dice el propio formulario (submitter): así Enter dentro de un campo,
     // que acciona el botón principal, nunca guarda un presupuesto por accidente.
     const submitter = (e.nativeEvent as SubmitEvent).submitter as HTMLElement | null;
-    // "Generar Presupuesto" guarda (sin reservar stock) y arma el PDF en el mismo paso.
+    // El botón del PDF guarda y arma el presupuesto en PDF en el mismo paso.
+    // - Al crear (de cero o desde un pedido por WhatsApp): se guarda como
+    //   PRESUPUESTO, sin reservar stock, hasta que el cliente lo confirme.
+    // - Al editar: el alquiler conserva su estado (un presupuesto sigue siendo
+    //   presupuesto; uno confirmado sigue reservado) y solo se genera el PDF.
     const wantsPdf = submitter?.dataset.quote === "true";
     const isQuote = editingId !== null ? editingQuote : wantsPdf;
 
@@ -467,7 +475,7 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
         })),
       };
       // Si viene de "Convertir en alquiler" de un pedido por WhatsApp, enlaza
-      // ese pedido con el alquiler recién creado (solo aplica al crear, no al editar).
+      // ese pedido con el alquiler o presupuesto recién creado (solo al crear, no al editar).
       const linkIntent = editingId === null && convertingIntentId !== null ? { checkoutIntentId: convertingIntentId } : {};
       const quoteFlag = editingId === null && isQuote ? { asQuote: true } : {};
       const noun = isQuote ? "presupuesto" : "alquiler";
@@ -1013,14 +1021,26 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
             <div className="px-6 py-4 border-t border-slate-100 flex flex-wrap justify-end gap-3 bg-slate-50/80">
               <button type="button" onClick={closeRentalModal} className="order-1 px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-200 rounded-xl cursor-pointer">Cancelar</button>
               {/* El botón principal va PRIMERO en el HTML (es el que acciona Enter dentro de un campo) y se
-                  muestra al final con `order`. "Generar Presupuesto": guarda sin reservar stock y arma el PDF para
-                  mandárselo al cliente (se confirma después); no aplica a un pedido por WhatsApp (ese se confirma como alquiler). */}
+                  muestra al final con `order`. El del PDF está siempre que se pueda editar el pedido: al crear
+                  (de cero o desde un pedido por WhatsApp) guarda como presupuesto sin reservar stock; al editar
+                  guarda los cambios sin tocar el estado y arma el PDF para mandárselo al cliente. */}
               <button type="submit" form="rentalForm" disabled={isSavingRental} className="order-3 px-6 py-2.5 bg-[#004080] text-white font-bold rounded-xl hover:bg-[#00294f] shadow-md flex items-center cursor-pointer disabled:opacity-60">
                 {isSavingRental ? "Procesando..." : editingId !== null ? "Guardar Cambios" : "Confirmar y Reservar Stock"}
               </button>
-              {convertingIntentId === null && (editingId === null || editingQuote) && (
-                <button type="submit" form="rentalForm" data-quote="true" disabled={isSavingRental} className="order-2 px-5 py-2.5 bg-[#e8f0f8] text-[#004080] font-bold rounded-xl hover:bg-[#d3e3f2] flex items-center cursor-pointer disabled:opacity-60">
-                  <FileText className="w-4 h-4 mr-2" /> {editingId === null ? "Generar Presupuesto (PDF)" : "Guardar y generar PDF"}
+              {!scheduleLocked && (
+                <button
+                  type="submit"
+                  form="rentalForm"
+                  data-quote="true"
+                  disabled={isSavingRental}
+                  title={editingId === null
+                    ? "Lo guarda como presupuesto (no reserva stock hasta que el cliente confirme) y arma el PDF para enviárselo."
+                    : editingQuote
+                      ? "Guarda los cambios y arma el PDF del presupuesto."
+                      : "Guarda los cambios (el stock sigue reservado) y arma el PDF del presupuesto para enviárselo al cliente."}
+                  className="order-2 px-5 py-2.5 bg-[#e8f0f8] text-[#004080] font-bold rounded-xl hover:bg-[#d3e3f2] flex items-center cursor-pointer disabled:opacity-60"
+                >
+                  <FileText className="w-4 h-4 mr-2" /> {editingId === null ? "Generar Presupuesto (PDF)" : editingQuote ? "Guardar y generar PDF" : "Guardar y generar presupuesto (PDF)"}
                 </button>
               )}
             </div>

@@ -136,7 +136,8 @@ export class CreateRentalDto {
 
   // Si este alquiler viene de confirmar un pedido por WhatsApp (ver
   // "Pedidos por confirmar" en el panel), el id de ese CheckoutIntent para
-  // marcarlo CONFIRMADO y enlazarlo con el alquiler recién creado.
+  // marcarlo CONFIRMADO (atendido) y enlazarlo con el alquiler recién creado,
+  // que puede ser un alquiler confirmado o un presupuesto (asQuote).
   @IsOptional()
   @IsInt()
   checkoutIntentId?: number;

@@ -6,11 +6,40 @@ import { derivePhase } from '../rentals/rentals.service';
 import { CreateCheckoutIntentDto } from './dto/create-checkout-intent.dto';
 import { PublicEventType } from './dto/track-event.dto';
 import {
+  fromDayIndex,
   paraguayToUtc,
+  paraguayTodayIndex,
   paraguayTodayUtc,
+  toDayIndex,
   utcToParaguayDate,
 } from '../common/timezone';
 import { deviceFromUserAgent, isBotUserAgent } from '../common/user-agent';
+import {
+  anticipationShare,
+  clientKey,
+  productOccupancy,
+  repeatClients,
+  suggestion,
+  weekdayShare,
+} from './business-metrics';
+
+/**
+ * Un pedido por WhatsApp es venta cerrada cuando se cargó como alquiler y ese
+ * alquiler está confirmado (activo o ya devuelto). Si quedó como presupuesto,
+ * o el alquiler se anuló, todavía/ya no es una venta.
+ */
+function isClosedSale(intent: {
+  status: string;
+  rental: { status: string } | null;
+}): boolean {
+  return (
+    intent.status === 'CONFIRMADO' &&
+    (intent.rental?.status === 'ACTIVO' || intent.rental?.status === 'DEVUELTO')
+  );
+}
+
+// Meta de ingresos por mes que el dueño carga en Inicio (AppMeta).
+const MONTHLY_GOAL_KEY = 'monthly_goal';
 
 // Botones de WhatsApp que el sitio marca con data-wa (ver AnalyticsTracker).
 const WHATSAPP_BUTTONS = [
@@ -432,12 +461,20 @@ export class AnalyticsService {
       realEnd = paraguayToUtc(year, 12, 31, 23, 59, 59, 999);
     }
 
-    // Período anterior (mes anterior si se mira un mes, año anterior si se mira
-    // un año): solo se usa para comparar visitas en el gráfico. Con un solo día
-    // no hay gráfico de series, así que no se consulta.
+    // Período anterior (día anterior, mes anterior o año anterior): para
+    // comparar las visitas en el gráfico y en los indicadores.
     let prevRealStart: Date | null = null;
     let prevRealEnd: Date | null = null;
-    if (!day) {
+    if (month && day) {
+      const prev = new Date(Date.UTC(year, month - 1, day - 1));
+      const [py, pm, pd] = [
+        prev.getUTCFullYear(),
+        prev.getUTCMonth() + 1,
+        prev.getUTCDate(),
+      ];
+      prevRealStart = paraguayToUtc(py, pm, pd, 0, 0, 0);
+      prevRealEnd = paraguayToUtc(py, pm, pd, 23, 59, 59, 999);
+    } else {
       if (month) {
         const prevMonth = month === 1 ? 12 : month - 1;
         const prevYear = month === 1 ? year - 1 : year;
@@ -481,7 +518,7 @@ export class AnalyticsService {
         // en que el cliente los inició — se filtran por createdAt (real).
         this.prisma.checkoutIntent.findMany({
           where: { createdAt: { gte: realStart, lte: realEnd } },
-          include: { items: true },
+          include: { items: true, rental: { select: { status: true } } },
         }),
         prevRealStart && prevRealEnd
           ? this.prisma.siteVisit.findMany({
@@ -877,6 +914,13 @@ export class AnalyticsService {
       picoAlquileres,
     };
 
+    const negocio = await this.businessInsights(
+      { calStart, calEnd, year, month, day },
+      alquileres,
+      checkoutIntents,
+      totalVisitasAnterior,
+    );
+
     return {
       kpis,
       chartData,
@@ -886,6 +930,291 @@ export class AnalyticsService {
       interes,
       busquedas,
       trafico,
+      ...negocio,
     };
+  }
+
+  /**
+   * Lo que agregó el rediseño de Estadísticas: comparación con el período
+   * anterior, ingresos de los 12 meses contra el año pasado, rendimiento de
+   * cada producto, qué día son los eventos, con cuánta anticipación reservan
+   * y cuántos clientes repiten. Los cálculos viven en business-metrics.ts.
+   */
+  private async businessInsights(
+    period: {
+      calStart: Date;
+      calEnd: Date;
+      year: number;
+      month?: number;
+      day?: number;
+    },
+    alquileres: {
+      eventDate: Date;
+      createdAt: Date;
+      totalPrice: number;
+      items: {
+        productId: number;
+        quantity: number;
+        unitPrice: Prisma.Decimal | null;
+        product: { pricePerDay: Prisma.Decimal } | null;
+      }[];
+    }[],
+    checkoutIntents: { status: string; rental: { status: string } | null }[],
+    totalVisitasAnterior: number,
+  ) {
+    const { calStart, calEnd, year, month, day } = period;
+    const from = toDayIndex(calStart);
+    const to = toDayIndex(calEnd);
+    const today = paraguayTodayIndex();
+
+    // Período anterior del mismo tamaño en el calendario (día, mes o año).
+    let prevFrom: number, prevTo: number;
+    if (month && day) {
+      prevFrom = from - 1;
+      prevTo = from - 1;
+    } else if (month) {
+      prevFrom = toDayIndex(new Date(Date.UTC(year, month - 2, 1)));
+      prevTo = from - 1;
+    } else {
+      prevFrom = toDayIndex(new Date(Date.UTC(year - 1, 0, 1)));
+      prevTo = from - 1;
+    }
+
+    const [historial, ocupacion, productos] = await Promise.all([
+      // Todo lo concretado (para "clientes que repiten" hace falta la historia
+      // completa). Pocas columnas: alcanza para años de un negocio chico.
+      this.prisma.rental.findMany({
+        where: { status: { notIn: ['CANCELADO', 'PRESUPUESTO'] } },
+        select: {
+          clientName: true,
+          clientPhone: true,
+          eventDate: true,
+          totalPrice: true,
+        },
+      }),
+      // Lo que estuvo afuera en algún día del período (aunque el evento haya
+      // empezado antes): es lo que cuenta para la ocupación.
+      this.prisma.rental.findMany({
+        where: {
+          status: { in: ['ACTIVO', 'DEVUELTO'] },
+          eventDate: { lte: calEnd },
+          OR: [{ returnDate: { gte: calStart } }, { status: 'ACTIVO' }],
+        },
+        select: {
+          status: true,
+          eventDate: true,
+          returnDate: true,
+          items: { select: { productId: true, quantity: true } },
+        },
+      }),
+      this.prisma.product.findMany({
+        select: { id: true, name: true, totalStock: true, isArchived: true },
+      }),
+    ]);
+
+    // --- Comparación con el período anterior ---
+    const enRango = (d: Date, a: number, b: number) => {
+      const i = toDayIndex(d);
+      return i >= a && i <= b;
+    };
+    const anteriores = historial.filter((r) =>
+      enRango(r.eventDate, prevFrom, prevTo),
+    );
+    const ingresosAnteriores = anteriores.reduce(
+      (acc, r) => acc + Number(r.totalPrice),
+      0,
+    );
+    const claves = historial.map((r) => ({
+      key: clientKey(r.clientName, r.clientPhone),
+      eventDay: toDayIndex(r.eventDate),
+    }));
+    const recurrentes = repeatClients(claves, from, to);
+    const recurrentesAnteriores = repeatClients(claves, prevFrom, prevTo);
+
+    const kpisAnteriores = {
+      totalIngresos: ingresosAnteriores,
+      totalAlquileres: anteriores.length,
+      ticketPromedio: anteriores.length
+        ? ingresosAnteriores / anteriores.length
+        : 0,
+      totalVisitas: totalVisitasAnterior,
+      clientesRepitenPct: recurrentesAnteriores.clientes
+        ? (recurrentesAnteriores.repiten / recurrentesAnteriores.clientes) * 100
+        : 0,
+    };
+    const clientes = {
+      total: recurrentes.clientes,
+      repiten: recurrentes.repiten,
+      pct: recurrentes.clientes
+        ? (recurrentes.repiten / recurrentes.clientes) * 100
+        : 0,
+    };
+
+    // --- Ingresos de los 12 meses del año elegido y del anterior ---
+    const ingresosMensuales = {
+      anio: year,
+      actual: Array.from({ length: 12 }, () => 0),
+      anterior: Array.from({ length: 12 }, () => 0),
+    };
+    for (const r of historial) {
+      const y = r.eventDate.getUTCFullYear();
+      const m = r.eventDate.getUTCMonth();
+      if (y === year) ingresosMensuales.actual[m] += Number(r.totalPrice);
+      else if (y === year - 1)
+        ingresosMensuales.anterior[m] += Number(r.totalPrice);
+    }
+
+    // --- Rendimiento por producto ---
+    const dias = to - from + 1;
+    const uso = productOccupancy(
+      ocupacion.map((r) => ({
+        status: r.status,
+        eventDay: toDayIndex(r.eventDate),
+        returnDay: toDayIndex(r.returnDate),
+        items: r.items,
+      })),
+      from,
+      to,
+      today,
+    );
+    // Ingresos y veces: con el mismo criterio que el resto de la pestaña
+    // (alquileres cuyo EVENTO cae en el período).
+    const ventas = new Map<
+      number,
+      { veces: number; unidades: number; ingresos: number }
+    >();
+    for (const r of alquileres) {
+      const vistos = new Set<number>();
+      for (const item of r.items) {
+        const row = ventas.get(item.productId) ?? {
+          veces: 0,
+          unidades: 0,
+          ingresos: 0,
+        };
+        if (!vistos.has(item.productId)) row.veces += 1;
+        vistos.add(item.productId);
+        row.unidades += item.quantity;
+        row.ingresos +=
+          item.quantity *
+          Number(item.unitPrice ?? item.product?.pricePerDay ?? 0);
+        ventas.set(item.productId, row);
+      }
+    }
+    const rendimientoProductos = productos
+      .filter((p) => !p.isArchived || ventas.has(p.id) || uso.has(p.id))
+      .map((p) => {
+        const u = uso.get(p.id);
+        const v = ventas.get(p.id) ?? { veces: 0, unidades: 0, ingresos: 0 };
+        const capacidad = p.totalStock * dias;
+        const ocupacionPct =
+          capacidad && u ? (u.unitDays / capacidad) * 100 : 0;
+        const picoPct =
+          p.totalStock && u ? (u.peakUnits / p.totalStock) * 100 : 0;
+        return {
+          id: p.id,
+          nombre: p.name,
+          stock: p.totalStock,
+          archivado: p.isArchived,
+          ocupacionPct,
+          picoPct,
+          picoFecha:
+            u?.peakDay != null
+              ? fromDayIndex(u.peakDay).toISOString().slice(0, 10)
+              : null,
+          veces: v.veces,
+          unidades: v.unidades,
+          ingresos: v.ingresos,
+          ingresoPorUnidad: p.totalStock ? v.ingresos / p.totalStock : 0,
+          sugerencia: p.isArchived
+            ? null
+            : suggestion(p.totalStock, ocupacionPct, picoPct, v.veces),
+        };
+      })
+      .sort(
+        (a, b) =>
+          b.ocupacionPct - a.ocupacionPct ||
+          b.ingresos - a.ingresos ||
+          a.nombre.localeCompare(b.nombre),
+      );
+
+    // --- Cuándo son los eventos y con cuánta anticipación reservan ---
+    const diasSemana = weekdayShare(
+      alquileres.map((r) => toDayIndex(r.eventDate)),
+    );
+    const anticipacion = anticipationShare(
+      alquileres.map((r) => {
+        const c = utcToParaguayDate(r.createdAt);
+        return {
+          createdDay: toDayIndex(
+            new Date(Date.UTC(c.year, c.month - 1, c.day)),
+          ),
+          eventDay: toDayIndex(r.eventDate),
+        };
+      }),
+    );
+
+    // Pedidos por WhatsApp del período que no terminaron en alquiler (los que
+    // quedaron como presupuesto todavía no son una venta).
+    const pedidosSinCerrar = checkoutIntents.filter(
+      (c) => !isClosedSale(c),
+    ).length;
+
+    return {
+      kpisAnteriores,
+      clientes,
+      ingresosMensuales,
+      rendimientoProductos,
+      diasSemana,
+      anticipacion,
+      pedidosSinCerrar,
+    };
+  }
+
+  // 7. INICIO DEL PANEL: tasa de cierre de los últimos 30 días y meta del mes.
+  async getHomeSummary() {
+    const now = new Date();
+    const desde = new Date(now.getTime() - 30 * MS_PER_DAY);
+    const desdeAnterior = new Date(now.getTime() - 60 * MS_PER_DAY);
+    const [pedidos, meta] = await Promise.all([
+      this.prisma.checkoutIntent.findMany({
+        where: { createdAt: { gte: desdeAnterior } },
+        select: {
+          createdAt: true,
+          status: true,
+          rental: { select: { status: true } },
+        },
+      }),
+      this.prisma.appMeta.findUnique({ where: { key: MONTHLY_GOAL_KEY } }),
+    ]);
+    const resumen = (rows: typeof pedidos) => ({
+      pedidos: rows.length,
+      confirmados: rows.filter(isClosedSale).length,
+    });
+    const goal = meta ? Number(meta.value) : NaN;
+    return {
+      cierre: {
+        dias: 30,
+        ...resumen(pedidos.filter((p) => p.createdAt >= desde)),
+        anterior: resumen(pedidos.filter((p) => p.createdAt < desde)),
+      },
+      metaMensual: Number.isFinite(goal) && goal > 0 ? goal : null,
+    };
+  }
+
+  /** Meta de ingresos por mes (Gs.); null la borra. */
+  async setMonthlyGoal(amount: number | null) {
+    if (amount === null) {
+      await this.prisma.appMeta.deleteMany({
+        where: { key: MONTHLY_GOAL_KEY },
+      });
+      return { metaMensual: null };
+    }
+    const value = String(Math.round(amount));
+    await this.prisma.appMeta.upsert({
+      where: { key: MONTHLY_GOAL_KEY },
+      update: { value },
+      create: { key: MONTHLY_GOAL_KEY, value },
+    });
+    return { metaMensual: Number(value) };
   }
 }

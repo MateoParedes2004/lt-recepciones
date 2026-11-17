@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Patch,
+  Put,
   Param,
   Query,
   Body,
@@ -15,6 +16,7 @@ import { Throttle } from '@nestjs/throttler';
 import { AnalyticsService } from './analytics.service';
 import { CreateCheckoutIntentDto } from './dto/create-checkout-intent.dto';
 import { RegisterVisitDto, TrackEventDto } from './dto/track-event.dto';
+import { MonthlyGoalDto } from './dto/monthly-goal.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 
 @Controller('analytics')
@@ -84,6 +86,20 @@ export class AnalyticsController {
   @Get('resumen')
   async getResumen() {
     return this.analyticsService.getTrafficSummary();
+  }
+
+  // Inicio del panel: tasa de cierre de los pedidos por WhatsApp de los
+  // últimos 30 días y la meta de ingresos del mes — solo admin.
+  @UseGuards(JwtAuthGuard)
+  @Get('inicio')
+  async getHomeSummary() {
+    return this.analyticsService.getHomeSummary();
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put('meta')
+  async setMonthlyGoal(@Body() body: MonthlyGoalDto) {
+    return this.analyticsService.setMonthlyGoal(body.monto);
   }
 
   // 👇 RUTA PARA EL PANEL DE ESTADÍSTICAS — solo admin

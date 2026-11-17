@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link'; 
+import { usePathname } from 'next/navigation';
 import Image from 'next/image'; 
 import { Menu, X, Instagram, Facebook, ChevronDown, Package, Home, Info, Phone, Camera } from 'lucide-react';
 import { Great_Vibes, Playfair_Display } from 'next/font/google';
@@ -30,6 +31,8 @@ export default function Header({ initialCategories = [] }: { initialCategories?:
   const [catalogos, setCatalogos] = useState<Category[]>(initialCategories);
   const [catStatus, setCatStatus] = useState<'loading' | 'ready' | 'error'>(initialCategories.length ? 'ready' : 'loading');
   const [logoError, setLogoError] = useState(false);
+  // El panel tiene su propio menú (AdminShell): ahí el encabezado del sitio sobra.
+  const isAdmin = (usePathname() || '').startsWith('/admin');
 
   const fetchCategories = async () => {
     setCatStatus('loading');
@@ -62,6 +65,8 @@ export default function Header({ initialCategories = [] }: { initialCategories?:
     }
     return () => { document.body.style.overflow = 'unset'; };
   }, [isMenuOpen]);
+
+  if (isAdmin) return null;
 
   return (
     <>

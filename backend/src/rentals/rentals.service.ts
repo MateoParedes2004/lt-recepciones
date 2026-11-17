@@ -148,12 +148,11 @@ export class RentalsService {
 
   async create(data: CreateRentalDto) {
     const { eventDate, returnDate } = this.parseDates(data.eventDate, data.returnDate);
+    // Un pedido por WhatsApp también puede pasar a presupuesto (el cliente
+    // todavía no confirmó): el pedido queda atendido y enlazado, y las
+    // estadísticas lo cuentan como venta cerrada recién cuando ese alquiler
+    // se confirma (ver AnalyticsService: se mira el estado del alquiler).
     const isQuote = data.asQuote === true;
-    // Un pedido por WhatsApp se confirma como alquiler real: las estadísticas
-    // lo cuentan como venta cerrada, así que no puede quedar como presupuesto.
-    if (isQuote && data.checkoutIntentId !== undefined) {
-      throw new BadRequestException('Un pedido por WhatsApp se convierte en alquiler, no en presupuesto.');
-    }
     // El admin puede cargar el costo de envío real de la cotización; si no, se
     // usa el de la ciudad elegida.
     const shippingPrice = data.shippingPrice ?? (await this.resolveShippingPrice(data.cityId));
@@ -431,13 +430,25 @@ export class RentalsService {
     return this.activate(id, ['PRESUPUESTO']);
   }
 
-  /** Borra un presupuesto que no prosperó (un presupuesto no tiene historial que conservar). */
+  /**
+   * Borra un presupuesto que no prosperó (un presupuesto no tiene historial que
+   * conservar). Si vino de un pedido por WhatsApp, ese pedido queda DESCARTADO:
+   * sin esto seguiría "confirmado" sin alquiler (la clave se pone en null al
+   * borrar) y contaría como venta en las estadísticas.
+   */
   async deleteQuote(id: number) {
-    const result = await this.prisma.rental.deleteMany({ where: { id, status: 'PRESUPUESTO' } });
-    if (result.count === 0) {
-      await this.findOneOrFail(id);
-      throw new ConflictException('Solo se pueden descartar presupuestos; un alquiler confirmado se anula.');
-    }
+    await this.prisma.$transaction(async (tx) => {
+      // Primero el pedido (al borrar el alquiler, su rentalId pasa a null y ya no se encuentra).
+      await tx.checkoutIntent.updateMany({
+        where: { rentalId: id, rental: { status: 'PRESUPUESTO' } },
+        data: { status: 'DESCARTADO' },
+      });
+      const result = await tx.rental.deleteMany({ where: { id, status: 'PRESUPUESTO' } });
+      if (result.count === 0) {
+        await this.findOneOrFail(id); // 404 si no existe; si existe, no es presupuesto
+        throw new ConflictException('Solo se pueden descartar presupuestos; un alquiler confirmado se anula.');
+      }
+    });
     return { deleted: true };
   }
 

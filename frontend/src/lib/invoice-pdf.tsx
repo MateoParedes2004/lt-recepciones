@@ -352,7 +352,11 @@ export function quotePdf(rental: Rental, issuer: InvoiceSettings): Promise<Blob>
         dateLabel: `Fecha: ${formatLongDate(new Date().toISOString())}`,
         customer,
         lines,
-        note: "Este presupuesto no es un comprobante fiscal. Precios en guaraníes con IVA incluido. La disponibilidad se confirma al reservar.",
+        // Un alquiler ya confirmado tiene las unidades reservadas: decir "se
+        // confirma al reservar" sería falso.
+        note: `Este presupuesto no es un comprobante fiscal. Precios en guaraníes con IVA incluido. ${
+          rental.status === "ACTIVO" ? "Los productos ya están reservados para estas fechas." : "La disponibilidad se confirma al reservar."
+        }`,
       }}
     />,
   ).toBlob();

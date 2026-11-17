@@ -52,9 +52,10 @@ function Chip({ tone, children }: { tone: "slate" | "amber" | "red" | "green" | 
   return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${tones[tone]}`}>{children}</span>;
 }
 
-export default function RoutesTab() {
+// initialDate: desde Inicio se abre directo en el día que se estaba mirando (hoy o mañana).
+export default function RoutesTab({ initialDate }: { initialDate?: string } = {}) {
   const toast = useToast();
-  const [date, setDate] = useState(todayParaguay);
+  const [date, setDate] = useState(() => initialDate ?? todayParaguay());
   const [vehicles, setVehicles] = useState(1);
   const [startTime, setStartTime] = useState("08:00");
   const [traffic, setTraffic] = useState(1.3);

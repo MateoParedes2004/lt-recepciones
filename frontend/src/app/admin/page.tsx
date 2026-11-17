@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import Image from "next/image";
-import { Package, CalendarDays, TrendingUp, LogOut, Layers, Tags, BarChart3, Camera, MapPin, Loader2, AlertCircle, RefreshCw, Receipt, Truck } from "lucide-react";
+import { Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import AdminShell, { SECTION_LABELS, type Section } from "../../components/admin/AdminShell";
+import AdminHeader, { type SearchPick } from "../../components/admin/AdminHeader";
+import HomeTab from "../../components/admin/HomeTab";
 import ProductsTab from "../../components/admin/ProductsTab";
 import CategoriesTab from "../../components/admin/CategoriesTab";
 import RentalsTab from "../../components/admin/RentalsTab";
@@ -13,6 +15,7 @@ import GalleryTab from "../../components/admin/GalleryTab";
 import CitiesTab from "../../components/admin/CitiesTab";
 import InvoicesTab from "../../components/admin/InvoicesTab";
 import { apiFetch } from "../../lib/api";
+import { buildAlerts, paraguayTodayIdx, type PanelAlert } from "../../lib/admin-metrics";
 import type { Product, Category, Rental, GalleryImage, City, CheckoutIntent, ShippingSettings } from "../../types";
 
 // StatisticsTab carga recharts (pesado): se difiere para que ese bundle solo
@@ -25,13 +28,42 @@ const StatisticsTab = dynamic(() => import("../../components/admin/StatisticsTab
   ),
 });
 
-const formatPYG = (amount: number) => `Gs. ${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
+const SUBTITLES: Record<Exclude<Section, "home">, string> = {
+  rentals: "Reservas, presupuestos, devoluciones y pedidos por WhatsApp",
+  calendar: "Los alquileres día por día",
+  routes: "El mejor orden para entregar y retirar",
+  invoices: "Facturas electrónicas y presupuestos",
+  products: "Inventario, precios y fotos del catálogo",
+  categories: "Los rubros del catálogo y su orden",
+  gallery: "Fotos de eventos que se muestran en el sitio",
+  cities: "Ciudades, costos de envío y fórmula por km",
+  statistics: "Cómo rinde el negocio y de dónde salen los clientes",
+};
+
+// La sección abierta viaja en la dirección (?seccion=rutas): recargar la
+// página o volver con el botón "atrás" del navegador no lleva siempre a Inicio.
+const SLUGS: Record<Section, string> = {
+  home: "inicio", rentals: "alquileres", calendar: "calendario", routes: "rutas", invoices: "facturacion",
+  products: "productos", categories: "categorias", gallery: "galeria", cities: "zonas", statistics: "estadisticas",
+};
+const sectionFromUrl = (): Section => {
+  if (typeof window === "undefined") return "home";
+  const slug = new URLSearchParams(window.location.search).get("seccion");
+  return (Object.keys(SLUGS) as Section[]).find((s) => SLUGS[s] === slug) ?? "home";
+};
+
+/** Pedido de abrir una pestaña con algo ya aplicado; `nonce` fuerza a volver a montarla. */
+interface OpenRequest { nonce: number; search?: string; newForm?: boolean; date?: string }
 
 export default function AdminDashboard() {
   const router = useRouter();
   const [isLoadingData, setIsLoadingData] = useState(true);
-  const [activeTab, setActiveTab] = useState("products");
-  
+  // AdminAuthGate monta esta página recién en el navegador: acá ya se puede leer la dirección.
+  const [section, setSection] = useState<Section>(sectionFromUrl);
+  const [openRequest, setOpenRequest] = useState<OpenRequest>({ nonce: 0 });
+  // "Ahora" de los avisos: se renueva con cada recarga de datos.
+  const [now, setNow] = useState(() => Date.now());
+
   // Base de Datos Global
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -67,6 +99,7 @@ export default function AdminDashboard() {
       }
     }));
     setFailedResources(failed);
+    setNow(Date.now());
     setIsLoadingData(false);
   };
 
@@ -86,56 +119,57 @@ export default function AdminDashboard() {
     loadAll();
   }, []);
 
+  // "Atrás"/"adelante" del navegador entre secciones.
+  useEffect(() => {
+    const onPop = () => setSection(sectionFromUrl());
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  const navigate = (next: Section, request: Omit<OpenRequest, "nonce"> = {}) => {
+    setOpenRequest((r) => ({ nonce: r.nonce + 1, ...request }));
+    if (next !== section) {
+      window.history.pushState(null, "", `?seccion=${SLUGS[next]}`);
+      window.scrollTo({ top: 0 });
+    }
+    setSection(next);
+  };
+
   const handleLogout = () => { localStorage.removeItem("admin_token"); router.push("/iniciar-sesion"); };
 
-  // Cálculos Globales Rápidos para las tarjetas superiores
-  // Unidades libres HOY (el inventario físico menos lo que hoy está afuera).
-  const totalAvailableUnits = products.reduce((acc, p) => acc + (p.availableStock ?? p.totalStock ?? 0), 0);
-  const overdueRentalsCount = rentals.filter((r) => r.phase === "ATRASADO").length;
-  const activeRentalsCount = rentals.filter((r) => r.status === "ACTIVO").length;
-  // Alquileres cuya fecha de evento cae en el mes actual (mismo criterio por
-  // fecha de evento que usa la pestaña Estadísticas). eventDate es una fecha de
-  // calendario pura (medianoche UTC), por eso se lee con getters UTC.
-  const now = new Date();
-  const currentMonthIncome = rentals.reduce((acc, r) => {
-    const d = new Date(r.eventDate);
-    const isThisMonth = d.getUTCFullYear() === now.getFullYear() && d.getUTCMonth() === now.getMonth();
-    // Un alquiler anulado nunca se concretó, y un presupuesto todavía no: no suman ingresos.
-    return isThisMonth && r.status !== "CANCELADO" && r.status !== "PRESUPUESTO" ? acc + (Number(r.totalPrice) || 0) : acc;
-  }, 0);
+  const today = paraguayTodayIdx(now);
+  const alerts = useMemo(() => buildAlerts(rentals, products, pendingOrders, today, now), [rentals, products, pendingOrders, today, now]);
+  const overdueRentalsCount = useMemo(() => rentals.filter((r) => r.phase === "ATRASADO").length, [rentals]);
+
+  const openAlert = (a: PanelAlert) => navigate(a.target, { search: a.search });
+  const onSearchPick = (p: SearchPick) => navigate(p.kind === "rental" ? "rentals" : "products", { search: p.term });
+
+  const subtitle = section === "home"
+    ? `${(() => {
+        const s = new Date(now).toLocaleDateString("es-PY", { weekday: "long", day: "numeric", month: "long", timeZone: "America/Asuncion" });
+        return s.charAt(0).toUpperCase() + s.slice(1);
+      })()} · lo que pasa hoy en el negocio`
+    : SUBTITLES[section];
+
+  const rentalsProps = { rentals, products, cities, shippingSettings, pendingOrders, fetchData, isLoadingData };
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8 relative">
-      
-      {/* 1. CABECERA (Header) */}
-      <header className="mb-8 flex flex-col md:flex-row md:justify-between md:items-center bg-white p-6 rounded-3xl border border-slate-100 shadow-sm gap-4">
-        <div><h1 className="text-3xl font-bold text-slate-900">Panel de Control</h1><p className="text-slate-500 mt-1">Gestión de inventario de LT Recepciones</p></div>
-        <div className="flex items-center space-x-6">
-          <div className="flex items-center space-x-3"><div className="relative w-10 h-10"><Image src="/logo.png" alt="LT Recepciones" fill sizes="40px" className="object-contain" /></div><span className="font-medium text-slate-700 hidden md:block">Administrador</span></div>
-          <div className="h-8 w-px bg-slate-200"></div>
-          <button onClick={handleLogout} className="flex items-center text-red-500 hover:text-red-700 font-medium transition-colors cursor-pointer"><LogOut className="w-5 h-5 mr-2" /> Salir</button>
-        </div>
-      </header>
-
-      {/* 2. TARJETAS DE RESUMEN GLOBALES */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center space-x-4">
-          <div className="p-4 bg-[#e8f0f8] text-[#004080] rounded-2xl"><Package className="w-6 h-6" /></div>
-          <div><p className="text-sm font-medium text-slate-500">Tipos de Producto</p><h3 className="text-2xl font-bold text-slate-900">{products.length}</h3></div>
-        </div>
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center space-x-4">
-          <div className="p-4 bg-[#e8f0f8] text-[#004080] rounded-2xl"><Layers className="w-6 h-6" /></div>
-          <div><p className="text-sm font-medium text-slate-500">Stock Libre Hoy</p><h3 className="text-2xl font-bold text-slate-900">{totalAvailableUnits}</h3></div>
-        </div>
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center space-x-4">
-          <div className="p-4 bg-[#e8f0f8] text-[#004080] rounded-2xl"><CalendarDays className="w-6 h-6" /></div>
-          <div><p className="text-sm font-medium text-slate-500">Alquileres Activos</p><h3 className="text-2xl font-bold text-slate-900">{activeRentalsCount}</h3></div>
-        </div>
-        <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm flex items-center space-x-4">
-          <div className="p-4 bg-[#e8f0f8] text-[#004080] rounded-2xl"><TrendingUp className="w-6 h-6" /></div>
-          <div><p className="text-sm font-medium text-slate-500">Ingresos del Mes</p><h3 className="text-2xl font-bold text-slate-900">{formatPYG(currentMonthIncome)}</h3></div>
-        </div>
-      </div>
+    <AdminShell
+      active={section}
+      onNavigate={(s) => navigate(s)}
+      onLogout={handleLogout}
+      badges={{ pendingOrders: pendingOrders.length, overdue: overdueRentalsCount }}
+    >
+      <AdminHeader
+        title={SECTION_LABELS[section]}
+        subtitle={subtitle}
+        rentals={rentals}
+        products={products}
+        alerts={alerts}
+        onSearchPick={onSearchPick}
+        onOpenAlert={openAlert}
+        onNewRental={() => navigate("rentals", { newForm: true })}
+      />
 
       {/* AVISO DE CARGA FALLIDA (distingue "no se pudo cargar" de "no hay datos") */}
       {failedResources.length > 0 && !isLoadingData && (
@@ -150,30 +184,31 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* 3. MENÚ DE PESTAÑAS */}
-      <div className="inline-flex space-x-2 mb-6 bg-slate-200/50 p-1 rounded-2xl overflow-x-auto max-w-full">
-        <button onClick={() => setActiveTab("products")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "products" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Package className="w-4 h-4 mr-2" /> Productos</button>
-        <button onClick={() => setActiveTab("categories")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "categories" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Tags className="w-4 h-4 mr-2" /> Categorías</button>
-        <button onClick={() => setActiveTab("rentals")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "rentals" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><CalendarDays className="w-4 h-4 mr-2" /> Alquileres{pendingOrders.length > 0 && <span aria-label={`${pendingOrders.length} pedidos por WhatsApp sin confirmar`} title="Pedidos por WhatsApp sin confirmar" className="ml-2 min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-[#004080] text-white text-xs font-bold">{pendingOrders.length}</span>}{overdueRentalsCount > 0 && <span aria-label={`${overdueRentalsCount} alquileres atrasados`} title="Alquileres atrasados" className="ml-1 min-w-5 h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-red-500 text-white text-xs font-bold">{overdueRentalsCount}</span>}</button>
-        <button onClick={() => setActiveTab("routes")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "routes" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Truck className="w-4 h-4 mr-2" /> Rutas</button>
-        <button onClick={() => setActiveTab("gallery")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "gallery" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Camera className="w-4 h-4 mr-2" /> Galería</button>
-        <button onClick={() => setActiveTab("statistics")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "statistics" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><BarChart3 className="w-4 h-4 mr-2" /> Estadísticas</button>
-        {/*  NUEVO BOTÓN PARA CIUDADES */}
-        <button onClick={() => setActiveTab("cities")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "cities" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><MapPin className="w-4 h-4 mr-2" /> Zonas de Entrega</button>
-        <button onClick={() => setActiveTab("invoices")} className={`px-6 py-2.5 rounded-xl font-medium transition-all duration-300 cursor-pointer flex items-center whitespace-nowrap ${activeTab === "invoices" ? "bg-white text-[#004080] shadow-sm" : "text-slate-500 hover:text-slate-700"}`}><Receipt className="w-4 h-4 mr-2" /> Factura Electrónica</button>
-      </div>
-
-      {/* 4. RENDERIZADO DINÁMICO DE PESTAÑAS */}
-      {activeTab === "products" && <ProductsTab products={products} categories={categories} fetchData={fetchData} isLoadingData={isLoadingData} />}
-      {activeTab === "categories" && <CategoriesTab categories={categories} fetchData={fetchData} />}
-      {activeTab === "rentals" && <RentalsTab rentals={rentals} products={products} cities={cities} shippingSettings={shippingSettings} pendingOrders={pendingOrders} fetchData={fetchData} isLoadingData={isLoadingData} />}
-      {activeTab === "routes" && <RoutesTab />}
-      {activeTab === "gallery" && <GalleryTab gallery={gallery} fetchData={fetchData} isLoadingData={isLoadingData} />}
-      {activeTab === "statistics" && <StatisticsTab />}
-      {/* RENDERIZAMOS LA PESTAÑA DE CIUDADES */}
-      {activeTab === "cities" && <CitiesTab cities={cities} shippingSettings={shippingSettings} fetchData={fetchData} isLoadingData={isLoadingData} />}
-      {activeTab === "invoices" && <InvoicesTab products={products} />}
-
-    </div>
+      {section === "home" && (
+        <HomeTab
+          rentals={rentals}
+          products={products}
+          pendingOrders={pendingOrders}
+          alerts={alerts}
+          isLoadingData={isLoadingData}
+          now={now}
+          onOpenAlert={openAlert}
+          onOpenRoutes={(date) => navigate("routes", { date })}
+        />
+      )}
+      {section === "rentals" && (
+        <RentalsTab key={`rentals-${openRequest.nonce}`} {...rentalsProps} initialSearch={openRequest.search} startWithNewForm={openRequest.newForm} />
+      )}
+      {section === "calendar" && <RentalsTab key={`calendar-${openRequest.nonce}`} {...rentalsProps} initialView="calendario" />}
+      {section === "routes" && <RoutesTab key={`routes-${openRequest.nonce}`} initialDate={openRequest.date} />}
+      {section === "invoices" && <InvoicesTab products={products} />}
+      {section === "products" && (
+        <ProductsTab key={`products-${openRequest.nonce}`} products={products} categories={categories} fetchData={fetchData} isLoadingData={isLoadingData} initialSearch={openRequest.search} />
+      )}
+      {section === "categories" && <CategoriesTab categories={categories} fetchData={fetchData} />}
+      {section === "gallery" && <GalleryTab gallery={gallery} fetchData={fetchData} isLoadingData={isLoadingData} />}
+      {section === "cities" && <CitiesTab cities={cities} shippingSettings={shippingSettings} fetchData={fetchData} isLoadingData={isLoadingData} />}
+      {section === "statistics" && <StatisticsTab />}
+    </AdminShell>
   );
 }

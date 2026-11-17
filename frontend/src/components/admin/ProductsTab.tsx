@@ -9,9 +9,10 @@ import type { Product, Category } from "../../types";
 
 const formatPYG = (amount: number) => `Gs. ${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")}`;
 
-export default function ProductsTab({ products, categories, fetchData, isLoadingData }: { products: Product[], categories: Category[], fetchData: () => void, isLoadingData: boolean }) {
+// initialSearch: el buscador de arriba del panel abre la pestaña ya filtrada.
+export default function ProductsTab({ products, categories, fetchData, isLoadingData, initialSearch = "" }: { products: Product[], categories: Category[], fetchData: () => void, isLoadingData: boolean, initialSearch?: string }) {
   const toast = useToast();
-  const [searchProduct, setSearchProduct] = useState("");
+  const [searchProduct, setSearchProduct] = useState(initialSearch);
   const [filterCategory, setFilterCategory] = useState(""); // 👈 NUEVO ESTADO PARA EL FILTRO
   const [onlyLowStock, setOnlyLowStock] = useState(false);
   
