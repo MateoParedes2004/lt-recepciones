@@ -46,3 +46,37 @@ function normalizePem(raw: string | undefined): string | undefined {
   if (!value) return undefined;
   return value.replace(/\\n/g, '\n');
 }
+
+/** Conexiones por defecto del backend (ver poolLimits). */
+export const DEFAULT_POOL_MAX = 4;
+
+/**
+ * Cuántas conexiones abre el backend y cuánto las mantiene.
+ *
+ * El plan gratis de Aiven tiene 1 GB de RAM y un tope de 20 conexiones, y
+ * cada conexión es un proceso de Postgres que ocupa memoria. Con el valor por
+ * defecto de `pg` (10), abrir el panel —que pide ~10 datos en paralelo— podía
+ * crear 10 procesos de golpe, y durante un despliegue en Render (la versión
+ * vieja y la nueva conviven unos segundos) hasta 20. Aiven avisó "running low
+ * on memory" y el kernel mató un proceso. Con 4 alcanza: las consultas duran
+ * milisegundos y los pedidos que sobran esperan su turno.
+ *
+ * - DATABASE_POOL_MAX (opcional, 1–20) permite subirlo con un plan más grande.
+ * - idleTimeoutMillis 30 s: no cerrar y volver a abrir procesos a cada rato.
+ * - connectionTimeoutMillis 15 s: si la base no responde (ej. Aiven apagada),
+ *   el pedido falla con un error en vez de quedar colgado para siempre.
+ * - application_name: así se reconocen estas conexiones en el panel de Aiven.
+ */
+export function poolLimits(maxFromEnv: string | undefined): PoolConfig {
+  const parsed = Number(maxFromEnv);
+  const max =
+    Number.isInteger(parsed) && parsed >= 1 && parsed <= 20
+      ? parsed
+      : DEFAULT_POOL_MAX;
+  return {
+    max,
+    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 15_000,
+    application_name: 'lt-backend',
+  };
+}

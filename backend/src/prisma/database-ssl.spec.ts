@@ -1,4 +1,4 @@
-import { poolConfigFor } from './database-ssl';
+import { DEFAULT_POOL_MAX, poolConfigFor, poolLimits } from './database-ssl';
 
 const PEM = '-----BEGIN CERTIFICATE-----\nABC\n-----END CERTIFICATE-----';
 const URL_ =
@@ -41,4 +41,29 @@ describe('poolConfigFor', () => {
       connectionString: undefined,
     });
   });
+});
+
+describe('poolLimits', () => {
+  it('por defecto: 4 conexiones, 30 s de espera, 15 s para conectar', () => {
+    expect(poolLimits(undefined)).toEqual({
+      max: DEFAULT_POOL_MAX,
+      idleTimeoutMillis: 30_000,
+      connectionTimeoutMillis: 15_000,
+      application_name: 'lt-backend',
+    });
+    expect(DEFAULT_POOL_MAX).toBe(4);
+  });
+
+  it('DATABASE_POOL_MAX válido se respeta', () => {
+    expect(poolLimits('1').max).toBe(1);
+    expect(poolLimits('8').max).toBe(8);
+    expect(poolLimits('20').max).toBe(20);
+  });
+
+  it.each(['', '0', '-3', '21', '100', '2.5', 'diez', ' ', 'NaN', 'Infinity'])(
+    'valor inválido %p → el de por defecto (nunca 0 ni más que el tope de Aiven)',
+    (raw) => {
+      expect(poolLimits(raw).max).toBe(DEFAULT_POOL_MAX);
+    },
+  );
 });

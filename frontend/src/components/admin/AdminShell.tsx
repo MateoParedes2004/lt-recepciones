@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { Great_Vibes } from "next/font/google";
 import {
   House, ClipboardList, CalendarDays, Truck, Receipt, Package, Tags, Camera, MapPin, BarChart3, LogOut, Menu, X,
 } from "lucide-react";
@@ -101,15 +102,20 @@ function NavList({ active, onNavigate, badges }: { active: Section; onNavigate: 
   );
 }
 
+// Misma marca que el encabezado del sitio: el logo ya es "LT", y al lado va
+// "Recepciones" en la letra manuscrita (Great Vibes). La fuente se carga acá
+// mismo, como en Header y Footer (no se centraliza en Tailwind a propósito).
+const cursiveFont = Great_Vibes({ subsets: ["latin"], weight: "400" });
+
 function Brand() {
   return (
-    <div className="flex items-center gap-3 px-2">
-      <div className="relative w-10 h-10 shrink-0">
-        <Image src="/logo.png" alt="LT Recepciones" fill sizes="40px" className="object-contain" />
+    <div className="flex items-center gap-2.5 px-2">
+      <div className="relative w-11 h-11 shrink-0">
+        <Image src="/logo.png" alt="LT" fill sizes="44px" className="object-contain" />
       </div>
-      <div className="flex flex-col leading-tight">
-        <span className="font-serif font-bold text-[17px] text-slate-900">LT Recepciones</span>
-        <span className="text-xs text-slate-500">Panel de administración</span>
+      <div className="flex flex-col min-w-0">
+        <span className={`${cursiveFont.className} text-[30px] leading-none text-black pt-1.5`}>Recepciones</span>
+        <span className="text-xs text-slate-500 mt-1 whitespace-nowrap">Panel de administración</span>
       </div>
     </div>
   );
