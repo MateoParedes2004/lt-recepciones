@@ -138,6 +138,11 @@ model RentalItem {
   // caen de vuelta al precio actual del producto para esos casos.
   unitPrice Decimal? @db.Decimal(10, 2)
 
+  // Color elegido por el cliente (opcional). Solo para productos del rubro
+  // "Manteles" (lo valida RentalsService); aparece en el presupuesto, ej.
+  // "Mantel para Tablón (Negro)". Nulo = todavía no eligió color.
+  color     String?
+
   // Conexión con el Alquiler general
   rentalId  Int
   rental    Rental   @relation(fields: [rentalId], references: [id], onDelete: Cascade)

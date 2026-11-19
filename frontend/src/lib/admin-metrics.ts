@@ -9,6 +9,7 @@
 //   ambos inclusive; si está atrasado, hasta hoy. Los DEVUELTO, hasta su devolución.
 
 import type { CheckoutIntent, Product, Rental } from "../types";
+import { describeWithColor } from "./manteles";
 
 export const DAY_MS = 86_400_000;
 /** Paraguay está en UTC-3 todo el año (desde octubre de 2024). */
@@ -115,7 +116,7 @@ export function futureBooked(rentals: Rental[], today: number): { total: number;
 /** "60 Sillas Tiffany · 8 Mesas redondas · +2 más" */
 export function itemsSummary(r: Rental, max = 2): string {
   const items = [...(r.items ?? [])].sort((a, b) => b.quantity - a.quantity);
-  const parts = items.slice(0, max).map((i) => `${i.quantity} ${i.product?.name ?? "producto"}`);
+  const parts = items.slice(0, max).map((i) => `${i.quantity} ${describeWithColor(i.product?.name ?? "producto", i.color)}`);
   if (items.length > max) parts.push(`+${items.length - max} más`);
   return parts.join(" · ") || "Sin productos";
 }

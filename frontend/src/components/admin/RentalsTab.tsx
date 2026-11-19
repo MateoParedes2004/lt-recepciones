@@ -9,6 +9,7 @@ import { useToast } from "./ToastProvider";
 import InvoiceFormModal from "./InvoiceFormModal";
 import type { Product, Rental, City, RentalPhase, CheckoutIntent, ShippingSettings, InvoiceSettingsView, LocateResult } from "../../types";
 import { quoteShipping } from "../../lib/shipping";
+import { MAX_COLOR_LENGTH, describeWithColor, isMantelesCategory } from "../../lib/manteles";
 import { formatKm, mapsDirectionsUrl, mapsPointUrl } from "../../lib/maps";
 import { BUSINESS, toWhatsappNumber, whatsappLinkTo } from "../../lib/site";
 import RentalsCalendar from "./RentalsCalendar";
@@ -30,7 +31,8 @@ const toInputDate = (iso: string) => new Date(iso).toISOString().slice(0, 10);
 // Los <input> entregan texto: la cantidad y los precios pueden ser string mientras se editan.
 // unitPrice/shippingPrice son editables a mano: la cotización real suele diferir
 // del catálogo (descuentos, recargos, distancia, acuerdos puntuales).
-interface RentalFormItem { productId: string; quantity: number | string; unitPrice: number | string }
+// color: solo para productos del rubro "Manteles" (opcional; "" = sin elegir).
+interface RentalFormItem { productId: string; quantity: number | string; unitPrice: number | string; color: string }
 // Ubicación exacta de entrega ya leída por el servidor (POST /routing/locate).
 // method/durationMinutes/provider/warning solo existen recién calculada; al
 // editar un alquiler guardado se conocen el punto y los km.
@@ -39,7 +41,7 @@ interface DeliveryPoint { lat: number; lng: number; km: number | null; method?: 
 // leído. Si se cambia el texto, el punto se descarta hasta volver a calcular.
 interface RentalForm { clientName: string; clientPhone: string; cityId: string; shippingPrice: number | string; eventDate: string; returnDate: string; items: RentalFormItem[]; deliveryInput: string; deliveryAddress: string; delivery: DeliveryPoint | null; deliveryFrom: string; deliveryTo: string; pickupFrom: string; pickupTo: string }
 
-const EMPTY_FORM: RentalForm = { clientName: "", clientPhone: "", cityId: "", shippingPrice: "", eventDate: "", returnDate: "", items: [{ productId: "", quantity: 1, unitPrice: "" }], deliveryInput: "", deliveryAddress: "", delivery: null, deliveryFrom: "", deliveryTo: "", pickupFrom: "", pickupTo: "" };
+const EMPTY_FORM: RentalForm = { clientName: "", clientPhone: "", cityId: "", shippingPrice: "", eventDate: "", returnDate: "", items: [{ productId: "", quantity: 1, unitPrice: "", color: "" }], deliveryInput: "", deliveryAddress: "", delivery: null, deliveryFrom: "", deliveryTo: "", pickupFrom: "", pickupTo: "" };
 
 // La ubicación guardada de un alquiler, como la espera el formulario.
 const deliveryFormFields = (r: Rental): Pick<RentalForm, "deliveryInput" | "deliveryAddress" | "delivery" | "deliveryFrom" | "deliveryTo" | "pickupFrom" | "pickupTo"> => {
@@ -165,15 +167,17 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
   // Productos del selector: los del catálogo + los que ya tiene el alquiler que se edita
   // (aunque hayan sido dados de baja después, para no perderlos al editar).
   const productOptions = useMemo(() => {
-    const list: { id: number; name: string; pricePerDay: number; totalStock: number; archived: boolean }[] =
-      products.map((p) => ({ id: p.id, name: p.name, pricePerDay: p.pricePerDay, totalStock: p.totalStock, archived: false }));
+    const list: { id: number; name: string; pricePerDay: number; totalStock: number; archived: boolean; categoryName?: string }[] =
+      products.map((p) => ({ id: p.id, name: p.name, pricePerDay: p.pricePerDay, totalStock: p.totalStock, archived: false, categoryName: p.category?.name }));
     for (const item of editingRental?.items ?? []) {
       if (item.product && !list.some((p) => p.id === item.productId)) {
-        list.push({ id: item.productId, name: item.product.name, pricePerDay: item.product.pricePerDay, totalStock: item.product.totalStock, archived: true });
+        list.push({ id: item.productId, name: item.product.name, pricePerDay: item.product.pricePerDay, totalStock: item.product.totalStock, archived: true, categoryName: item.product.category?.name });
       }
     }
     return list;
   }, [products, editingRental]);
+  // ¿Este producto es del rubro "Manteles"? Solo esos llevan color.
+  const isMantelProduct = (productId: number) => isMantelesCategory(productOptions.find((p) => p.id === productId)?.categoryName);
 
   // Disponibilidad real para las fechas elegidas. El propio alquiler que se
   // edita no cuenta como ocupación (excludeRentalId), y se ignora una respuesta
@@ -210,7 +214,7 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
       shippingPrice: r.shippingPrice ?? 0,
       eventDate: toInputDate(r.eventDate),
       returnDate: toInputDate(r.returnDate),
-      items: r.items.map((i) => ({ productId: String(i.productId), quantity: i.quantity, unitPrice: i.unitPrice ?? i.product?.pricePerDay ?? 0 })),
+      items: r.items.map((i) => ({ productId: String(i.productId), quantity: i.quantity, unitPrice: i.unitPrice ?? i.product?.pricePerDay ?? 0, color: i.color ?? "" })),
       ...deliveryFormFields(r),
     });
     // Los km de la ubicación exacta, si la tiene, valen más que los de la ciudad.
@@ -231,7 +235,7 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
     const dropped = intent.items.filter((i) => !products.some((p) => p.id === i.productId));
     const items = intent.items
       .filter((i) => products.some((p) => p.id === i.productId))
-      .map((i) => ({ productId: String(i.productId), quantity: i.quantity, unitPrice: products.find((p) => p.id === i.productId)?.pricePerDay ?? 0 }));
+      .map((i) => ({ productId: String(i.productId), quantity: i.quantity, unitPrice: products.find((p) => p.id === i.productId)?.pricePerDay ?? 0, color: "" }));
     // El pedido pudo haber pedido un producto que después se dio de baja o se
     // borró: en vez de precargar menos ítems de los que el cliente pidió sin
     // decir nada, avisa cuáles quedaron afuera para que se agreguen a mano.
@@ -245,7 +249,7 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
       shippingPrice: matchedCity ? matchedCity.price : "",
       eventDate: intent.eventDate ? toInputDate(intent.eventDate) : "",
       returnDate: intent.returnDate ? toInputDate(intent.returnDate) : "",
-      items: items.length > 0 ? items : [{ productId: "", quantity: 1, unitPrice: "" }],
+      items: items.length > 0 ? items : [{ productId: "", quantity: 1, unitPrice: "", color: "" }],
       deliveryInput: "",
       deliveryAddress: "",
       delivery: null,
@@ -282,9 +286,9 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
     [editingRental, productOptions],
   );
 
-  const addRentalItem = () => { setRentalForm({ ...rentalForm, items: [...rentalForm.items, { productId: "", quantity: 1, unitPrice: "" }] }); };
+  const addRentalItem = () => { setRentalForm({ ...rentalForm, items: [...rentalForm.items, { productId: "", quantity: 1, unitPrice: "", color: "" }] }); };
   const removeRentalItem = (index: number) => { const newItems = rentalForm.items.filter((_, i) => i !== index); setRentalForm({ ...rentalForm, items: newItems }); };
-  const updateRentalItem = (index: number, field: "quantity" | "unitPrice", value: string | number) => {
+  const updateRentalItem = (index: number, field: "quantity" | "unitPrice" | "color", value: string | number) => {
     const newItems = rentalForm.items.map((item, i) => (i === index ? { ...item, [field]: value } : item));
     setRentalForm({ ...rentalForm, items: newItems });
   };
@@ -293,7 +297,9 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
   // updateRentalItem si se llamaran por separado).
   const updateRentalItemProduct = (index: number, newProductId: string) => {
     const pid = newProductId ? parseInt(newProductId) : null;
-    const newItems = rentalForm.items.map((item, i) => (i === index ? { ...item, productId: newProductId, unitPrice: pid !== null ? defaultPriceFor(pid) : "" } : item));
+    // El color solo existe en los manteles: al pasar a otro tipo de producto se borra.
+    const keepsColor = pid !== null && isMantelProduct(pid);
+    const newItems = rentalForm.items.map((item, i) => (i === index ? { ...item, productId: newProductId, unitPrice: pid !== null ? defaultPriceFor(pid) : "", color: keepsColor ? item.color : "" } : item));
     setRentalForm({ ...rentalForm, items: newItems });
   };
   // Igual que arriba, pero para la ciudad: precarga el envío con el precio
@@ -472,6 +478,14 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
           productId: parseInt(item.productId),
           quantity: parseInt(item.quantity.toString()),
           unitPrice: Number(item.unitPrice) || 0,
+          // Sin color elegido, el campo NI SE MANDA (el servidor lo guarda como "sin
+          // color"). Así, si Vercel publica antes que Render, el servidor viejo —que
+          // no conoce este campo y rechaza los desconocidos— sigue aceptando todos
+          // los alquileres sin color. La celda de color solo existe en los manteles
+          // (y se vacía al cambiar a otro producto), así que un color escrito acá
+          // siempre es de un mantel; si el servidor no lo considera así, responde
+          // con un error claro en vez de descartarlo en silencio.
+          ...(item.color.trim() ? { color: item.color.trim() } : {}),
         })),
       };
       // Si viene de "Convertir en alquiler" de un pedido por WhatsApp, enlaza
@@ -680,7 +694,7 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
                       {rental.items.map((item, i) => (
                         <li key={i} className="flex items-center gap-2">
                           <span className="font-bold text-[#004080] bg-[#e8f0f8] px-1.5 rounded">{item.quantity}x</span>
-                          <span className="truncate w-40 block">{item.product?.name || 'Producto borrado'}</span>
+                          <span className="truncate w-40 block" title={describeWithColor(item.product?.name || 'Producto borrado', item.color)}>{describeWithColor(item.product?.name || 'Producto borrado', item.color)}</span>
                         </li>
                       ))}
                     </ul>
@@ -966,6 +980,23 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
                               Subtotal: <span className="font-bold text-[#004080]">{formatPYG((Number(item.unitPrice) || 0) * (Number(item.quantity) || 0))}</span>
                               {priceIsZero && <span className="ml-2 font-medium text-amber-600">¿Precio en Gs. 0 a propósito?</span>}
                             </p>
+                          )}
+                          {/* La celda aparece en los manteles, y también si el renglón YA tiene un color guardado
+                              (aunque el rubro haya cambiado de nombre): así nunca se borra en silencio al editar. */}
+                          {productId !== null && (isMantelProduct(productId) || item.color) && (!scheduleLocked || item.color) && (
+                            <label className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                              <span className="font-medium">Color</span>
+                              <input
+                                type="text"
+                                maxLength={MAX_COLOR_LENGTH}
+                                disabled={scheduleLocked}
+                                placeholder="Ej. Negro (opcional)"
+                                aria-label={`Color de ${productOptions.find((p) => p.id === productId)?.name ?? "el mantel"} (opcional)`}
+                                value={item.color}
+                                onChange={(e) => updateRentalItem(index, "color", e.target.value)}
+                                className="w-44 max-w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-[#004080]/25 focus:border-[#004080] outline-none disabled:bg-slate-100 disabled:text-slate-500"
+                              />
+                            </label>
                           )}
                           {over && productId !== null && (() => {
                             const holdersOpen = holdersFor?.productId === productId && holdersFor.eventDate === eventDate && holdersFor.returnDate === returnDate;

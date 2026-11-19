@@ -5,11 +5,14 @@ import { AvailabilityService } from '../availability/availability.service';
 import { paraguayTodayIndex, toDayIndex } from '../common/timezone';
 import { CreateRentalDto, RentalItemDto } from './dto/create-rental.dto';
 import { UpdateRentalDto } from './dto/update-rental.dto';
+import { MANTELES_CATEGORY_NAME, isManteles } from '../common/categories';
+import { findUnprintable } from '../common/printable';
 
 export type RentalPhase = 'PRESUPUESTO' | 'RESERVADO' | 'EN_USO' | 'ATRASADO' | 'DEVUELTO' | 'CANCELADO';
 
 const RENTAL_INCLUDE = {
-  items: { include: { product: true } },
+  // La categoría del producto sirve para saber si lleva color (rubro "Manteles").
+  items: { include: { product: { include: { category: true } } } },
   city: true,
   // Resumen de sus facturas, para que el panel muestre "Factura 001-001-…" o el botón "Realizar factura".
   invoices: {
@@ -144,6 +147,33 @@ export class RentalsService {
     return rental;
   }
 
+  /**
+   * El color del renglón solo existe para productos del rubro "Manteles" y tiene
+   * que poder imprimirse en el PDF del presupuesto. Se rechaza (en vez de
+   * descartarlo en silencio) para que un cliente de la API o un formulario
+   * desactualizado se entere de que el color no se guardó.
+   */
+  private assertColors(
+    items: RentalItemDto[],
+    byId: Map<number, { name: string; category?: { name: string } | null }>,
+  ) {
+    for (const item of items) {
+      if (item.color == null) continue;
+      const product = byId.get(item.productId);
+      if (!isManteles(product?.category?.name)) {
+        throw new BadRequestException(
+          `El color solo se puede indicar en productos del rubro "${MANTELES_CATEGORY_NAME}": "${product?.name ?? item.productId}" no lo es.`,
+        );
+      }
+      const bad = findUnprintable(item.color);
+      if (bad.length > 0) {
+        throw new BadRequestException(
+          `El color tiene caracteres que no se pueden imprimir en el PDF (${bad.join(' ')}). Usá solo letras, números y signos comunes.`,
+        );
+      }
+    }
+  }
+
   // ----------------------------------------------------------------- crear
 
   async create(data: CreateRentalDto) {
@@ -185,7 +215,7 @@ export class RentalsService {
         // Un presupuesto no reserva nada: el stock se revisa recién al confirmarlo.
         if (!isQuote) await this.availability.lockProducts(tx, productIds);
 
-        const products = await tx.product.findMany({ where: { id: { in: productIds } } });
+        const products = await tx.product.findMany({ where: { id: { in: productIds } }, include: { category: true } });
         const byId = new Map(products.map((p) => [p.id, p]));
         for (const productId of productIds) {
           const product = byId.get(productId);
@@ -194,6 +224,7 @@ export class RentalsService {
             throw new BadRequestException(`Producto no encontrado o dado de baja (ID ${productId}).`);
           }
         }
+        this.assertColors(data.items, byId);
 
         if (!isQuote) await this.availability.assertCanFit(tx, wanted, products, eventDate, returnDate);
 
@@ -218,6 +249,7 @@ export class RentalsService {
                 quantity: item.quantity,
                 productId: item.productId,
                 unitPrice: priceFor(item),
+                color: item.color ?? null,
               })),
             },
           },
@@ -329,7 +361,7 @@ export class RentalsService {
             wanted.size === currentWanted.size && [...wanted].every(([productId, qty]) => currentWanted.get(productId) === qty);
 
           if (!isQuote) await this.availability.lockProducts(tx, productIds);
-          const products = await tx.product.findMany({ where: { id: { in: productIds } } });
+          const products = await tx.product.findMany({ where: { id: { in: productIds } }, include: { category: true } });
           const byId = new Map(products.map((p) => [p.id, p]));
           for (const productId of productIds) {
             const product = byId.get(productId);
@@ -338,6 +370,7 @@ export class RentalsService {
               throw new BadRequestException(`Producto no encontrado o dado de baja (ID ${productId}).`);
             }
           }
+          if (data.items) this.assertColors(data.items, byId);
 
           // Solo se revisa el stock si algo relevante cambió; el propio alquiler
           // no cuenta como ocupación (excludeRentalId) para no chocar consigo
@@ -362,7 +395,7 @@ export class RentalsService {
             update.totalPrice = itemsSubtotal + shippingPrice;
             update.items = {
               deleteMany: {},
-              create: data.items.map((item) => ({ quantity: item.quantity, productId: item.productId, unitPrice: priceFor(item) })),
+              create: data.items.map((item) => ({ quantity: item.quantity, productId: item.productId, unitPrice: priceFor(item), color: item.color ?? null })),
             };
           }
         }

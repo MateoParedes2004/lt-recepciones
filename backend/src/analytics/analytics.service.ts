@@ -14,6 +14,7 @@ import {
   utcToParaguayDate,
 } from '../common/timezone';
 import { deviceFromUserAgent, isBotUserAgent } from '../common/user-agent';
+import { MANTELES_CATEGORY_NAME } from '../common/categories';
 import {
   anticipationShare,
   clientKey,
@@ -80,9 +81,9 @@ const MONTH_NAMES = [
 ];
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-// Nombre exacto del rubro de manteles: lo usa la estadística "alquileres con
-// manteles". Si se renombra el rubro en el panel, hay que actualizar esta constante.
-const NOMBRE_RUBRO_MANTELES = 'Manteles';
+// Nombre exacto del rubro de manteles (compartido con el color de los renglones
+// de un alquiler: ver common/categories.ts).
+const NOMBRE_RUBRO_MANTELES = MANTELES_CATEGORY_NAME;
 
 @Injectable()
 export class AnalyticsService {

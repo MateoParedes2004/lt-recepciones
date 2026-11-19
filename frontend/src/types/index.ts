@@ -71,6 +71,8 @@ export interface RentalItem {
   id: number;
   quantity: number;
   unitPrice?: number | null;
+  /** Color elegido por el cliente (solo productos del rubro "Manteles"; null = sin elegir). */
+  color?: string | null;
   rentalId: number;
   productId: number;
   product?: Product;

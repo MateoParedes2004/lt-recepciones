@@ -13,3 +13,14 @@ export const cleanText = ({ value }: { value: unknown }): unknown =>
 /** Para @Transform: un texto vacío (o solo espacios) pasa a null. Sirve para campos opcionales que el panel manda como "" cuando se borran. */
 export const emptyToNull = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' && value.trim() === '' ? null : value;
+
+/**
+ * Para @Transform de un texto corto de una sola línea y opcional (ej. el color
+ * de un mantel): normaliza a NFC, junta los espacios y saltos de línea en un
+ * solo espacio y lo recorta. Si queda vacío, pasa a null. Lo que no es texto
+ * se deja como está para que la validación lo rechace.
+ */
+export const cleanLabel = ({ value }: { value: unknown }): unknown =>
+  typeof value === 'string'
+    ? emptyToNull({ value: value.normalize('NFC').replace(/\s+/g, ' ').trim() })
+    : value;

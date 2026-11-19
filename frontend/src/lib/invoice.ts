@@ -2,6 +2,7 @@
 // reglas fiscales "de verdad" las aplica el backend (backend/src/invoices/fiscal.ts);
 // acá se repiten solo para mostrar la vista previa y avisar errores antes de enviar.
 import type { IvaRate, Rental } from "../types";
+import { describeWithColor } from "./manteles";
 
 /** 1705000 → "1.705.000" */
 export const formatThousands = (n: number) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
@@ -80,7 +81,8 @@ export function computeTotals(lines: Pick<InvoiceLine, "quantity" | "unitPrice" 
  */
 export function linesFromRental(rental: Rental): InvoiceLine[] {
   const lines: InvoiceLine[] = rental.items.map((item) => ({
-    description: item.product?.name ?? "Producto",
+    // Un mantel con color elegido sale como "Mantel para Tablón (Negro)".
+    description: describeWithColor(item.product?.name ?? "Producto", item.color),
     quantity: item.quantity,
     unitPrice: Math.round(Number(item.unitPrice ?? item.product?.pricePerDay ?? 0)),
     ivaRate: 10,

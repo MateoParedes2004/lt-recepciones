@@ -14,7 +14,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
-import { emptyToNull, trimString } from '../../common/trim';
+import { cleanLabel, emptyToNull, trimString } from '../../common/trim';
 
 // AAAA-MM-DD puro, opcionalmente con la medianoche UTC exacta que produce
 // `new Date(...).toISOString()` (el panel siempre manda esa forma). Todo el
@@ -44,6 +44,15 @@ export class RentalItemDto {
   @Min(0)
   @Max(1_000_000_000)
   unitPrice?: number;
+
+  // Color que eligió el cliente (opcional, ej. "Negro"). Solo vale para
+  // productos del rubro "Manteles": el servidor lo rechaza en cualquier otro
+  // (ver RentalsService.assertColors). Vacío = sin color elegido todavía.
+  @IsOptional()
+  @Transform(cleanLabel)
+  @IsString()
+  @MaxLength(40)
+  color?: string | null;
 }
 
 export class CreateRentalDto {
