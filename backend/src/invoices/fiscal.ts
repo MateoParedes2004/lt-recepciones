@@ -58,7 +58,7 @@ export function parseCalendarDate(raw: string): Date | null {
 }
 
 // Los caracteres que se pueden imprimir en el PDF viven en common/printable.ts
-// (los usa también el color de los manteles); se re-exportan para no mover a quien ya los importa.
+// (los usa también el color de manteles y servilletas); se re-exportan para no mover a quien ya los importa.
 export { findUnprintable, isPrintableChar } from '../common/printable';
 
 export type IvaRate = 0 | 5 | 10;

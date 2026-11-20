@@ -46,7 +46,7 @@ export class RentalItemDto {
   unitPrice?: number;
 
   // Color que eligió el cliente (opcional, ej. "Negro"). Solo vale para
-  // productos del rubro "Manteles": el servidor lo rechaza en cualquier otro
+  // manteles y servilletas: el servidor lo rechaza en cualquier otro
   // (ver RentalsService.assertColors). Vacío = sin color elegido todavía.
   @IsOptional()
   @Transform(cleanLabel)

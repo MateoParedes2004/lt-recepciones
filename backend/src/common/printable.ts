@@ -1,6 +1,6 @@
 /**
  * Qué caracteres puede dibujar la fuente de los PDF (presupuestos y facturas).
- * Lo comparten las facturas y el color de los manteles de un alquiler: ambos
+ * Lo comparten las facturas y el color de los manteles y servilletas de un alquiler: ambos
  * se imprimen y no pueden salir como basura. (El frontend tiene su copia en
  * frontend/src/lib/invoice.ts › toPrintable, que además limpia el texto.)
  */

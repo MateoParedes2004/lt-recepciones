@@ -5,13 +5,13 @@ import { AvailabilityService } from '../availability/availability.service';
 import { paraguayTodayIndex, toDayIndex } from '../common/timezone';
 import { CreateRentalDto, RentalItemDto } from './dto/create-rental.dto';
 import { UpdateRentalDto } from './dto/update-rental.dto';
-import { MANTELES_CATEGORY_NAME, isManteles } from '../common/categories';
+import { acceptsColor } from '../common/categories';
 import { findUnprintable } from '../common/printable';
 
 export type RentalPhase = 'PRESUPUESTO' | 'RESERVADO' | 'EN_USO' | 'ATRASADO' | 'DEVUELTO' | 'CANCELADO';
 
 const RENTAL_INCLUDE = {
-  // La categoría del producto sirve para saber si lleva color (rubro "Manteles").
+  // La categoría del producto sirve para saber si lleva color (manteles y servilletas).
   items: { include: { product: { include: { category: true } } } },
   city: true,
   // Resumen de sus facturas, para que el panel muestre "Factura 001-001-…" o el botón "Realizar factura".
@@ -148,7 +148,7 @@ export class RentalsService {
   }
 
   /**
-   * El color del renglón solo existe para productos del rubro "Manteles" y tiene
+   * El color del renglón solo existe para manteles y servilletas y tiene
    * que poder imprimirse en el PDF del presupuesto. Se rechaza (en vez de
    * descartarlo en silencio) para que un cliente de la API o un formulario
    * desactualizado se entere de que el color no se guardó.
@@ -160,9 +160,9 @@ export class RentalsService {
     for (const item of items) {
       if (item.color == null) continue;
       const product = byId.get(item.productId);
-      if (!isManteles(product?.category?.name)) {
+      if (!acceptsColor(product?.category?.name, product?.name)) {
         throw new BadRequestException(
-          `El color solo se puede indicar en productos del rubro "${MANTELES_CATEGORY_NAME}": "${product?.name ?? item.productId}" no lo es.`,
+          `El color solo se puede indicar en manteles y servilletas: "${product?.name ?? item.productId}" no lo es.`,
         );
       }
       const bad = findUnprintable(item.color);

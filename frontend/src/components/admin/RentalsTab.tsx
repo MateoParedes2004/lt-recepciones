@@ -9,7 +9,7 @@ import { useToast } from "./ToastProvider";
 import InvoiceFormModal from "./InvoiceFormModal";
 import type { Product, Rental, City, RentalPhase, CheckoutIntent, ShippingSettings, InvoiceSettingsView, LocateResult } from "../../types";
 import { quoteShipping } from "../../lib/shipping";
-import { MAX_COLOR_LENGTH, describeWithColor, isMantelesCategory } from "../../lib/manteles";
+import { MAX_COLOR_LENGTH, acceptsColor, describeWithColor } from "../../lib/manteles";
 import { formatKm, mapsDirectionsUrl, mapsPointUrl } from "../../lib/maps";
 import { BUSINESS, toWhatsappNumber, whatsappLinkTo } from "../../lib/site";
 import RentalsCalendar from "./RentalsCalendar";
@@ -31,7 +31,7 @@ const toInputDate = (iso: string) => new Date(iso).toISOString().slice(0, 10);
 // Los <input> entregan texto: la cantidad y los precios pueden ser string mientras se editan.
 // unitPrice/shippingPrice son editables a mano: la cotización real suele diferir
 // del catálogo (descuentos, recargos, distancia, acuerdos puntuales).
-// color: solo para productos del rubro "Manteles" (opcional; "" = sin elegir).
+// color: solo para manteles y servilletas (opcional; "" = sin elegir).
 interface RentalFormItem { productId: string; quantity: number | string; unitPrice: number | string; color: string }
 // Ubicación exacta de entrega ya leída por el servidor (POST /routing/locate).
 // method/durationMinutes/provider/warning solo existen recién calculada; al
@@ -176,8 +176,11 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
     }
     return list;
   }, [products, editingRental]);
-  // ¿Este producto es del rubro "Manteles"? Solo esos llevan color.
-  const isMantelProduct = (productId: number) => isMantelesCategory(productOptions.find((p) => p.id === productId)?.categoryName);
+  // ¿Este producto lleva color (mantel o servilleta)? Solo esos tienen la celda.
+  const isColorProduct = (productId: number) => {
+    const p = productOptions.find((o) => o.id === productId);
+    return acceptsColor(p?.categoryName, p?.name);
+  };
 
   // Disponibilidad real para las fechas elegidas. El propio alquiler que se
   // edita no cuenta como ocupación (excludeRentalId), y se ignora una respuesta
@@ -297,8 +300,8 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
   // updateRentalItem si se llamaran por separado).
   const updateRentalItemProduct = (index: number, newProductId: string) => {
     const pid = newProductId ? parseInt(newProductId) : null;
-    // El color solo existe en los manteles: al pasar a otro tipo de producto se borra.
-    const keepsColor = pid !== null && isMantelProduct(pid);
+    // El color solo existe en manteles y servilletas: al pasar a otro tipo de producto se borra.
+    const keepsColor = pid !== null && isColorProduct(pid);
     const newItems = rentalForm.items.map((item, i) => (i === index ? { ...item, productId: newProductId, unitPrice: pid !== null ? defaultPriceFor(pid) : "", color: keepsColor ? item.color : "" } : item));
     setRentalForm({ ...rentalForm, items: newItems });
   };
@@ -481,9 +484,9 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
           // Sin color elegido, el campo NI SE MANDA (el servidor lo guarda como "sin
           // color"). Así, si Vercel publica antes que Render, el servidor viejo —que
           // no conoce este campo y rechaza los desconocidos— sigue aceptando todos
-          // los alquileres sin color. La celda de color solo existe en los manteles
-          // (y se vacía al cambiar a otro producto), así que un color escrito acá
-          // siempre es de un mantel; si el servidor no lo considera así, responde
+          // los alquileres sin color. La celda de color solo existe en manteles y
+          // servilletas (y se vacía al cambiar a otro producto), así que un color
+          // escrito acá siempre es de uno de ellos; si el servidor no lo considera así, responde
           // con un error claro en vez de descartarlo en silencio.
           ...(item.color.trim() ? { color: item.color.trim() } : {}),
         })),
@@ -981,9 +984,9 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
                               {priceIsZero && <span className="ml-2 font-medium text-amber-600">¿Precio en Gs. 0 a propósito?</span>}
                             </p>
                           )}
-                          {/* La celda aparece en los manteles, y también si el renglón YA tiene un color guardado
+                          {/* La celda aparece en manteles y servilletas, y también si el renglón YA tiene un color guardado
                               (aunque el rubro haya cambiado de nombre): así nunca se borra en silencio al editar. */}
-                          {productId !== null && (isMantelProduct(productId) || item.color) && (!scheduleLocked || item.color) && (
+                          {productId !== null && (isColorProduct(productId) || item.color) && (!scheduleLocked || item.color) && (
                             <label className="mt-2 flex items-center gap-2 text-xs text-slate-500">
                               <span className="font-medium">Color</span>
                               <input

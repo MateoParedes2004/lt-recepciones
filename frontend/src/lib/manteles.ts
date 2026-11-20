@@ -1,4 +1,4 @@
-// Color opcional de los productos del rubro "Manteles" en un alquiler.
+// Color opcional de los manteles y las servilletas en un alquiler.
 // Espejo de backend/src/common/categories.ts: si se renombra el rubro en el
 // panel, hay que cambiar el nombre en los dos lados.
 
@@ -11,6 +11,16 @@ const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCa
 /** ¿Este nombre de rubro es el de manteles? (sin importar mayúsculas ni tildes) */
 export function isMantelesCategory(categoryName: string | null | undefined): boolean {
   return !!categoryName && norm(categoryName) === norm(MANTELES_CATEGORY_NAME);
+}
+
+/** Servilletas: el rubro "Servilletas" o un producto cuyo nombre diga "servilleta(s)". */
+export function isServilletas(name: string | null | undefined): boolean {
+  return !!name && norm(name).includes("servilleta");
+}
+
+/** ¿Este producto lleva color elegido por el cliente? Manteles (rubro) y servilletas (rubro o nombre). */
+export function acceptsColor(categoryName: string | null | undefined, productName: string | null | undefined): boolean {
+  return isMantelesCategory(categoryName) || isServilletas(categoryName) || isServilletas(productName);
 }
 
 /**

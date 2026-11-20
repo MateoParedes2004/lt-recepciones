@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { MANTELES_CATEGORY_NAME, isManteles } from '../../common/categories';
+import { MANTELES_CATEGORY_NAME, acceptsColor, isManteles } from '../../common/categories';
 import { RentalItemDto } from './create-rental.dto';
 
 const parse = async (color: unknown) => {
@@ -25,6 +25,20 @@ describe('isManteles', () => {
     expect(isManteles('')).toBe(false);
     expect(isManteles(null)).toBe(false);
     expect(isManteles(undefined)).toBe(false);
+  });
+});
+
+describe('acceptsColor', () => {
+  it('lleva color: manteles (rubro) y servilletas (rubro o nombre del producto)', () => {
+    expect(acceptsColor('Manteles', 'Mantel para Tablón')).toBe(true);
+    expect(acceptsColor('Cubiertos y complementos', 'Servilletas')).toBe(true);
+    expect(acceptsColor('Cubiertos y complementos', '  SERVILLETA de tela ')).toBe(true);
+    expect(acceptsColor('Servilletas', 'Lino')).toBe(true);
+  });
+  it('no lleva color: el resto', () => {
+    expect(acceptsColor('Sillas', 'Sillas Tiffany')).toBe(false);
+    expect(acceptsColor('Cubiertos y complementos', 'Tenedor Acero Inox')).toBe(false);
+    expect(acceptsColor(null, undefined)).toBe(false);
   });
 });
 
