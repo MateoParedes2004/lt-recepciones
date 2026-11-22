@@ -1,4 +1,5 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import {
@@ -10,6 +11,7 @@ import {
 } from './admin-ip';
 import { AdminIpGuard } from './admin-ip.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
+import type { PrismaService } from '../prisma/prisma.service';
 
 describe('normalizeIp', () => {
   it.each([
@@ -115,9 +117,24 @@ describe('guards con ADMIN_ALLOWED_IPS', () => {
             headers: token ? { authorization: `Bearer ${token}` } : {},
           }) as unknown as Request,
       }),
-    }) as ExecutionContext;
+      getHandler: () => () => undefined,
+      getClass: () => class {},
+    }) as unknown as ExecutionContext;
 
   const jwt = new JwtService({ secret: 'secreto-de-prueba' });
+  // Una cuenta de dueño activa, como la devolvería la base.
+  const prismaWithAdmin = {
+    user: {
+      findUnique: () =>
+        Promise.resolve({
+          role: 'ADMIN',
+          email: 'a@b.c',
+          name: 'A',
+          isActive: true,
+          tokenVersion: 0,
+        }),
+    },
+  } as unknown as PrismaService;
 
   beforeEach(() => resetAdminIpPolicyCache());
   afterEach(() => {
@@ -162,7 +179,9 @@ describe('guards con ADMIN_ALLOWED_IPS', () => {
       role: 'ADMIN',
     });
     await expect(
-      new JwtAuthGuard(jwt).canActivate(ctx('8.8.8.8', token)),
+      new JwtAuthGuard(jwt, prismaWithAdmin, new Reflector()).canActivate(
+        ctx('8.8.8.8', token),
+      ),
     ).resolves.toBe(true);
   });
 });

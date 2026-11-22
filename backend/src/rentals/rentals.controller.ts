@@ -1,21 +1,28 @@
-import { Controller, Get, Post, Body, Param, Put, Patch, Delete, Query, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Put, Patch, Delete, Query, UseGuards, ParseIntPipe, Req } from '@nestjs/common';
 import { RentalsService } from './rentals.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import type { Request } from 'express';
+import { JwtAuthGuard, type AuthenticatedUser } from '../auth/jwt-auth.guard';
+import { AllowRoles } from '../auth/roles';
 import { CreateRentalDto } from './dto/create-rental.dto';
 import { UpdateRentalDto } from './dto/update-rental.dto';
 import { RentalAvailabilityQueryDto } from './dto/availability-query.dto';
 import { ProductHoldersQueryDto } from './dto/product-holders-query.dto';
 
-// Todo el módulo de alquileres es de uso exclusivo del panel admin
-// (el checkout público no pasa por el backend, redirige a WhatsApp).
+// Todo el módulo de alquileres es de uso exclusivo del panel (el checkout
+// público no pasa por el backend, redirige a WhatsApp). Presupuestos,
+// alquileres, devolver y anular: también el Vendedor.
 @UseGuards(JwtAuthGuard)
+@AllowRoles('VENDEDOR')
 @Controller('rentals')
 export class RentalsController {
   constructor(private readonly rentalsService: RentalsService) {}
 
   @Post()
-  create(@Body() data: CreateRentalDto) {
-    return this.rentalsService.create(data);
+  create(
+    @Body() data: CreateRentalDto,
+    @Req() req: Request & { user: AuthenticatedUser },
+  ) {
+    return this.rentalsService.create(data, req.user.sub);
   }
 
   @Get()

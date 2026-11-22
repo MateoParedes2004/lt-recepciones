@@ -19,6 +19,8 @@ const RENTAL_INCLUDE = {
     select: { id: true, establishment: true, expeditionPoint: true, number: true, status: true, environment: true },
     orderBy: { id: 'desc' },
   },
+  // Quién cargó el presupuesto o alquiler (solo el nombre).
+  createdBy: { select: { name: true } },
 } satisfies Prisma.RentalInclude;
 
 type RentalItemInput = { productId: number; quantity: number };
@@ -176,7 +178,8 @@ export class RentalsService {
 
   // ----------------------------------------------------------------- crear
 
-  async create(data: CreateRentalDto) {
+  /** `createdById`: quién lo carga (el usuario de la sesión), para mostrar "Cargado por". */
+  async create(data: CreateRentalDto, createdById?: number) {
     const { eventDate, returnDate } = this.parseDates(data.eventDate, data.returnDate);
     // Un pedido por WhatsApp también puede pasar a presupuesto (el cliente
     // todavía no confirmó): el pedido queda atendido y enlazado, y las
@@ -236,6 +239,7 @@ export class RentalsService {
         const created = await tx.rental.create({
           data: {
             clientName: data.clientName,
+            createdById: createdById ?? null,
             clientPhone: data.clientPhone || '',
             status: isQuote ? 'PRESUPUESTO' : 'ACTIVO',
             eventDate,

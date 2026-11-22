@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es-PY">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex" />
+    <meta name="theme-color" content="#004080" />
+    <title>Sin conexión · LT Panel</title>
+    <style>
+      :root { color-scheme: light; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+        padding: 24px; background: #f4f7fb; color: #0f172a;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; text-align: center;
+      }
+      main { max-width: 340px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+      img { width: 72px; height: 72px; border-radius: 18px; }
+      h1 { margin: 6px 0 0; font-size: 20px; }
+      p { margin: 0; color: #475569; font-size: 15px; line-height: 1.45; }
+      button {
+        margin-top: 8px; min-height: 48px; padding: 0 28px; border: 0; border-radius: 14px;
+        background: #004080; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/panel-icon-192.png" alt="" />
+      <h1>Sin conexión a internet</h1>
+      <p>El panel necesita internet para mostrar precios, stock y presupuestos actualizados.</p>
+      <p>Revisá el wifi o los datos móviles y volvé a intentar.</p>
+      <button type="button" onclick="location.reload()">Reintentar</button>
+    </main>
+    <script>
+      // Apenas vuelve la conexión, recarga solo.
+      window.addEventListener("online", () => location.reload());
+    </script>
+  </body>
+</html>

@@ -50,10 +50,20 @@ model User {
   name      String
   email     String   @unique
   password  String   // Aquí guardaremos la contraseña encriptada (nunca en texto plano)
-  role      String   @default("ADMIN") // Por ahora, el que se registre será Administrador
+  // "ADMIN" = dueño (entra a todo) | "VENDEDOR" = presupuestos, alquileres,
+  // anular y facturar (ver auth/roles.ts). Los usuarios ya creados quedan ADMIN.
+  role      String   @default("ADMIN")
+  // Una cuenta desactivada no puede entrar y sus sesiones abiertas se cortan.
+  // No se borran usuarios: sus presupuestos y facturas conservan quién los hizo.
+  isActive  Boolean  @default(true)
+  // Se incrementa al desactivar la cuenta o cambiar la contraseña: invalida al
+  // instante las sesiones abiertas en otros dispositivos (el token lleva su número).
+  tokenVersion Int   @default(0)
+  lastLoginAt  DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   invoices  Invoice[]
+  rentals   Rental[]
 }
 
 // ==========================================
@@ -64,6 +74,9 @@ model Rental {
   id          Int      @id @default(autoincrement())
   clientName  String   // Nombre del cliente
   clientPhone String?  // Teléfono (Opcional)
+  // Quién lo cargó (presupuesto o alquiler). null en los cargados antes de que existiera.
+  createdById Int?
+  createdBy   User?    @relation(fields: [createdById], references: [id], onDelete: SetNull)
   eventDate   DateTime // Fecha en la que usa los productos
   returnDate  DateTime // Fecha en la que debe devolverlos
   // "PRESUPUESTO" (cotización todavía sin confirmar), "ACTIVO" (reservado /

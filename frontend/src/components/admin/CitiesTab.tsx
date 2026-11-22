@@ -298,7 +298,7 @@ export default function CitiesTab({ cities, shippingSettings, fetchData, isLoadi
     );
 
     return (
-        <div className="flex flex-col h-[78vh] gap-6">
+        <div className="flex flex-col lg:h-[78vh] gap-6">
             {/* CABECERA PRINCIPAL */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
                 <div className="flex items-center gap-3">
@@ -410,11 +410,12 @@ export default function CitiesTab({ cities, shippingSettings, fetchData, isLoadi
                 </div>
             )}
 
-            {/* CONTENEDOR DE DOS COLUMNAS (Lado a lado en pantallas grandes) */}
+            {/* CONTENEDOR DE DOS COLUMNAS (Lado a lado en pantallas grandes). En el celular cada
+                lista tiene alto máximo y se desplaza adentro: antes eran 262 ciudades seguidas (29 pantallas). */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1 min-h-0">
 
                 {/* 🟢 COLUMNA 1: CIUDADES ACTIVAS */}
-                <div className="bg-white rounded-2xl border border-emerald-100 shadow-sm flex flex-col overflow-hidden">
+                <div className="bg-white rounded-2xl border border-emerald-100 shadow-sm flex flex-col overflow-hidden max-h-[70vh] lg:max-h-none">
                     <div className="p-4 border-b border-emerald-100 bg-emerald-50/30 flex justify-between items-center shrink-0">
                         <div className="flex items-center gap-2">
                             <CheckCircle2 className="w-5 h-5 text-emerald-600" />
@@ -501,7 +502,7 @@ export default function CitiesTab({ cities, shippingSettings, fetchData, isLoadi
                 </div>
 
                 {/* 🔴 COLUMNA 2: CIUDADES INACTIVAS (Aplicada simetría roja) */}
-                <div className="rounded-2xl border border-red-100 shadow-sm flex flex-col overflow-hidden bg-red-50/10">
+                <div className="rounded-2xl border border-red-100 shadow-sm flex flex-col overflow-hidden bg-red-50/10 max-h-[70vh] lg:max-h-none">
                     <div className="p-4 border-b border-red-100 bg-red-50/30 flex justify-between items-center shrink-0">
                         <div className="flex items-center gap-2">
                             <XCircle className="w-5 h-5 text-red-500" />

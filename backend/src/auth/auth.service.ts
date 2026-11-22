@@ -1,54 +1,125 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import * as bcrypt from 'bcrypt';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
+import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import type { TokenPayload } from './jwt-auth.guard';
+import { forgetSession } from './session-state';
+
+/** Duración de la sesión: 30 días con "Recordarme" (el celular), 1 día sin. */
+const sessionLength = (remember: boolean) => (remember ? '30d' : '1d');
+
+// Hash de relleno: si el correo no existe se compara igual contra uno, para que
+// tardar menos no delate que ese correo no tiene cuenta.
+const DUMMY_HASH = bcrypt.hashSync('relleno-para-igualar-tiempos', 10);
+
+const PUBLIC_USER = { id: true, name: true, email: true, role: true } as const;
 
 @Injectable()
 export class AuthService {
-    constructor(
+  constructor(
     private prisma: PrismaService,
-    private jwtService: JwtService
-    ) {}
+    private jwtService: JwtService,
+  ) {}
 
-    async register(data: RegisterDto) {
-    // 1. Verificamos si el correo ya existe
-    const existingUser = await this.prisma.user.findUnique({ where: { email: data.email } });
-    if (existingUser) throw new BadRequestException('El correo ya está registrado');
-
-    // 2. Encriptamos la contraseña (nivel de seguridad bancario)
-    const hashedPassword = await bcrypt.hash(data.password, 10);
-
-    // 3. Guardamos al administrador en la base de datos
-    const user = await this.prisma.user.create({
-        data: {
-        name: data.name,
-        email: data.email,
-        password: hashedPassword,
-        },
+  private sign(
+    user: { id: number; email: string; role: string; tokenVersion: number },
+    remember: boolean,
+  ) {
+    const payload: TokenPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      tv: user.tokenVersion,
+      rem: remember,
+    };
+    return this.jwtService.sign(payload, {
+      expiresIn: sessionLength(remember),
     });
+  }
 
-    return { message: 'Administrador creado con éxito', userId: user.id };
+  async login(data: LoginDto) {
+    // Sin distinguir mayúsculas: las cuentas viejas pueden tener el correo guardado con mayúsculas.
+    const user = await this.prisma.user.findFirst({
+      where: { email: { equals: data.email, mode: 'insensitive' } },
+    });
+    // Mismo mensaje si no existe o si la contraseña no coincide: no se revela qué correos tienen cuenta.
+    const passwordOk = await bcrypt.compare(
+      data.password,
+      user?.password ?? DUMMY_HASH,
+    );
+    if (!user || !passwordOk) {
+      throw new UnauthorizedException('Correo o contraseña incorrectos');
     }
+    if (!user.isActive)
+      throw new UnauthorizedException(
+        'Esta cuenta está desactivada. Pedile acceso al dueño.',
+      );
 
-    async login(data: LoginDto) {
-    // 1. Buscamos al usuario por su correo
-    const user = await this.prisma.user.findUnique({ where: { email: data.email } });
-    if (!user) throw new UnauthorizedException('Correo o contraseña incorrectos');
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+    return {
+      message: 'Acceso concedido',
+      token: this.sign(user, data.remember === true),
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    };
+  }
 
-    // 2. Comparamos la contraseña encriptada
-    const isPasswordValid = await bcrypt.compare(data.password, user.password);
-    if (!isPasswordValid) throw new UnauthorizedException('Correo o contraseña incorrectos');
+  /** Quién es la sesión actual (el panel lo pide al abrir, para saber qué mostrar). */
+  async me(userId: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: PUBLIC_USER,
+    });
+    if (!user) throw new NotFoundException('La cuenta ya no existe.');
+    return user;
+  }
 
-    // 3. Generamos el Token JWT (El pase VIP)
-    const payload = { sub: user.id, email: user.email, role: user.role };
-    const token = this.jwtService.sign(payload);
-
-    return { 
-        message: 'Acceso concedido', 
-        token, 
-        user: { name: user.name, email: user.email, role: user.role } 
-        };
+  /**
+   * Cambia la contraseña propia. Corta las sesiones abiertas en otros
+   * dispositivos (por si alguien la conocía) y devuelve una sesión nueva para
+   * este, así quien la cambió no tiene que volver a ingresar.
+   */
+  async changePassword(
+    userId: number,
+    dto: ChangePasswordDto,
+    remember: boolean,
+  ) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('La cuenta ya no existe.');
+    if (!(await bcrypt.compare(dto.currentPassword, user.password))) {
+      throw new BadRequestException('La contraseña actual no es correcta.');
     }
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException(
+        'La contraseña nueva tiene que ser distinta de la actual.',
+      );
+    }
+    const updated = await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: await bcrypt.hash(dto.newPassword, 10),
+        tokenVersion: { increment: 1 },
+      },
+    });
+    forgetSession(userId);
+    return {
+      message:
+        'Contraseña cambiada. Se cerró la sesión en los demás dispositivos.',
+      token: this.sign(updated, remember),
+    };
+  }
 }

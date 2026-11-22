@@ -14,7 +14,8 @@ const nextConfig: NextConfig = {
   // Solo afecta al servidor de desarrollo: permite abrir el sitio por 127.0.0.1
   // (además de localhost) sin el aviso de "Cross origin request". Para probar
   // desde el celular por la IP de la red local, agregá acá esa IP.
-  allowedDevOrigins: ["127.0.0.1"],
+  // panel.localhost: para probar en la computadora la app del panel (subdominio "panel.").
+  allowedDevOrigins: ["127.0.0.1", "panel.localhost"],
   images: {
     // 1. Autorizamos a Cloudinary (ya lo tenías)
     remotePatterns: [

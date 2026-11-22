@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TrendingUp, CalendarDays, MessageCircle, CircleCheck, ArrowRight, Loader2, Pencil } from "lucide-react";
+import { TrendingUp, CalendarDays, MessageCircle, CircleCheck, ArrowRight, Loader2, Pencil, ClipboardList } from "lucide-react";
 import { apiFetch, readApiError } from "../../lib/api";
 import {
   MONTHS, bestMonthOfYear, cumulativeByDay, daysInMonth, formatGs, formatGsShort, futureBooked,
@@ -86,7 +86,7 @@ const WEEK_HEAD = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 const GRID_DAYS = 35;
 
 export default function HomeTab({
-  rentals, products, pendingOrders, alerts, isLoadingData, now, onOpenAlert, onOpenRoutes,
+  rentals, products, pendingOrders, alerts, isLoadingData, now, onOpenAlert, onOpenRoutes, ownerView,
 }: {
   rentals: Rental[];
   products: Product[];
@@ -97,6 +97,11 @@ export default function HomeTab({
   now: number;
   onOpenAlert: (a: PanelAlert) => void;
   onOpenRoutes: (dateIso: string) => void;
+  /**
+   * true = dueño (todo). false = Vendedor: sin ingresos, metas, tasa de cierre
+   * ni rutas (el servidor tampoco se los da); sí la agenda, la ocupación y lo pendiente.
+   */
+  ownerView: boolean;
 }) {
   const toast = useToast();
   // Sin useMemo a mano: el React Compiler del proyecto ya memoriza estos cálculos.
@@ -113,6 +118,8 @@ export default function HomeTab({
   const [savingGoal, setSavingGoal] = useState(false);
 
   useEffect(() => {
+    // El Vendedor no tiene acceso a estos datos (ingresos y rutas): ni se piden.
+    if (!ownerView) return;
     const controller = new AbortController();
     apiFetch("/analytics/inicio", { signal: controller.signal })
       .then(async (res) => {
@@ -132,7 +139,7 @@ export default function HomeTab({
         .catch(() => {});
     }
     return () => controller.abort();
-  }, [today]);
+  }, [today, ownerView]);
 
   // ---- Indicadores ----
   const income = incomeVsLastMonth(rentals, today);
@@ -191,10 +198,35 @@ export default function HomeTab({
   const top = topUsedInMonth(rentals, products, year, month, today);
 
   const loading = isLoadingData && rentals.length === 0;
+  const openQuotes = rentals.filter((r) => r.status === "PRESUPUESTO").length;
 
   return (
     <div className="flex flex-col gap-5 sm:gap-6">
-      {/* INDICADORES */}
+      {/* INDICADORES (el Vendedor ve lo que le sirve para vender, sin plata del negocio) */}
+      {!ownerView && (
+        <section aria-label="Para hoy" className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <KpiCard
+            highlight
+            icon={MessageCircle}
+            label="Pedidos por WhatsApp"
+            value={`${pendingOrders.length} sin confirmar`}
+            note={pendingOrders.length === 0 ? "Ninguno esperando respuesta" : oldestOrder === null ? "Esperando respuesta" : <>El más antiguo espera hace <b className="text-[#92400e]">{timeAgo(oldestOrder, now)}</b></>}
+          />
+          <KpiCard
+            icon={ClipboardList}
+            label="Presupuestos abiertos"
+            value={loading ? "…" : String(openQuotes)}
+            note={openQuotes === 0 ? "Ninguno esperando que el cliente confirme" : "Esperando que el cliente confirme"}
+          />
+          <KpiCard
+            icon={CalendarDays}
+            label="Entregas y retiros de hoy"
+            value={loading ? "…" : String(stopsToday.length)}
+            note={`Mañana: ${stopsTomorrow.length}`}
+          />
+        </section>
+      )}
+      {ownerView && (
       <section aria-label="Resumen del mes" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <KpiCard
           highlight
@@ -230,6 +262,7 @@ export default function HomeTab({
               : "Cargando…"}
         />
       </section>
+      )}
 
       {/* AGENDA + META */}
       <div className="flex flex-wrap gap-5">
@@ -244,9 +277,11 @@ export default function HomeTab({
                 </button>
               ))}
             </div>
-            <button type="button" onClick={() => onOpenRoutes(agendaIso)} className="inline-flex items-center gap-1.5 min-h-11 text-sm font-bold text-[#004080] hover:text-[#00294f] cursor-pointer">
-              {plan ? "Ver la ruta" : "Armar la ruta"} <ArrowRight className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
-            </button>
+            {ownerView && (
+              <button type="button" onClick={() => onOpenRoutes(agendaIso)} className="inline-flex items-center gap-1.5 min-h-11 text-sm font-bold text-[#004080] hover:text-[#00294f] cursor-pointer">
+                {plan ? "Ver la ruta" : "Armar la ruta"} <ArrowRight className="w-4 h-4" strokeWidth={2} aria-hidden="true" />
+              </button>
+            )}
           </div>
           {loading ? (
             <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-slate-300" /></div>
@@ -265,7 +300,7 @@ export default function HomeTab({
                       <p className="text-[15px] font-bold text-slate-900 truncate">{s.rental.clientName}</p>
                       <p className="text-[13px] text-slate-500 truncate">{place} · {itemsSummary(s.rental)}</p>
                     </div>
-                    <span className={`inline-flex items-center min-h-7 px-3 rounded-full text-xs font-bold ${st.cls}`}>{st.label}</span>
+                    {ownerView && <span className={`inline-flex items-center min-h-7 px-3 rounded-full text-xs font-bold ${st.cls}`}>{st.label}</span>}
                   </li>
                 );
               })}
@@ -273,6 +308,7 @@ export default function HomeTab({
           )}
         </section>
 
+        {ownerView && (
         <section aria-labelledby="meta-t" className={`${CARD} flex-[1_1_18rem] min-w-0 flex flex-col gap-2`}>
           <div className="flex items-center justify-between gap-2">
             <h2 id="meta-t" className={H2}>Meta de {MONTHS[month - 1]}</h2>
@@ -344,6 +380,7 @@ export default function HomeTab({
             </div>
           </div>
         </section>
+        )}
       </div>
 
       {/* OCUPACIÓN + PARA RESOLVER */}
@@ -409,6 +446,7 @@ export default function HomeTab({
 
       {/* INGRESOS ACUMULADOS + LO QUE MÁS SE ALQUILA */}
       <div className="flex flex-wrap gap-5">
+        {ownerView && (
         <section aria-labelledby="ing-t" className={`${CARD} flex-[2_1_34rem] min-w-0 flex flex-col gap-2.5`}>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
             <h2 id="ing-t" className={`${H2} flex-[1_1_14rem]`}>¿Cómo vamos contra el mes pasado?</h2>
@@ -419,6 +457,7 @@ export default function HomeTab({
           <CumulativeChart current={cumThis} previous={cumPrev} todayDate={ymOfDay(today).date} goal={goal} />
           <p className="text-xs text-slate-500">Ingresos acumulados día por día según la fecha del evento. La línea de {MONTHS[month - 1]} incluye lo ya reservado para los días que faltan.</p>
         </section>
+        )}
 
         <section aria-labelledby="top-t" className={`${CARD} flex-[1_1_18rem] min-w-0 flex flex-col gap-3.5`}>
           <div>

@@ -126,6 +126,8 @@ export interface Rental {
   pickupWindowFrom?: string | null;
   pickupWindowTo?: string | null;
   items: RentalItem[];
+  /** Quién lo cargó en el panel (null en los cargados antes de que existiera el dato). */
+  createdBy?: { name: string } | null;
   /** Facturas emitidas por este alquiler, la más nueva primero. */
   invoices?: RentalInvoiceSummary[];
 }

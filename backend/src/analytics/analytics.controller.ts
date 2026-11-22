@@ -18,6 +18,7 @@ import { CreateCheckoutIntentDto } from './dto/create-checkout-intent.dto';
 import { RegisterVisitDto, TrackEventDto } from './dto/track-event.dto';
 import { MonthlyGoalDto } from './dto/monthly-goal.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AllowRoles } from '../auth/roles';
 
 @Controller('analytics')
 export class AnalyticsController {
@@ -62,12 +63,14 @@ export class AnalyticsController {
 
   // Pedidos por WhatsApp sin confirmar todavía — panel, "Alquileres → Pedidos por confirmar".
   @UseGuards(JwtAuthGuard)
+  @AllowRoles('VENDEDOR')
   @Get('checkout-intents')
   async getPendingCheckoutIntents() {
     return this.analyticsService.getPendingCheckoutIntents();
   }
 
   @UseGuards(JwtAuthGuard)
+  @AllowRoles('VENDEDOR')
   @Patch('checkout-intents/:id/discard')
   async discardCheckoutIntent(@Param('id', ParseIntPipe) id: number) {
     return this.analyticsService.discardCheckoutIntent(id);

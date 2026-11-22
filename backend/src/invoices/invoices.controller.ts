@@ -11,12 +11,15 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { JwtAuthGuard, type AuthenticatedUser } from '../auth/jwt-auth.guard';
+import { AllowRoles } from '../auth/roles';
 import { InvoicesService } from './invoices.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { InvoiceSettingsDto } from './dto/invoice-settings.dto';
 import { CancelInvoiceDto } from './dto/cancel-invoice.dto';
 
+// Emitir, reintentar y anular facturas: también el Vendedor.
 @UseGuards(JwtAuthGuard)
+@AllowRoles('VENDEDOR')
 @Controller('invoices')
 export class InvoicesController {
   constructor(private readonly invoices: InvoicesService) {}
@@ -31,6 +34,8 @@ export class InvoicesController {
     return this.invoices.getSettingsView();
   }
 
+  // Datos del emisor (RUC, timbrado…): solo el dueño.
+  @AllowRoles()
   @Put('settings')
   updateSettings(@Body() dto: InvoiceSettingsDto) {
     return this.invoices.updateSettings(dto);

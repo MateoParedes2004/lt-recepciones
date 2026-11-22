@@ -32,7 +32,9 @@ export default function Header({ initialCategories = [] }: { initialCategories?:
   const [catStatus, setCatStatus] = useState<'loading' | 'ready' | 'error'>(initialCategories.length ? 'ready' : 'loading');
   const [logoError, setLogoError] = useState(false);
   // El panel tiene su propio menú (AdminShell): ahí el encabezado del sitio sobra.
-  const isAdmin = (usePathname() || '').startsWith('/admin');
+  const pathname = usePathname() || '';
+  // …ni en el login de la app del panel (/ingresar).
+  const isAdmin = pathname.startsWith('/admin') || pathname.startsWith('/ingresar');
 
   const fetchCategories = async () => {
     setCatStatus('loading');

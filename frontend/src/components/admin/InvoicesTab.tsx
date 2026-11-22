@@ -7,6 +7,7 @@ import { formatInvoiceNumber, formatThousands, isValidRuc } from "../../lib/invo
 import { useToast } from "./ToastProvider";
 import { useInvoicePdf } from "./useInvoicePdf";
 import InvoiceFormModal from "./InvoiceFormModal";
+import { useSessionUser } from "./AdminAuthGate";
 import type { Invoice, InvoiceSettings, InvoiceSettingsView, InvoiceStatus, Product } from "../../types";
 
 const formatPYG = (n: number) => `Gs. ${formatThousands(n)}`;
@@ -74,6 +75,8 @@ function StatusCell({ inv }: { inv: Invoice }) {
 
 export default function InvoicesTab({ products }: { products: Product[] }) {
   const toast = useToast();
+  // Los datos del emisor (RUC, timbrado) los cambia solo el dueño; el Vendedor factura con ellos.
+  const owner = useSessionUser().role === "ADMIN";
   const { busyId, download, share } = useInvoicePdf();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [view, setView] = useState<InvoiceSettingsView | null>(null);
@@ -287,8 +290,8 @@ export default function InvoicesTab({ products }: { products: Product[] }) {
         )}
       </div>
 
-      {/* Datos del emisor: lo que sale impreso en el encabezado de cada factura */}
-      {issuerForm && (
+      {/* Datos del emisor: lo que sale impreso en el encabezado de cada factura (solo el dueño) */}
+      {issuerForm && owner && (
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
           <button onClick={() => setShowIssuer(!showIssuer)} aria-expanded={showIssuer} className="w-full px-6 py-4 flex items-center justify-between text-left cursor-pointer hover:bg-slate-50">
             <span className="flex items-center font-bold text-slate-900"><Building2 className="w-5 h-5 mr-2 text-[#004080]" /> Datos del emisor</span>

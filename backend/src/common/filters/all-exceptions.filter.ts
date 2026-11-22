@@ -24,9 +24,22 @@ function mapPrismaError(exception: unknown): { status: number; message: string }
       return { status: HttpStatus.NOT_FOUND, message: 'El registro solicitado no existe (puede que ya lo hayan eliminado).' };
     case 'P2003': // clave foránea: referencia algo que no existe, o está en uso
       return { status: HttpStatus.CONFLICT, message: 'No se pudo completar la operación: el registro apunta a algo que no existe o todavía está en uso por otros datos.' };
+    case 'P2020': // un número fuera de rango (ej. un id de 12 cifras en la URL)
+      return { status: HttpStatus.BAD_REQUEST, message: 'Un número está fuera del rango permitido.' };
     default:
       return null;
   }
+}
+
+// Errores del propio servidor web (no son HttpException de Nest): un cuerpo
+// demasiado grande o un JSON roto traen su status 4xx. Sin esto salían como 500
+// "inesperado" y ensuciaban el registro de errores.
+function mapClientError(exception: unknown): { status: number; message: string } | null {
+  const e = exception as { status?: unknown; statusCode?: unknown; type?: unknown } | null;
+  const status = typeof e?.status === 'number' ? e.status : e?.statusCode;
+  if (typeof status !== 'number' || status < 400 || status > 499) return null;
+  if (status === HttpStatus.PAYLOAD_TOO_LARGE) return { status, message: 'El pedido es demasiado grande.' };
+  return { status, message: 'El pedido no es válido.' };
 }
 
 // Normaliza todas las respuestas de error: las excepciones conocidas de Nest
@@ -45,7 +58,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
 
     const isHttpException = exception instanceof HttpException;
-    const prismaError = isHttpException ? null : mapPrismaError(exception);
+    const prismaError = isHttpException ? null : mapPrismaError(exception) ?? mapClientError(exception);
 
     const status = isHttpException
       ? exception.getStatus()

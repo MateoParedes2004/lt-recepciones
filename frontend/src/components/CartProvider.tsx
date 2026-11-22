@@ -261,7 +261,7 @@ export default function CartProvider({ children }: { children: React.ReactNode }
     window.open(`https://api.whatsapp.com/send?phone=${WHATSAPP_NUMBER}&text=${encodedMessage}`, "_blank");
   };
 
-  const showWhatsApp = !pathname.startsWith("/admin") && !pathname.startsWith("/iniciar-sesion");
+  const showWhatsApp = !pathname.startsWith("/admin") && !pathname.startsWith("/iniciar-sesion") && !pathname.startsWith("/ingresar");
   const showCartButton = pathname.startsWith("/catalogos");
 
   return (

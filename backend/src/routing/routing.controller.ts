@@ -1,10 +1,12 @@
 import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AllowRoles } from '../auth/roles';
 import { LocateDto } from './dto/locate.dto';
 import { RoutingService } from './routing.service';
 
 @UseGuards(JwtAuthGuard)
+@AllowRoles('VENDEDOR')
 @Controller('routing')
 export class RoutingController {
   constructor(private readonly routing: RoutingService) {}

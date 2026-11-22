@@ -15,7 +15,7 @@ export default function Footer() {
   const pathname = usePathname() || "";
   const [logoError, setLogoError] = useState(false);
 
-  if (pathname.startsWith("/admin") || pathname.startsWith("/iniciar-sesion")) {
+  if (pathname.startsWith("/admin") || pathname.startsWith("/iniciar-sesion") || pathname.startsWith("/ingresar")) {
     return null;
   }
 

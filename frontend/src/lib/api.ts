@@ -1,3 +1,6 @@
+import { clearSession, getToken } from "./session";
+import { loginPath } from "./panel-app";
+
 const DEFAULT_API_URL = "http://localhost:3000";
 
 /** URL base del backend, sin barra final. */
@@ -29,31 +32,34 @@ export async function readApiError(res: Response, fallback = "Ocurrió un error 
   return fallback;
 }
 
-function getAuthToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("admin_token");
-}
-
 /**
  * Wrapper de fetch para el panel admin: arma la URL completa contra el backend
  * y adjunta el token de sesión como header Authorization cuando existe.
- * Si el backend responde 401 (token ausente/expirado), limpia la sesión y
- * redirige a /iniciar-sesion.
+ * Si el backend responde 401 (sesión vencida, cuenta desactivada o cortada),
+ * limpia la sesión y vuelve al login (el de la app o el del sitio) mostrando el motivo.
  */
 export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
-  const token = getAuthToken();
+  const token = getToken();
   const headers = new Headers(options.headers);
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   const res = await fetch(`${getApiUrl()}${path}`, { ...options, headers });
 
   if (res.status === 401 && typeof window !== "undefined") {
-    localStorage.removeItem("admin_token");
+    // El motivo ("cuenta desactivada", "cambió la contraseña"…) se muestra en el login.
+    try {
+      sessionStorage.setItem(LOGIN_NOTICE_KEY, await readApiError(res.clone(), "Tu sesión terminó. Volvé a ingresar."));
+    } catch {
+      /* sin almacenamiento: el login se abre sin aviso */
+    }
+    clearSession();
     // Recarga completa a propósito (no router.push): esta función no es un
     // componente, y así se descarta todo el estado del panel de la sesión vencida.
-    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
-    window.location.href = "/iniciar-sesion";
+    window.location.href = loginPath();
   }
 
   return res;
 }
+
+/** Aviso que el login muestra una vez (por qué se cerró la sesión). */
+export const LOGIN_NOTICE_KEY = "login_notice";

@@ -1,51 +1,91 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
+import { PrismaService } from '../prisma/prisma.service';
+import { ALLOW_ROLES_KEY, type Role } from './roles';
+import { loadSessionState } from './session-state';
 
-export interface AuthenticatedUser {
+/** Lo que va firmado dentro del token de sesión. */
+export interface TokenPayload {
   sub: number;
   email: string;
   role: string;
+  /** Versión de sesión de la cuenta al firmar (ver User.tokenVersion). Tokens viejos no la tienen = 0. */
+  tv?: number;
+  /** "Recordarme": la sesión dura 30 días en vez de 1. */
+  rem?: boolean;
 }
 
-// JwtModule está registrado como global (ver auth.module.ts), así que JwtService
-// se puede inyectar en cualquier módulo sin necesidad de importar AuthModule.
+/** El usuario del pedido, con el rol ACTUAL (leído de la base, no del token). */
+export interface AuthenticatedUser {
+  sub: number;
+  email: string;
+  role: Role;
+  /** La sesión se inició con "Recordarme" (30 días). */
+  remember: boolean;
+}
+
+// JwtModule y PrismaModule son globales, así que este guard se puede usar en
+// cualquier módulo con @UseGuards(JwtAuthGuard) sin importar nada más.
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly prisma: PrismaService,
+    private readonly reflector: Reflector,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
     const token = this.extractToken(request);
-
-    if (!token) {
+    if (!token)
       throw new UnauthorizedException('Falta el token de autenticación');
-    }
 
-    let payload: AuthenticatedUser;
+    let payload: TokenPayload;
     try {
-      payload = await this.jwtService.verifyAsync<AuthenticatedUser>(token);
+      payload = await this.jwtService.verifyAsync<TokenPayload>(token);
     } catch {
       throw new UnauthorizedException('Token inválido o expirado');
     }
 
-    // Hoy todo usuario registrado es "ADMIN" (ver User.role en schema.prisma):
-    // esta revisión no cambia nada en la práctica, pero deja escrito que el
-    // panel es solo para administradores. Sin esto, el día que se sume un rol
-    // con menos permisos (ej. un empleado), cualquier token válido —sin
-    // importar su rol— seguiría entrando a todas las rutas protegidas por
-    // este mismo guard, a menos que alguien se acuerde de agregar esta
-    // revisión en cada lugar que la necesite.
-    if (payload.role !== 'ADMIN') {
-      throw new UnauthorizedException('Esta cuenta no tiene permiso para administrar el panel.');
+    // El rol y si la cuenta sigue habilitada se leen de la base (no del token):
+    // así desactivar a alguien, cambiarle el rol o su contraseña corta sus
+    // sesiones abiertas sin esperar a que el token venza.
+    const state = await loadSessionState(this.prisma, payload.sub);
+    if (!state || !state.isActive) {
+      throw new UnauthorizedException(
+        'Esta cuenta está desactivada. Pedile acceso al dueño.',
+      );
+    }
+    if ((payload.tv ?? 0) !== state.tokenVersion) {
+      throw new UnauthorizedException(
+        'La sesión se cerró (cambió la contraseña o el acceso). Volvé a ingresar.',
+      );
     }
 
-    (request as Request & { user: AuthenticatedUser }).user = payload;
+    // Cerrado por defecto: sin @AllowRoles, solo el dueño.
+    const allowed =
+      this.reflector.getAllAndOverride<Role[] | undefined>(ALLOW_ROLES_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]) ?? [];
+    if (state.role !== 'ADMIN' && !allowed.includes(state.role as Role)) {
+      throw new ForbiddenException('Tu usuario no tiene permiso para esto.');
+    }
+
+    (request as Request & { user: AuthenticatedUser }).user = {
+      sub: payload.sub,
+      email: state.email,
+      role: state.role as Role,
+      remember: payload.rem === true,
+    };
     return true;
   }
 

@@ -7,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: '*', // Aplica para todos los buscadores (Google, Bing, Yahoo)
       allow: '/', // Permite ver toda la página pública
       // Sin barra final: "/admin/" no bloqueaba la dirección "/admin" en sí.
-      disallow: ['/admin', '/iniciar-sesion'],
+      disallow: ['/admin', '/iniciar-sesion', '/ingresar'],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,
     host: SITE_URL,

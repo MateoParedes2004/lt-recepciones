@@ -162,7 +162,7 @@ function NotificationsBell({ alerts, onOpenAlert }: { alerts: PanelAlert[]; onOp
 
 /** Cabecera de cada sección del panel: título, buscador, avisos y "Nuevo alquiler". */
 export default function AdminHeader({
-  title, subtitle, rentals, products, alerts, onSearchPick, onOpenAlert, onNewRental,
+  title, subtitle, rentals, products, alerts, onSearchPick, onOpenAlert, onNewRental, sectionHasSearch = false,
 }: {
   title: string;
   subtitle?: string;
@@ -172,20 +172,30 @@ export default function AdminHeader({
   onSearchPick: (p: SearchPick) => void;
   onOpenAlert: (a: PanelAlert) => void;
   onNewRental: () => void;
+  /**
+   * La sección ya tiene su propio buscador: en el celular no se muestra el
+   * general (eran dos buscadores uno debajo del otro).
+   */
+  sectionHasSearch?: boolean;
 }) {
   return (
-    <header className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center">
-      <div className="flex-1 min-w-0">
-        <h1 className="text-[28px] sm:text-3xl font-bold text-slate-900 leading-tight">{title}</h1>
-        {subtitle && <p className="text-sm text-slate-500 mt-1">{subtitle}</p>}
+    // En el celular, más compacta: el contenido aparece antes (el "+" ya está en la barra de abajo).
+    <header className="mb-4 sm:mb-6 flex flex-col gap-3 sm:gap-4 xl:flex-row xl:items-center">
+      <div className={`flex-1 min-w-0 ${sectionHasSearch ? "flex items-center justify-between gap-3 lg:block" : ""}`}>
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 leading-tight">{title}</h1>
+          {subtitle && <p className="hidden sm:block text-sm text-slate-500 mt-1">{subtitle}</p>}
+        </div>
+        {/* Sección con buscador propio: en el celular, la campana va al lado del título */}
+        {sectionHasSearch && <div className="lg:hidden shrink-0"><NotificationsBell alerts={alerts} onOpenAlert={onOpenAlert} /></div>}
       </div>
-      <div className="flex items-center gap-2.5 xl:w-auto xl:min-w-136 xl:justify-end">
+      <div className={`items-center gap-2.5 xl:w-auto xl:min-w-136 xl:justify-end ${sectionHasSearch ? "hidden lg:flex" : "flex"}`}>
         <GlobalSearch rentals={rentals} products={products} onPick={onSearchPick} />
         <NotificationsBell alerts={alerts} onOpenAlert={onOpenAlert} />
         <button
           type="button"
           onClick={onNewRental}
-          className="shrink-0 inline-flex items-center gap-2 min-h-11 px-3.5 sm:px-4.5 rounded-xl bg-linear-to-br from-[#0d4a8a] to-[#00294f] text-white text-sm font-bold shadow-[0_6px_16px_rgba(0,64,128,0.22)] hover:brightness-110 cursor-pointer"
+          className="hidden lg:inline-flex shrink-0 items-center gap-2 min-h-11 px-3.5 sm:px-4.5 rounded-xl bg-linear-to-br from-[#0d4a8a] to-[#00294f] text-white text-sm font-bold shadow-[0_6px_16px_rgba(0,64,128,0.22)] hover:brightness-110 cursor-pointer"
         >
           <Plus className="w-4.5 h-4.5" strokeWidth={2} aria-hidden="true" />
           <span className="hidden sm:inline">Nuevo alquiler</span>

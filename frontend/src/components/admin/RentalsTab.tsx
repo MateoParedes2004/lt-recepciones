@@ -606,7 +606,8 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
               <LayoutGrid className="w-4 h-4" /> Calendario
             </button>
           </div>
-          <button onClick={openNewRental} className="flex items-center bg-[#004080] text-white px-5 py-2.5 rounded-xl hover:bg-[#00294f] transition-colors font-medium shadow-md cursor-pointer">
+          {/* En el celular está el "+ Presupuesto" de la barra de abajo (acá se partía en dos renglones) */}
+          <button onClick={openNewRental} className="hidden lg:flex items-center bg-[#004080] text-white px-5 py-2.5 rounded-xl hover:bg-[#00294f] transition-colors font-medium shadow-md cursor-pointer whitespace-nowrap">
             <Plus className="w-5 h-5 mr-2" /> Nuevo Alquiler
           </button>
         </div>
@@ -674,6 +675,7 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
                   <td className="px-6 py-4">
                     <p className="font-bold text-slate-900 text-lg">{rental.clientName}</p>
                     <p className="text-sm text-slate-500 mb-1">{rental.clientPhone || 'Sin teléfono'}</p>
+                    {rental.createdBy?.name && <p className="text-xs text-slate-400 mb-1">Cargado por {rental.createdBy.name}</p>}
                     {rental.city?.name && (
                       <p className="text-xs text-[#004080] mb-1 flex items-center"><MapPin className="w-3 h-3 mr-1" />{rental.city.name}</p>
                     )}
@@ -1052,13 +1054,14 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
               </form>
             </div>
 
-            <div className="px-6 py-4 border-t border-slate-100 flex flex-wrap justify-end gap-3 bg-slate-50/80">
-              <button type="button" onClick={closeRentalModal} className="order-1 px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-200 rounded-xl cursor-pointer">Cancelar</button>
+            {/* En el celular: botones a lo ancho y sin "Cancelar" (está la X de arriba): el pie ocupaba ~1/4 de la pantalla */}
+            <div className="px-4 sm:px-6 pt-3 sm:py-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-slate-100 flex flex-col sm:flex-row sm:flex-wrap sm:justify-end gap-2 sm:gap-3 bg-slate-50/80">
+              <button type="button" onClick={closeRentalModal} className="hidden sm:block order-1 px-5 py-2.5 text-slate-600 font-medium hover:bg-slate-200 rounded-xl cursor-pointer">Cancelar</button>
               {/* El botón principal va PRIMERO en el HTML (es el que acciona Enter dentro de un campo) y se
                   muestra al final con `order`. El del PDF está siempre que se pueda editar el pedido: al crear
                   (de cero o desde un pedido por WhatsApp) guarda como presupuesto sin reservar stock; al editar
                   guarda los cambios sin tocar el estado y arma el PDF para mandárselo al cliente. */}
-              <button type="submit" form="rentalForm" disabled={isSavingRental} className="order-3 px-6 py-2.5 bg-[#004080] text-white font-bold rounded-xl hover:bg-[#00294f] shadow-md flex items-center cursor-pointer disabled:opacity-60">
+              <button type="submit" form="rentalForm" disabled={isSavingRental} className="order-3 px-6 py-2.5 min-h-12 sm:min-h-0 justify-center bg-[#004080] text-white font-bold rounded-xl hover:bg-[#00294f] shadow-md flex items-center cursor-pointer disabled:opacity-60">
                 {isSavingRental ? "Procesando..." : editingId !== null ? "Guardar Cambios" : "Confirmar y Reservar Stock"}
               </button>
               {!scheduleLocked && (
@@ -1072,7 +1075,7 @@ export default function RentalsTab({ rentals, products, cities, shippingSettings
                     : editingQuote
                       ? "Guarda los cambios y arma el PDF del presupuesto."
                       : "Guarda los cambios (el stock sigue reservado) y arma el PDF del presupuesto para enviárselo al cliente."}
-                  className="order-2 px-5 py-2.5 bg-[#e8f0f8] text-[#004080] font-bold rounded-xl hover:bg-[#d3e3f2] flex items-center cursor-pointer disabled:opacity-60"
+                  className="order-2 px-5 py-2.5 min-h-12 sm:min-h-0 justify-center bg-[#e8f0f8] text-[#004080] font-bold rounded-xl hover:bg-[#d3e3f2] flex items-center cursor-pointer disabled:opacity-60"
                 >
                   <FileText className="w-4 h-4 mr-2" /> {editingId === null ? "Generar Presupuesto (PDF)" : editingQuote ? "Guardar y generar PDF" : "Guardar y generar presupuesto (PDF)"}
                 </button>
